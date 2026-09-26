@@ -11,7 +11,7 @@ using Rebirth.World;
 namespace Rebirth;
 
 /// <summary>
-/// Builds the world (sky, sun, asteroids, planet, props), then either restores a save or spawns
+/// Builds the world (sky, sun, asteroids, small planets, props), then either restores a save or spawns
 /// the starter grids. Also owns the Forge, printing designs into the world, and saving/loading.
 /// </summary>
 public partial class Main : Node3D
@@ -37,8 +37,11 @@ public partial class Main : Node3D
 		AddAsteroid(new Vector3(150, 40, -300), 55f, 2);
 		AddAsteroid(new Vector3(-90, 30, -60), 14f, 3);
 		AddAsteroid(new Vector3(-22, -4, -26), 8f, 4);
-		// Close enough to fly to (~1 km of surface), far enough that its gravity (2.5 radii) misses the spawn.
-		AddChild(new Planet { Name = "Planet", Position = new Vector3(0, -1100, -1300), Radius = 600f, Seed = 7 });
+		// Small walkable planets, each with its own sleepy look. Their gravity reaches three radii,
+		// which stays clear of the spawn.
+		AddPlanet("Dune", new Vector3(60, -140, -220), 55f, 7, VoxelMaterials.Dune, new Color(1f, 0.8f, 0.62f));
+		AddPlanet("Frost", new Vector3(-260, 30, -120), 40f, 8, VoxelMaterials.Frost, new Color(0.72f, 0.86f, 1f));
+		AddPlanet("Moss", new Vector3(220, 60, 120), 50f, 9, VoxelMaterials.Moss, new Color(0.78f, 0.95f, 0.72f));
 		BuildCrates(new Vector3(0, 0, -15));
 
 		Player = new Player { Name = "Player" };
@@ -82,6 +85,9 @@ public partial class Main : Node3D
 	}
 
 	private static double Now => Time.GetTicksMsec() / 1000.0;
+
+	private void AddPlanet(string name, Vector3 position, float radius, int seed, byte crust, Color haze) =>
+		AddChild(new MiniPlanet { Name = name, Position = position, Radius = radius, Seed = seed, Crust = crust, HazeTint = haze });
 
 	private void AddAsteroid(Vector3 position, float radius, int seed) =>
 		AddChild(new VoxelAsteroid { Name = $"Asteroid{seed}", Position = position, Radius = radius, Seed = seed });
@@ -222,7 +228,7 @@ public partial class Main : Node3D
 			Sky = new Sky { SkyMaterial = skyMaterial },
 			// The colourful sky doubles as a soft fill light, so shadows are tinted rather than black.
 			AmbientLightSource = Godot.Environment.AmbientSource.Sky,
-			AmbientLightEnergy = 1.1f,
+			AmbientLightEnergy = 1.5f,
 			ReflectedLightSource = Godot.Environment.ReflectionSource.Sky,
 			TonemapMode = Godot.Environment.ToneMapper.Filmic,
 			TonemapExposure = 1.05f,
@@ -252,6 +258,11 @@ public partial class Main : Node3D
 		sun.LookAt(new Vector3(-1, -0.4f, -0.6f), Vector3.Up);
 		// The light shines along its -Z, so +Z points back at the sun.
 		Sun.Direction = sun.GlobalBasis.Z;
+
+		// A soft, cool fill from the other side so backlit sides stay friendly instead of going dark.
+		var fill = new DirectionalLight3D { LightEnergy = 0.45f, LightColor = new Color(0.72f, 0.82f, 1f), LightSpecular = 0.1f };
+		AddChild(fill);
+		fill.LookAt(new Vector3(1, 0.3f, 0.6f), Vector3.Up);
 	}
 
 	private void BuildCrates(Vector3 origin)

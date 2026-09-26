@@ -15,6 +15,9 @@ public static class VoxelMaterials
 	public const byte Nickel = 2;
 	public const byte Silicon = 3;
 	public const byte Regolith = 4;
+	public const byte Dune = 5;
+	public const byte Frost = 6;
+	public const byte Moss = 7;
 
 	/// <summary>Indexed by the material byte stored per voxel.</summary>
 	public static readonly IReadOnlyList<VoxelMaterial> All =
@@ -23,8 +26,11 @@ public static class VoxelMaterials
 		new("Iron", new Color(0.88f, 0.46f, 0.30f), "iron_ore", 150f, 0.12f),
 		new("Nickel", new Color(0.50f, 0.80f, 0.64f), "nickel_ore", 150f, 0.12f),
 		new("Silicon", new Color(0.86f, 0.84f, 0.96f), "silicon_ore", 150f, 0.12f),
-		// Dusty, sleepy crust of a planet waiting to come alive.
 		new("Regolith", new Color(0.80f, 0.69f, 0.62f), "stone", 60f, 0f),
+		// Sleepy planet crusts, each still waiting to come alive.
+		new("Dune", new Color(0.88f, 0.74f, 0.60f), "stone", 60f, 0f),
+		new("Frost", new Color(0.80f, 0.87f, 0.94f), "stone", 60f, 0f),
+		new("Moss", new Color(0.64f, 0.67f, 0.52f), "stone", 60f, 0f),
 	];
 }
 

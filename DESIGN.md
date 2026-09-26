@@ -103,6 +103,7 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | A2 | Third-person camera, robotlichaam uit de Forge | klaar |
 | B | Fabricator die blueprints print, kosten, presets per ontwerptype | klaar |
 | S | Stijlwissel naar comfy retro-futurisme | klaar |
+| P | Kleine loopbare planeten (40–60 m, rondje in ±1 minuut) met eigen zwaartekracht | klaar |
 | C | Automatisering: aangrenzende machines, zichtbare stromen, drones met routes | |
 | D | Nexus-overzicht en Uplink | |
 | E | Planeten genezen, meekleurend terrein, DNA-incubatie, nederzettingen | |
