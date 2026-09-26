@@ -418,6 +418,9 @@ public partial class Player : RigidBody3D
 
 	public override void _IntegrateForces(PhysicsDirectBodyState3D state)
 	{
+		// Jolt still calls this for the frozen, parked body while piloting; the mouse belongs to the ship then.
+		if (PilotedGrid is not null)
+			return;
 		Gravity = state.TotalGravity;
 		bool walk = !JetpackOn && Gravity.LengthSquared() > WalkGravityThreshold * WalkGravityThreshold;
 		if (walk != Walking)
