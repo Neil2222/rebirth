@@ -18,6 +18,8 @@ public partial class HandDrill : Node3D
 
 	/// <summary>Equipped in the player's hand.</summary>
 	public bool Equipped { get; set; }
+	/// <summary>Draw the drill in front of the camera (first person only).</summary>
+	public bool ShowViewModel { get; set; } = true;
 	public bool Drilling { get; private set; }
 	/// <summary>True while drilling is blocked because the inventory has no room left.</summary>
 	public bool InventoryFull { get; private set; }
@@ -57,7 +59,7 @@ public partial class HandDrill : Node3D
 
 	public override void _PhysicsProcess(double delta)
 	{
-		_model.Visible = Equipped;
+		_model.Visible = Equipped && ShowViewModel;
 		InventoryFull = Inventory.FreeSpace <= 0f;
 		Drilling = Equipped && !InventoryFull && !GameState.WorldInputBlocked && Input.MouseMode == Input.MouseModeEnum.Captured && Input.IsActionPressed("primary_action");
 		if (Drilling)
@@ -72,11 +74,13 @@ public partial class HandDrill : Node3D
 		}
 		_cooldown = BiteInterval;
 
+		// Aim through the crosshair, but measure reach from the head so third person can't drill further.
+		Vector3 head = Body.GlobalTransform * Characters.Player.HeadOffset;
 		Vector3 from = Camera.GlobalPosition;
 		Vector3 forward = -Camera.GlobalBasis.Z;
-		var ray = PhysicsRayQueryParameters3D.Create(from, from + forward * Reach, exclude: [Body.GetRid()]);
+		var ray = PhysicsRayQueryParameters3D.Create(from, from + forward * (Reach + from.DistanceTo(head)), exclude: [Body.GetRid()]);
 		var hit = GetWorld3D().DirectSpaceState.IntersectRay(ray);
-		if (hit.Count == 0 || hit["collider"].AsGodotObject() is not IMinable terrain)
+		if (hit.Count == 0 || hit["collider"].AsGodotObject() is not IMinable terrain || hit["position"].AsVector3().DistanceTo(head) > Reach)
 		{
 			_dust.Emitting = false;
 			return;

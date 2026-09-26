@@ -78,7 +78,7 @@ public partial class Hud : CanvasLayer
 			GravityText(ship.GetGravity()) +
 			PowerText(ship) +
 			(ship.IsStatic ? "Station (static) - get out and press K on it to make it a ship\n" : "") +
-			"[F] leave cockpit";
+			"[F] leave cockpit   [V] cockpit/chase view   hold [Alt] look around";
 	}
 
 	private static string PowerText(BlockGrid grid)
@@ -108,7 +108,7 @@ public partial class Hud : CanvasLayer
 			text += "Hold LMB to drill\n";
 		else
 			text += "Press a number to take an item; again to put it away\n" +
-				"[B] Forge   [F5] quicksave   [F9] quickload   [F8] new world\n";
+				"[B] Forge   [V] first/third person   hold [Alt] look around\n[F5] quicksave   [F9] quickload   [F8] new world\n";
 		return text;
 	}
 

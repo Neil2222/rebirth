@@ -47,7 +47,7 @@ public partial class Main : Node3D
 		_hud = new Hud { Player = Player };
 		AddChild(_hud);
 
-		Forge = new ForgeScreen { Name = "Forge", Printer = Print };
+		Forge = new ForgeScreen { Name = "Forge", Printer = Print, BodySetter = Player.SetBody };
 		AddChild(Forge);
 		Forge.Closed += OnForgeClosed;
 

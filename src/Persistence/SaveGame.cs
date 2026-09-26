@@ -33,6 +33,9 @@ public sealed class PlayerSave
 	public bool Dampeners { get; set; } = true;
 	public bool Creative { get; set; }
 	public bool Light { get; set; } = true;
+	public bool FirstPerson { get; set; }
+	/// <summary>Robot body design; null keeps the default.</summary>
+	public Blueprint? Body { get; set; }
 	public Dictionary<string, float> Inventory { get; set; } = new();
 }
 

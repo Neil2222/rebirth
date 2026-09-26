@@ -15,7 +15,28 @@ public static class Presets
 	private static readonly Basis PushDown = new(Vector3.Right, -Mathf.Pi / 2f);
 	private static readonly Basis PushUp = new(Vector3.Right, Mathf.Pi / 2f);
 
-	public static IReadOnlyList<Blueprint> All => [StarterHauler(), ScoutDrone(), Outpost()];
+	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost()];
+
+	/// <summary>
+	/// Default robot body: legs, torso with a battery heart and gyro shoulders, a visor head,
+	/// and two jetpack thrusters on the back firing downwards. Shrunk to player size when worn.
+	/// </summary>
+	public static Blueprint Custodian()
+	{
+		var bp = new Blueprint { Name = "Custodian" };
+		foreach (int x in new[] { -1, 1 })
+		{
+			bp.Add(new Vector3I(x, 0, 0), BlockCatalog.HeavyArmor, Basis.Identity);
+			bp.Add(new Vector3I(x, 1, 0), BlockCatalog.LightArmor, Basis.Identity);
+			bp.Add(new Vector3I(x, 3, 0), BlockCatalog.Gyroscope, Basis.Identity, Neon.Cyan);
+			bp.Add(new Vector3I(x, 2, 1), BlockCatalog.Thruster, PushUp, Neon.Cyan);
+		}
+		for (int x = -1; x <= 1; x++)
+			bp.Add(new Vector3I(x, 2, 0), BlockCatalog.LightArmor, Basis.Identity);
+		bp.Add(new Vector3I(0, 3, 0), BlockCatalog.Battery, Basis.Identity, Neon.Cyan);
+		bp.Add(new Vector3I(0, 4, 0), BlockCatalog.Cockpit, Basis.Identity, Neon.Cyan);
+		return bp;
+	}
 
 	/// <summary>Small ship with thrust on all six axes, a gyroscope, a battery, and a core facing -Z.</summary>
 	public static Blueprint StarterHauler()

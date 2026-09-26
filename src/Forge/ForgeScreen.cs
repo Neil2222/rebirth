@@ -21,6 +21,8 @@ public partial class ForgeScreen : CanvasLayer
 
 	/// <summary>Called with the design when the player presses Print; returns a message for the player.</summary>
 	public Func<Blueprint, string>? Printer { get; set; }
+	/// <summary>Called with the design when the player chooses to wear it as their robot body.</summary>
+	public Action<Blueprint>? BodySetter { get; set; }
 	public event Action? Closed;
 
 	public BlockGrid Design { get; private set; } = null!;
@@ -243,6 +245,7 @@ public partial class ForgeScreen : CanvasLayer
 		AddButton(bar, "Save", SaveDesign);
 		AddButton(bar, "Load", ShowLoadDialog);
 		AddButton(bar, "Print to world", PrintDesign);
+		AddButton(bar, "Use as my body", WearDesign);
 		bar.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
 		AddButton(bar, "Close  [B]", Close);
 
@@ -423,6 +426,17 @@ public partial class ForgeScreen : CanvasLayer
 			Toast("Nothing to print yet");
 		else if (Printer is not null)
 			Toast(Printer(Blueprint.FromGrid(Design, DesignName)));
+	}
+
+	private void WearDesign()
+	{
+		if (Design.BlockCount == 0)
+		{
+			Toast("Nothing to wear yet");
+			return;
+		}
+		BodySetter?.Invoke(Blueprint.FromGrid(Design, DesignName));
+		Toast($"You are now \"{DesignName}\" (shown at 1.9 m tall; V switches first/third person)");
 	}
 
 	private void Toast(string message)

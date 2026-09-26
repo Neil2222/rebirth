@@ -26,6 +26,8 @@ public partial class InputBootstrap : Node
 		Bind("toggle_light", Key.L);
 		Bind("sprint", Key.Shift);
 		Bind("open_forge", Key.B);
+		Bind("toggle_view", Key.V);
+		Bind("free_look", Key.Alt);
 		Bind("quick_save", Key.F5);
 		Bind("quick_load", Key.F9);
 		Bind("new_world", Key.F8);

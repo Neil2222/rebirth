@@ -116,10 +116,14 @@ public partial class BuildTool : Node3D
 	private void UpdateTarget()
 	{
 		var space = GetWorld3D().DirectSpaceState;
+		// Aim through the crosshair, but measure reach from the head so third person can't build further.
+		Vector3 head = Body.GlobalTransform * Characters.Player.HeadOffset;
 		Vector3 from = Camera.GlobalPosition;
 		Vector3 forward = -Camera.GlobalBasis.Z;
-		var ray = PhysicsRayQueryParameters3D.Create(from, from + forward * Reach, exclude: [Body.GetRid()]);
+		var ray = PhysicsRayQueryParameters3D.Create(from, from + forward * (Reach + from.DistanceTo(head)), exclude: [Body.GetRid()]);
 		var hit = space.IntersectRay(ray);
+		if (hit.Count > 0 && hit["position"].AsVector3().DistanceTo(head) > Reach)
+			hit.Clear();
 
 		AimedGrid = null;
 		_placeGrid = null;
@@ -135,7 +139,7 @@ public partial class BuildTool : Node3D
 		}
 		else
 		{
-			_placeTransform = new Transform3D(Camera.GlobalBasis.Orthonormalized() * _orientation, from + forward * FreePlacementDistance);
+			_placeTransform = new Transform3D(Camera.GlobalBasis.Orthonormalized() * _orientation, head + forward * FreePlacementDistance);
 		}
 
 		_placeValid = (_placeGrid is null || !_placeGrid.Has(_placeCell)) && !Overlaps(space, _placeTransform, _placeGrid);

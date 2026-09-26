@@ -36,7 +36,8 @@ public partial class Player : RigidBody3D
 
 	public bool DampenersOn { get; private set; } = true;
 	public bool JetpackOn { get; private set; } = true;
-	public Camera3D Camera { get; private set; } = null!;
+	public CameraRig Rig { get; private set; } = null!;
+	public Camera3D Camera => Rig.Camera;
 	public SpotLight3D HelmetLight { get; private set; } = null!;
 	public BuildTool BuildTool { get; private set; } = null!;
 	public HandDrill Drill { get; private set; } = null!;
@@ -49,6 +50,11 @@ public partial class Player : RigidBody3D
 	public bool Grounded { get; private set; }
 
 	private float _headPitch;   // walking only; flying pitches the whole body
+
+	/// <summary>The robot body design, drawn at player size in third person.</summary>
+	public Blueprint Body { get; private set; } = Presets.Custodian();
+	private BlueprintModel _bodyModel = null!;
+	private float _jetpackThrottle;   // 0..1, drives the body's thruster flames
 
 	/// <summary>Creative mode builds for free; survival pays ingots from the inventory.</summary>
 	public bool Creative { get; private set; }
@@ -63,7 +69,6 @@ public partial class Player : RigidBody3D
 	public BlockGrid? PilotedGrid { get; private set; }
 
 	private Vector3I _cockpitCell;
-	private Node3D? _seat;
 	private Vector2 _pendingMouse;
 	private string? _message;
 	private double _messageTime = double.NegativeInfinity;
@@ -80,15 +85,18 @@ public partial class Player : RigidBody3D
 
 		AddChild(new CollisionShape3D { Shape = new CapsuleShape3D { Radius = 0.4f, Height = 1.8f } });
 
-		Camera = new Camera3D { Position = new Vector3(0, 0.6f, 0), Fov = 75f, Near = 0.05f, Far = 20000f, Current = true };
-		AddChild(Camera);
-		HelmetLight = new SpotLight3D { SpotRange = 45f, SpotAngle = 32f, LightEnergy = 3f, Position = new Vector3(0.15f, 0.1f, 0f) };
-		Camera.AddChild(HelmetLight);
+		Rig = new CameraRig { Name = "CameraRig", Target = this, Exclude = [GetRid()] };
+		AddChild(Rig);
+		// The light sits on the head so it points where the body faces, whichever view is active.
+		HelmetLight = new SpotLight3D { SpotRange = 45f, SpotAngle = 32f, LightEnergy = 3f, Position = HeadOffset + new Vector3(0, 0.1f, -0.35f) };
+		AddChild(HelmetLight);
+		SetBody(Body);
 
 		BuildTool = new BuildTool { Camera = Camera, Body = this, CostSource = Inventory };
 		AddChild(BuildTool);
 		Drill = new HandDrill { Camera = Camera, Body = this, Inventory = Inventory };
 		AddChild(Drill);
+		ApplyCameraMode();
 
 		// Starter kit: enough ingots for a handful of blocks before the first refinery run.
 		Inventory.Add("iron_ingot", 800f);
@@ -107,7 +115,12 @@ public partial class Player : RigidBody3D
 		if (GameState.WorldInputBlocked)
 			return;
 		if (e is InputEventMouseMotion motion && Input.MouseMode == Input.MouseModeEnum.Captured)
-			_pendingMouse += motion.Relative;
+		{
+			if (Held("free_look"))
+				Rig.AddFreeLook(-motion.Relative * MouseSensitivity);
+			else
+				_pendingMouse += motion.Relative;
+		}
 		else if (e is InputEventMouseButton { Pressed: true } && Input.MouseMode != Input.MouseModeEnum.Captured)
 		{
 			// Consume the click so it only grabs the mouse and doesn't also place a block.
@@ -122,6 +135,11 @@ public partial class Player : RigidBody3D
 			JetpackOn = !JetpackOn;
 		else if (e.IsActionPressed("toggle_light"))
 			HelmetLight.Visible = !HelmetLight.Visible;
+		else if (e.IsActionPressed("toggle_view"))
+		{
+			Rig.FirstPerson = !Rig.FirstPerson;
+			ApplyCameraMode();
+		}
 		else if (e.IsActionPressed("use"))
 			Use();
 		else if (e.IsActionPressed("toggle_grid_static") && PilotedGrid is null)
@@ -149,6 +167,67 @@ public partial class Player : RigidBody3D
 	{
 		_message = message;
 		_messageTime = Time.GetTicksMsec() / 1000.0;
+	}
+
+	/// <summary>Where the eyes are, relative to the body's center.</summary>
+	public static readonly Vector3 HeadOffset = new(0, 0.6f, 0);
+	private const float BodyHeight = 1.9f;
+
+	/// <summary>Wears <paramref name="design"/> as the robot body.</summary>
+	public void SetBody(Blueprint design)
+	{
+		Body = design;
+		_bodyModel?.QueueFree();
+		_bodyModel = BlueprintModel.Create(design, BodyHeight);
+		AddChild(_bodyModel);
+		UpdateBodyVisibility();
+	}
+
+	/// <summary>Points the camera rig at the body or the piloted ship, in the current view mode.</summary>
+	private void ApplyCameraMode()
+	{
+		if (PilotedGrid is { } grid)
+		{
+			Transform3D seat = grid.BlockTransform(_cockpitCell);
+			Rig.Target = grid;
+			Rig.Exclude = [GetRid(), grid.GetRid()];
+			Rig.Pitch = 0f;
+			if (Rig.FirstPerson)
+			{
+				Rig.Anchor = new Transform3D(seat.Basis, seat.Origin + seat.Basis * new Vector3(0, 0.3f, -0.4f));
+			}
+			else
+			{
+				// Chase camera: orbit the ship's center, far enough back to see all of it.
+				float radius = BlockGrid.CellSize;
+				foreach (var (cell, _) in grid.Blocks)
+					radius = Mathf.Max(radius, BlockGrid.CellCenter(cell).DistanceTo(grid.CenterOfMass) + BlockGrid.CellSize);
+				Rig.Anchor = new Transform3D(seat.Basis, grid.CenterOfMass);
+				Rig.Distance = radius * 2.2f + 4f;
+				Rig.Height = radius * 0.5f;
+				Rig.Side = 0f;
+			}
+		}
+		else
+		{
+			Rig.Target = this;
+			Rig.Exclude = [GetRid()];
+			Rig.Anchor = new Transform3D(Basis.Identity, HeadOffset);
+			Rig.Distance = 4.5f;
+			Rig.Height = 0.5f;
+			Rig.Side = 0.7f;
+		}
+		Drill.ShowViewModel = Rig.FirstPerson;
+		UpdateBodyVisibility();
+	}
+
+	// The body is hidden from its own eyes, and while parked during piloting.
+	private void UpdateBodyVisibility() => _bodyModel.Visible = PilotedGrid is null && !Rig.FirstPerson;
+
+	public override void _Process(double delta)
+	{
+		Rig.FreeLooking = Held("free_look");
+		_bodyModel.SetThrust(_jetpackThrottle);
 	}
 
 	private void Equip(ToolbarItem? item)
@@ -205,17 +284,12 @@ public partial class Player : RigidBody3D
 		grid.CanSleep = false;
 		grid.Sleeping = false;
 
-		// Park the body: no collisions, no simulation. The camera rides along on a seat node in the grid.
+		// Park the body: no collisions, no simulation. The camera follows the ship instead.
 		Freeze = true;
 		CollisionLayer = 0;
 		CollisionMask = 0;
 		SetHandToolsActive(false);
-
-		_seat = new Node3D { Name = "Seat", Transform = grid.BlockTransform(cell) };
-		grid.AddChild(_seat);
-		Camera.Reparent(_seat, keepGlobalTransform: false);
-		Camera.Transform = new Transform3D(Basis.Identity, new Vector3(0, 0.3f, -0.4f));
-		Camera.ResetPhysicsInterpolation();
+		ApplyCameraMode();
 		_pendingMouse = Vector2.Zero;
 	}
 
@@ -235,21 +309,16 @@ public partial class Player : RigidBody3D
 		Transform3D seat = grid.GlobalTransform * new Transform3D(grid.ControlFrame, BlockGrid.CellCenter(_cockpitCell));
 		Transform3D exit = FindExit(seat);
 
-		Camera.Reparent(this, keepGlobalTransform: false);
-		Camera.Transform = new Transform3D(Basis.Identity, new Vector3(0, 0.6f, 0));
 		_headPitch = 0f;
-		_seat!.QueueFree();
-		_seat = null;
 		PilotedGrid = null;
-
 		GlobalTransform = exit;
 		LinearVelocity = grid.LinearVelocity;
 		Freeze = false;
 		CollisionLayer = PlayerCollisionLayer;
 		CollisionMask = PlayerCollisionLayer;
 		SetHandToolsActive(true);
+		ApplyCameraMode();
 		ResetPhysicsInterpolation();
-		Camera.ResetPhysicsInterpolation();
 	}
 
 	public PlayerSave ToSave()
@@ -268,6 +337,8 @@ public partial class Player : RigidBody3D
 			Dampeners = DampenersOn,
 			Creative = Creative,
 			Light = HelmetLight.Visible,
+			FirstPerson = Rig.FirstPerson,
+			Body = Body,
 			Inventory = Inventory.Items.ToDictionary(kv => kv.Key, kv => kv.Value),
 		};
 	}
@@ -281,6 +352,10 @@ public partial class Player : RigidBody3D
 		Creative = save.Creative;
 		BuildTool.CostSource = Creative ? null : Inventory;
 		HelmetLight.Visible = save.Light;
+		if (save.Body is not null)
+			SetBody(save.Body);
+		Rig.FirstPerson = save.FirstPerson;
+		ApplyCameraMode();
 		Inventory.Clear();
 		foreach (var (item, amount) in save.Inventory)
 			Inventory.Add(item, amount);
@@ -338,7 +413,7 @@ public partial class Player : RigidBody3D
 				var folded = state.Transform.Basis * new Basis(Vector3.Right, _headPitch);
 				state.Transform = new Transform3D(folded.Orthonormalized(), state.Transform.Origin);
 				_headPitch = 0f;
-				Camera.Rotation = Vector3.Zero;
+				Rig.Pitch = 0f;
 			}
 		}
 		state.AngularVelocity = Vector3.Zero;
@@ -366,6 +441,7 @@ public partial class Player : RigidBody3D
 			state.Transform = new Transform3D(basis.Orthonormalized(), state.Transform.Origin);
 		}
 
+		_jetpackThrottle = 0f;
 		if (!JetpackOn)
 			return;
 
@@ -386,6 +462,7 @@ public partial class Player : RigidBody3D
 				accel[axis] = Mathf.Clamp(-localVelocity[axis] / dt, -maxAccel, maxAccel);
 		}
 
+		_jetpackThrottle = Mathf.Clamp(accel.Length() / maxAccel, 0f, 1f);
 		state.LinearVelocity = (state.LinearVelocity + basis * accel * dt).LimitLength(MaxSpeed);
 	}
 
@@ -393,13 +470,14 @@ public partial class Player : RigidBody3D
 	private void Walk(PhysicsDirectBodyState3D state)
 	{
 		float dt = state.Step;
+		_jetpackThrottle = 0f;
 		Vector3 up = -Gravity.Normalized();
 		Basis basis = state.Transform.Basis;
 
 		basis = new Basis(basis.Y, -_pendingMouse.X * MouseSensitivity) * basis;
 		_headPitch = Mathf.Clamp(_headPitch - _pendingMouse.Y * MouseSensitivity, -1.5f, 1.5f);
 		_pendingMouse = Vector2.Zero;
-		Camera.Rotation = new Vector3(_headPitch, 0f, 0f);
+		Rig.Pitch = _headPitch;
 
 		// Swing upright gradually, e.g. after switching the jetpack off upside down.
 		float tilt = basis.Y.AngleTo(up);
