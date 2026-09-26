@@ -15,7 +15,7 @@ public static class Presets
 	private static readonly Basis PushDown = new(Vector3.Right, -Mathf.Pi / 2f);
 	private static readonly Basis PushUp = new(Vector3.Right, Mathf.Pi / 2f);
 
-	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost()];
+	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig()];
 
 	/// <summary>
 	/// Default robot body: legs, torso with a battery heart and gyro shoulders, a visor head,
@@ -91,6 +91,26 @@ public static class Presets
 		var sunward = new Basis(Vector3.Back, -Mathf.Pi / 2f);
 		for (int z = -1; z <= 1; z++)
 			bp.Add(new Vector3I(2, 0, z), BlockCatalog.SolarPanel, sunward);
+		return bp;
+	}
+
+	/// <summary>
+	/// A small automated mine to set down on rock: drill pointing down, ore by tube into a refinery,
+	/// ingots on to cargo, and a fabricator next to the cargo. Solar roof and a battery for power.
+	/// </summary>
+	public static Blueprint MiningRig()
+	{
+		var bp = new Blueprint { Name = "Mining Rig", Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.AutoDrill, PushDown);   // drill face points along -Y
+		bp.Add(new Vector3I(0, 1, 0), BlockCatalog.Tube, Basis.Identity);
+		bp.Add(new Vector3I(1, 1, 0), BlockCatalog.Tube, Basis.Identity);
+		bp.Add(new Vector3I(2, 1, 0), BlockCatalog.Refinery, Basis.Identity);
+		bp.Add(new Vector3I(3, 1, 0), BlockCatalog.Tube, Basis.Identity);
+		bp.Add(new Vector3I(4, 1, 0), BlockCatalog.CargoContainer, Basis.Identity);
+		bp.Add(new Vector3I(4, 1, -1), BlockCatalog.Fabricator, Basis.Identity);
+		bp.Add(new Vector3I(1, 2, 0), BlockCatalog.Battery, Basis.Identity);
+		foreach (int x in new[] { 0, 2, 3, 4 })
+			bp.Add(new Vector3I(x, 2, 0), BlockCatalog.SolarPanel, Basis.Identity);
 		return bp;
 	}
 }

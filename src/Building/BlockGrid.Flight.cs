@@ -133,5 +133,7 @@ public partial class BlockGrid
 				flame.Scale = new Vector3(1, 1, Mathf.Lerp(flame.Scale.Z, target, 0.3f));
 			}
 		}
+		DrawParcels((float)delta);
+		SpinDrillBits((float)delta);
 	}
 }

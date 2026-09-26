@@ -174,10 +174,11 @@ public partial class FabricatorPanel : CanvasLayer
 		float seconds = Mathf.Max(BlockGrid.MinPrintSeconds, mass / 1000f * BlockGrid.PrintSecondsPerTonne);
 		var sb = new StringBuilder();
 		sb.Append($"{design.Name}\n{design.Kind}, {design.Blocks.Count} blocks, {mass / 1000f:0.0} t\n");
-		sb.Append($"Print time  {seconds:0} s at full power\n\nCOST        needed    in cargo\n");
+		sb.Append($"Print time  {seconds:0} s at full power\n\nCOST        needed    available\n");
 		foreach (var (item, amount) in design.TotalCost().OrderBy(kv => kv.Key))
 		{
-			float have = _grid.Inventory.Get(item);
+			// Storage plus what has already been delivered into the fabricator.
+			float have = _grid.Inventory.Get(item) + (_grid.StateOf(_cell).Input?.Get(item) ?? 0f);
 			sb.Append($"{ItemCatalog.DisplayName(item),-14}{amount,6:0}   {have,6:0}{(have >= amount ? "" : "  missing")}\n");
 		}
 		_details.Text = sb.ToString();

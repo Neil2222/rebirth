@@ -61,7 +61,7 @@ public partial class BlockGrid : RigidBody3D
 		if (DesignMode)
 			return;
 		UpdatePower((float)delta);
-		UpdateRefining((float)delta);
+		UpdateLogistics((float)delta);
 		UpdateFabrication((float)delta);
 		ApplyPendingDamage();
 	}
@@ -93,7 +93,7 @@ public partial class BlockGrid : RigidBody3D
 	/// <param name="paint">Paint colour; the block type's default when omitted.</param>
 	public bool TryAdd(Vector3I cell, BlockDefinition definition, Basis orientation, float charge = 0.25f, Color? paint = null)
 	{
-		var state = new BlockState { Integrity = definition.MaxIntegrity, StoredEnergy = definition.BatteryCapacity * charge };
+		var state = BlockState.Fresh(definition, charge);
 		return TryAdd(cell, new PlacedBlock(definition, orientation, paint ?? definition.Paint), state);
 	}
 
@@ -146,6 +146,7 @@ public partial class BlockGrid : RigidBody3D
 		if (_decorations.Remove(cell, out var old))
 			old.QueueFree();
 		AddDecoration(cell, _blocks[cell]);
+		RebuildTubeVisuals();
 		RebuildMesh();
 	}
 
@@ -194,6 +195,8 @@ public partial class BlockGrid : RigidBody3D
 
 	private void OnBlocksChanged()
 	{
+		InvalidateNetworks();
+		RebuildTubeVisuals();
 		RebuildMesh();
 		RebuildFlightCapabilities();
 		RebuildPowerAndCargo();

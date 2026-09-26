@@ -124,6 +124,10 @@ public partial class Hud : CanvasLayer
 			text += "[F] sit in cockpit\n";
 		else if (def.Kind == BlockKind.Fabricator)
 			text += $"[F] open fabricator   ({grid.FabricatorStatus(Player.BuildTool.AimedCell)})\n";
+		else if (grid.StateOf(Player.BuildTool.AimedCell) is { Output: not null } or { Input: not null } && def.Kind != BlockKind.Fabricator)
+			text += MachineText(grid, Player.BuildTool.AimedCell, def);
+		else if (def.Kind == BlockKind.Tube)
+			text += $"Tube network: {grid.NetworkSize(Player.BuildTool.AimedCell)} blocks, {grid.ParcelCount} parcels moving\n";
 		else if (def.CargoCapacity > 0f)
 			text += "[F] unload ore, take ingots\n";
 		text += PowerText(grid);
@@ -131,6 +135,25 @@ public partial class Hud : CanvasLayer
 			text += InventoryText($"Grid cargo{(grid.Refining ? " - refining" : "")}", grid.Inventory) + "\n";
 		return text;
 	}
+
+	private static string MachineText(BlockGrid grid, Vector3I cell, BlockDefinition def)
+	{
+		var state = grid.StateOf(cell);
+		string text = $"{grid.MachineStatus(cell)}";
+		if (state.Output is not null)
+			text += "   [F] take output";
+		text += "\n";
+		if (state.Input is { } input)
+			text += $"In:  {Contents(input)}\n";
+		if (state.Output is { } output)
+			text += $"Out: {Contents(output)}\n";
+		if (grid.NetworkSize(cell) <= 1)
+			text += "Not connected: touch tubes or storage to send and receive parcels\n";
+		return text;
+	}
+
+	private static string Contents(Inventory inventory) =>
+		inventory.Items.Count == 0 ? "empty" : string.Join(", ", inventory.Items.Where(kv => kv.Value >= 0.5f).Select(kv => $"{kv.Value:0} kg {ItemCatalog.DisplayName(kv.Key)}"));
 
 	private static string InventoryText(string title, Inventory inventory)
 	{

@@ -48,7 +48,9 @@ gebouwen, en je eigen robotlichaam.
 - Ontwerpen zijn **blueprints**: opgeslagen, deelbaar, en door fabrieken in serie te printen.
 
 ### Automatisering
-- Machines die tegen elkaar aan staan geven dingen door; de stroom is zichtbaar als lichtpulsen.
+- Logistieke blokken (buizen, opslag, raffinaderij, fabricator, auto-drill) vormen een netwerk zodra ze vlak tegen elkaar zitten.
+- Spullen reizen als gekleurde pods door glazen buizen, via de kortste route; machines die iets nodig hebben gaan vóór opslag.
+- Auto-drill boort de grond voor zijn voorkant af; raffinaderij heeft een ertsbuffer en een staafbuffer; de fabricator trekt ontbrekende staven zelf uit opslag.
 - Blueprints worden geprint door een fabricator; één ontwerp, vijftig drones.
 - Drones krijgen simpele routes/opdrachten ("haal ijs bij maan B, lever bij verwerker op A").
 
@@ -104,7 +106,8 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | B | Fabricator die blueprints print, kosten, presets per ontwerptype | klaar |
 | S | Stijlwissel naar comfy retro-futurisme | klaar |
 | P | Kleine loopbare planeten (40–60 m, rondje in ±1 minuut) met eigen zwaartekracht | klaar |
-| C | Automatisering: aangrenzende machines, zichtbare stromen, drones met routes | |
+| C1 | Logistiek netwerk: buizen, pods, auto-drill, machinebuffers | klaar |
+| C2 | Drones met routes tussen planeten en stations | |
 | D | Nexus-overzicht en Uplink | |
 | E | Planeten genezen, meekleurend terrein, DNA-incubatie, nederzettingen | |
 | F | Breach Lance, Box-grens, nieuwe Box genereren | |

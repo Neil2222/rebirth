@@ -42,13 +42,17 @@ public static class BlockMesher
 
 		foreach (var (cell, block) in blocks)
 		{
+			// Non-cube blocks (tubes) draw themselves as decorations.
+			if (!block.Definition.FullCube)
+				continue;
 			Vector3 center = BlockGrid.CellCenter(cell);
 			// See block.gdshader for the channel layout.
 			Color color = block.Paint.SrgbToLinear();
 			var uv2 = new Vector2(health(cell), (cell.X * 73 + cell.Y * 19 + cell.Z * 7) % 101 / 101f);
 			foreach (var (dir, u, v) in Faces)
 			{
-				if (blocks.ContainsKey(cell + dir))
+				// A face is hidden only when a solid cube covers it; tubes leave it on show.
+				if (blocks.TryGetValue(cell + dir, out var neighbour) && neighbour.Definition.FullCube)
 					continue;
 
 				Vector3 n = dir;

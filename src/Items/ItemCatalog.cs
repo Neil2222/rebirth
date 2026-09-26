@@ -1,22 +1,24 @@
 using System.Collections.Generic;
+using Godot;
 
 namespace Rebirth.Items;
 
 public enum ItemCategory { Ore, Ingot }
 
-public sealed record ItemDefinition(string Id, string DisplayName, ItemCategory Category);
+/// <param name="Color">Colour of the parcels that carry this item through tubes.</param>
+public sealed record ItemDefinition(string Id, string DisplayName, ItemCategory Category, Color Color);
 
 public static class ItemCatalog
 {
 	private static readonly Dictionary<string, ItemDefinition> Items = new()
 	{
-		["stone"] = new("stone", "Stone", ItemCategory.Ore),
-		["iron_ore"] = new("iron_ore", "Iron Ore", ItemCategory.Ore),
-		["nickel_ore"] = new("nickel_ore", "Nickel Ore", ItemCategory.Ore),
-		["silicon_ore"] = new("silicon_ore", "Silicon Ore", ItemCategory.Ore),
-		["iron_ingot"] = new("iron_ingot", "Iron Ingot", ItemCategory.Ingot),
-		["nickel_ingot"] = new("nickel_ingot", "Nickel Ingot", ItemCategory.Ingot),
-		["silicon_wafer"] = new("silicon_wafer", "Silicon Wafer", ItemCategory.Ingot),
+		["stone"] = new("stone", "Stone", ItemCategory.Ore, new Color(0.66f, 0.63f, 0.66f)),
+		["iron_ore"] = new("iron_ore", "Iron Ore", ItemCategory.Ore, new Color(0.88f, 0.46f, 0.30f)),
+		["nickel_ore"] = new("nickel_ore", "Nickel Ore", ItemCategory.Ore, new Color(0.50f, 0.80f, 0.64f)),
+		["silicon_ore"] = new("silicon_ore", "Silicon Ore", ItemCategory.Ore, new Color(0.86f, 0.84f, 0.96f)),
+		["iron_ingot"] = new("iron_ingot", "Iron Ingot", ItemCategory.Ingot, new Color(0.82f, 0.82f, 0.86f)),
+		["nickel_ingot"] = new("nickel_ingot", "Nickel Ingot", ItemCategory.Ingot, new Color(0.66f, 0.86f, 0.74f)),
+		["silicon_wafer"] = new("silicon_wafer", "Silicon Wafer", ItemCategory.Ingot, new Color(0.45f, 0.52f, 0.9f)),
 	};
 
 	public static ItemDefinition Get(string id) => Items[id];

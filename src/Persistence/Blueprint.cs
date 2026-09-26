@@ -52,11 +52,9 @@ public sealed class Blueprint
 		{
 			var definition = BlockCatalog.Get(entry.Id);
 			var block = new PlacedBlock(definition, entry.Orientation(), entry.PaintColor(definition));
-			var state = new BlockState
-			{
-				Integrity = entry.Integrity ?? definition.MaxIntegrity,
-				StoredEnergy = entry.Energy ?? definition.BatteryCapacity * charge,
-			};
+			var state = BlockState.Fresh(definition, charge);
+			state.Integrity = entry.Integrity ?? definition.MaxIntegrity;
+			state.StoredEnergy = entry.Energy ?? state.StoredEnergy;
 			blocks.Add((entry.CellVector(), block, state));
 		}
 		grid.AddMany(blocks);

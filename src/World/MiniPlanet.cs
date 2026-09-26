@@ -69,6 +69,7 @@ public partial class MiniPlanet : VoxelBody
 		var material = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/atmosphere.gdshader") };
 		material.SetShaderParameter("tint", HazeTint);
 		float r = Radius * 1.18f;
+		material.SetShaderParameter("haze_radius", r);
 		return new MeshInstance3D
 		{
 			Name = "Haze",

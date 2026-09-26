@@ -14,8 +14,8 @@ public sealed class FabricatorJob
 	public bool Paid { get; set; }
 }
 
-// Fabricators print blueprints from the grid's shared inventory. The ingots are taken when a job
-// starts; printing then takes time and power, while a hologram of the design fills in from the
+// Fabricators print blueprints from ingots delivered into their input by the logistics network. The
+// ingots are taken when a job starts; printing then takes time and power, while a hologram of the design fills in from the
 // bottom in front of the fabricator's -Z face. The finished grid appears once that space is clear.
 public partial class BlockGrid
 {
@@ -97,14 +97,16 @@ public partial class BlockGrid
 			var job = queue[0];
 			if (!job.Paid)
 			{
+				// Ingots arrive by parcel from storage and refineries on the same network.
 				var cost = job.Design.TotalCost();
-				if (!Inventory.Has(cost))
+				var input = _state[cell].Input!;
+				if (!input.Has(cost))
 				{
 					_fabricatorStatus[cell] = "Waiting for materials";
 					continue;
 				}
 				foreach (var (item, amount) in cost)
-					Inventory.TryRemove(item, amount);
+					input.TryRemove(item, amount);
 				job.Paid = true;
 			}
 

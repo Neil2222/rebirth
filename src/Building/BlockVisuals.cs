@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Godot;
 
 namespace Rebirth.Building;
@@ -10,6 +11,7 @@ namespace Rebirth.Building;
 public static class BlockVisuals
 {
 	public const string FlameName = "Flame";
+	public const string DrillBitName = "Bit";
 	private const float H = BlockGrid.CellSize * 0.5f;
 
 	public static Node3D? CreateDecoration(BlockDefinition block, Color paint) => block.Kind switch
@@ -22,6 +24,7 @@ public static class BlockVisuals
 		BlockKind.CargoContainer => CargoContainer(paint),
 		BlockKind.Refinery => Refinery(),
 		BlockKind.Fabricator => Fabricator(),
+		BlockKind.AutoDrill => AutoDrill(),
 		_ => null,
 	};
 
@@ -240,6 +243,48 @@ public static class BlockVisuals
 		root.AddChild(Part(new BoxMesh { Size = new Vector3(1.84f, 1.84f, 0.04f), Material = Plastic(new Color(0.2f, 0.2f, 0.25f)) }, new Vector3(0, -0.08f, z + 0.03f)));
 		for (int i = 0; i < 4; i++)
 			root.AddChild(Part(new SphereMesh { Radius = 0.08f, Height = 0.16f, Material = Lamp(new Color(1f, 0.85f, 0.5f)) }, new Vector3(-0.6f + i * 0.4f, 1.0f, z - 0.08f)));
+		return root;
+	}
+
+	private static Node3D AutoDrill()
+	{
+		// A chunky drill head on the front (-Z): chrome collar and a spinning cone bit.
+		var root = new Node3D();
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.95f, BottomRadius = 1.05f, Height = 0.35f, Material = Plastic(Palette.Slate) }, new Vector3(0, 0, -H - 0.17f), ToZ));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.78f, OuterRadius = 0.95f, Material = Chrome() }, new Vector3(0, 0, -H - 0.35f), ToZ));
+		var bit = new Node3D { Name = DrillBitName, Transform = new Transform3D(new Basis(Vector3.Right, -Mathf.Pi / 2f), new Vector3(0, 0, -H - 0.35f)) };
+		// In the bit's frame +Y points out of the face, so spinning about Y turns it in place.
+		bit.AddChild(Part(new CylinderMesh { TopRadius = 0.02f, BottomRadius = 0.7f, Height = 1.2f, Material = Chrome() }, new Vector3(0, 0.6f, 0)));
+		bit.AddChild(Part(new BoxMesh { Size = new Vector3(1.3f, 0.08f, 0.12f), Material = Plastic(Palette.Orange) }, new Vector3(0, 0.3f, 0)));
+		root.AddChild(bit);
+		root.AddChild(Part(new SphereMesh { Radius = 0.1f, Height = 0.2f, Material = Lamp(new Color(1f, 0.75f, 0.3f)) }, new Vector3(0.9f, 0.9f, -H - 0.03f)));
+		return root;
+	}
+
+	/// <summary>
+	/// A tube junction: a glass hub with a glass pipe towards each linked neighbour, so parcels can be
+	/// seen sliding through. Built by the grid, which knows the neighbours.
+	/// </summary>
+	public static Node3D CreateTube(Color paint, IEnumerable<Vector3I> links)
+	{
+		var root = new Node3D();
+		var glass = new StandardMaterial3D
+		{
+			AlbedoColor = new Color(0.85f, 0.95f, 1f, 0.16f),
+			Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+			Roughness = 0.05f,
+			Metallic = 0.2f,
+		};
+		var collar = Plastic(paint);
+		root.AddChild(Part(new SphereMesh { Radius = 0.62f, Height = 1.24f, Material = glass }, Vector3.Zero));
+		foreach (var link in links)
+		{
+			Vector3 dir = link;
+			// Cylinders run along Y: turn Y onto the link direction.
+			var basis = Basis.LookingAt(dir, dir.Abs().IsEqualApprox(Vector3.Up) ? Vector3.Forward : Vector3.Up) * new Basis(Vector3.Right, Mathf.Pi / 2f);
+			root.AddChild(Part(new CylinderMesh { TopRadius = 0.45f, BottomRadius = 0.45f, Height = H, Material = glass }, dir * (H * 0.5f), basis));
+			root.AddChild(Part(new TorusMesh { InnerRadius = 0.42f, OuterRadius = 0.56f, Material = collar }, dir * (H - 0.05f), basis));
+		}
 		return root;
 	}
 }

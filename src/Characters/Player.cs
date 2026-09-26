@@ -276,6 +276,17 @@ public partial class Player : RigidBody3D
 			FabricatorRequested?.Invoke(grid, BuildTool.AimedCell);
 		else if (block.Definition.CargoCapacity > 0f)
 			TradeWith(grid.Inventory);
+		else if (grid.StateOf(BuildTool.AimedCell).Output is { } output)
+			TakeOutput(block.Definition, output);
+	}
+
+	/// <summary>Empties a machine's output buffer (drill ore, refinery ingots) into the player's pockets.</summary>
+	private void TakeOutput(BlockDefinition machine, Inventory output)
+	{
+		float taken = 0f;
+		foreach (var (id, amount) in output.Items.ToArray())
+			taken += output.TransferTo(Inventory, id, amount);
+		ShowMessage(taken > 0f ? $"Took {taken:0} kg from the {machine.DisplayName}" : $"The {machine.DisplayName} has nothing to take");
 	}
 
 	/// <summary>Unloads carried ore into a grid's inventory and picks up the ingots it holds.</summary>

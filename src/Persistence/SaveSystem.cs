@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Rebirth.Building;
@@ -38,6 +39,7 @@ public static class SaveSystem
 			if (grid.IsQueuedForDeletion() || grid.BlockCount == 0)
 				continue;
 			var (position, rotation) = SaveMath.ToArrays(grid.GlobalTransform);
+			var (machines, storage) = CaptureLogistics(grid);
 			save.Grids.Add(new GridSave
 			{
 				Position = position,
@@ -47,7 +49,8 @@ public static class SaveSystem
 				Static = grid.IsStatic,
 				Dampeners = grid.Controls.Dampeners,
 				Blocks = Blueprint.FromGrid(grid, grid.Name, includeState: true),
-				Inventory = grid.Inventory.Items.ToDictionary(kv => kv.Key, kv => kv.Value),
+				Inventory = storage,
+				Machines = machines,
 				Fabricators = grid.FabricatorQueues.Select(f => new FabricatorSave
 				{
 					Cell = [f.Cell.X, f.Cell.Y, f.Cell.Z],
@@ -65,6 +68,31 @@ public static class SaveSystem
 		}
 		save.ForgeDesign = forgeDesign;
 		return save;
+	}
+
+	/// <summary>Machine buffers and shared storage, with parcels in transit counted at their destination.</summary>
+	private static (List<MachineSave> Machines, Dictionary<string, float> Storage) CaptureLogistics(BlockGrid grid)
+	{
+		var storage = grid.Inventory.Items.ToDictionary(kv => kv.Key, kv => kv.Value);
+		var machines = new Dictionary<Vector3I, MachineSave>();
+		MachineSave For(Vector3I cell) => machines.TryGetValue(cell, out var m) ? m : machines[cell] = new MachineSave { Cell = [cell.X, cell.Y, cell.Z] };
+
+		foreach (var (cell, _) in grid.Blocks)
+		{
+			var state = grid.StateOf(cell);
+			if (state.Input is { Items.Count: > 0 } input)
+				For(cell).Input = input.Items.ToDictionary(kv => kv.Key, kv => kv.Value);
+			if (state.Output is { Items.Count: > 0 } output)
+				For(cell).Output = output.Items.ToDictionary(kv => kv.Key, kv => kv.Value);
+		}
+		foreach (var parcel in grid.ParcelsInFlight)
+		{
+			var into = parcel.ToStorage || !grid.Has(parcel.Destination) || grid.StateOf(parcel.Destination).Input is null
+				? storage
+				: For(parcel.Destination).Input;
+			into[parcel.Item] = into.GetValueOrDefault(parcel.Item) + parcel.Amount;
+		}
+		return (machines.Values.ToList(), storage);
 	}
 
 	public static void Write(SaveGame save, string slot)
@@ -115,6 +143,14 @@ public static class SaveSystem
 			grid.Controls = grid.Controls with { Dampeners = saved.Dampeners };
 			foreach (var (item, amount) in saved.Inventory)
 				grid.Inventory.Add(item, amount);
+			foreach (var machine in saved.Machines)
+			{
+				var state = grid.StateOf(new Vector3I(machine.Cell[0], machine.Cell[1], machine.Cell[2]));
+				foreach (var (item, amount) in machine.Input)
+					state.Input?.Add(item, amount);
+				foreach (var (item, amount) in machine.Output)
+					state.Output?.Add(item, amount);
+			}
 			foreach (var fabricator in saved.Fabricators)
 			{
 				var jobs = fabricator.Queue.Select((design, i) => new FabricatorJob
