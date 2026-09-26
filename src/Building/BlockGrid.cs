@@ -27,7 +27,8 @@ public partial class BlockGrid : RigidBody3D
 	private readonly Dictionary<Vector3I, PlacedBlock> _blocks = new();
 	private readonly Dictionary<Vector3I, CollisionShape3D> _shapes = new();
 	private readonly Dictionary<Vector3I, Node3D> _decorations = new();
-	private readonly BoxShape3D _cellShape = new() { Size = Vector3.One * CellSize };
+	// Slightly undersized so separate grids with touching faces (e.g. just after a split) do not collide.
+	private readonly BoxShape3D _cellShape = new() { Size = Vector3.One * CellSize * 0.99f };
 	private MeshInstance3D _meshInstance = null!;
 	private ShaderMaterial _material = null!;
 	private float _totalMass;
@@ -57,6 +58,8 @@ public partial class BlockGrid : RigidBody3D
 		AngularDampMode = DampMode.Replace;
 		LinearDamp = 0f;
 		AngularDamp = 0f;
+		ContactMonitor = true;
+		MaxContactsReported = 16;
 	}
 
 	public bool Has(Vector3I cell) => _blocks.ContainsKey(cell);
@@ -82,44 +85,62 @@ public partial class BlockGrid : RigidBody3D
 
 	public bool TryAdd(Vector3I cell, BlockDefinition definition, Basis orientation)
 	{
-		var block = new PlacedBlock(definition, orientation);
+		if (!AddInternal(cell, new PlacedBlock(definition, orientation), definition.MaxIntegrity))
+			return false;
+		OnBlocksChanged();
+		return true;
+	}
+
+	/// <summary>Removes a block. Any part no longer connected to the rest breaks off as its own grid.</summary>
+	public bool Remove(Vector3I cell)
+	{
+		if (!RemoveInternal(cell))
+			return false;
+		if (_blocks.Count == 0)
+		{
+			QueueFree();
+			return true;
+		}
+		SplitDisconnected();
+		OnBlocksChanged();
+		return true;
+	}
+
+	private bool AddInternal(Vector3I cell, PlacedBlock block, float integrity)
+	{
 		if (!_blocks.TryAdd(cell, block))
 			return false;
+		_integrity[cell] = integrity;
 
 		var shape = new CollisionShape3D { Shape = _cellShape, Position = CellCenter(cell) };
 		AddChild(shape);
 		_shapes[cell] = shape;
 
-		if (BlockVisuals.CreateDecoration(definition) is { } decoration)
+		if (BlockVisuals.CreateDecoration(block.Definition) is { } decoration)
 		{
-			decoration.Transform = new Transform3D(orientation, CellCenter(cell));
+			decoration.Transform = new Transform3D(block.Orientation, CellCenter(cell));
 			AddChild(decoration);
 			_decorations[cell] = decoration;
 		}
 
-		ApplyMassDelta(cell, definition.Mass);
-		OnBlocksChanged();
+		ApplyMassDelta(cell, block.Definition.Mass);
 		return true;
 	}
 
-	public bool Remove(Vector3I cell)
+	/// <summary>Removes the block's data, collider and visuals without rebuilding the mesh or checking connectivity.</summary>
+	private bool RemoveInternal(Vector3I cell)
 	{
 		if (!_blocks.Remove(cell, out var block))
 			return false;
+		_integrity.Remove(cell);
 
 		_shapes.Remove(cell, out var shape);
 		shape!.QueueFree();
 		if (_decorations.Remove(cell, out var decoration))
 			decoration.QueueFree();
 
-		BlockRemoved?.Invoke(cell);
-		if (_blocks.Count == 0)
-		{
-			QueueFree();
-			return true;
-		}
 		ApplyMassDelta(cell, -block.Definition.Mass);
-		OnBlocksChanged();
+		BlockRemoved?.Invoke(cell);
 		return true;
 	}
 
@@ -133,6 +154,8 @@ public partial class BlockGrid : RigidBody3D
 	{
 		_totalMass += mass;
 		_massMoment += CellCenter(cell) * mass;
+		if (_blocks.Count == 0)
+			return;
 		Mass = _totalMass;
 		CenterOfMass = _massMoment / _totalMass;
 	}
@@ -149,7 +172,8 @@ public partial class BlockGrid : RigidBody3D
 		foreach (var (cell, block) in _blocks)
 		{
 			Vector3 center = CellCenter(cell);
-			Color color = block.Definition.Color.SrgbToLinear();
+			float health = _integrity[cell] / block.Definition.MaxIntegrity;
+			Color color = DamagedColor.Lerp(block.Definition.Color, 0.25f + 0.75f * health).SrgbToLinear();
 			foreach (var (dir, u, v) in Faces)
 			{
 				if (_blocks.ContainsKey(cell + dir))

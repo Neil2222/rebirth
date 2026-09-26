@@ -19,6 +19,34 @@ public static class BlockVisuals
 		_ => null,
 	};
 
+	/// <summary>One-shot burst of tumbling fragments where a block was destroyed.</summary>
+	public static void SpawnDebris(Node parent, Vector3 position, Color color)
+	{
+		var particles = new CpuParticles3D
+		{
+			Mesh = new BoxMesh { Size = Vector3.One * 0.3f, Material = new StandardMaterial3D { AlbedoColor = color, Roughness = 0.8f } },
+			Amount = 18,
+			Lifetime = 2.0,
+			OneShot = true,
+			Explosiveness = 1f,
+			Direction = Vector3.Up,
+			Spread = 180f,
+			Gravity = Vector3.Zero,
+			InitialVelocityMin = 2f,
+			InitialVelocityMax = 7f,
+			AngularVelocityMin = -360f,
+			AngularVelocityMax = 360f,
+			ScaleAmountMin = 0.5f,
+			ScaleAmountMax = 1.4f,
+			EmissionShape = CpuParticles3D.EmissionShapeEnum.Box,
+			EmissionBoxExtents = Vector3.One * H,
+			Position = position,
+		};
+		parent.AddChild(particles);
+		particles.Emitting = true;
+		particles.Finished += particles.QueueFree;
+	}
+
 	private static Node3D Cockpit()
 	{
 		var root = new Node3D();

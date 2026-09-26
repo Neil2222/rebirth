@@ -67,6 +67,7 @@ public partial class BlockGrid
 
 	public override void _IntegrateForces(PhysicsDirectBodyState3D state)
 	{
+		CollectImpacts(state);
 		System.Array.Clear(_throttle);
 		if (Freeze)
 			return;
