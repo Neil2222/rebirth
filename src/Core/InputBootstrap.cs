@@ -18,12 +18,20 @@ public partial class InputBootstrap : Node
 		Bind("toggle_dampeners", Key.Z);
 		Bind("toggle_jetpack", Key.X);
 		Bind("release_mouse", Key.Escape);
+		for (int slot = 0; slot <= 9; slot++)
+			Bind($"slot_{slot}", Key.Key0 + slot);
+		Bind("build_place", MouseButton.Left);
+		Bind("build_remove", MouseButton.Right);
 	}
 
-	private static void Bind(string action, Key key)
+	private static void Bind(string action, Key key) => Bind(action, new InputEventKey { PhysicalKeycode = key });
+
+	private static void Bind(string action, MouseButton button) => Bind(action, new InputEventMouseButton { ButtonIndex = button });
+
+	private static void Bind(string action, InputEvent inputEvent)
 	{
 		if (!InputMap.HasAction(action))
 			InputMap.AddAction(action);
-		InputMap.ActionAddEvent(action, new InputEventKey { PhysicalKeycode = key });
+		InputMap.ActionAddEvent(action, inputEvent);
 	}
 }

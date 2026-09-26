@@ -19,6 +19,7 @@ public partial class Main : Node3D
 
 		Player = new Player { Name = "Player" };
 		AddChild(Player);
+		Player.BuildTool.GridParent = this;
 		AddChild(new Hud { Player = Player });
 	}
 

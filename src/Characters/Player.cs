@@ -1,3 +1,4 @@
+using Driftworks.Building;
 using Godot;
 
 namespace Driftworks.Characters;
@@ -17,6 +18,7 @@ public partial class Player : RigidBody3D
 	public bool DampenersOn { get; private set; } = true;
 	public bool JetpackOn { get; private set; } = true;
 	public Camera3D Camera { get; private set; } = null!;
+	public BuildTool BuildTool { get; private set; } = null!;
 
 	private Vector2 _pendingMouse;
 
@@ -35,6 +37,9 @@ public partial class Player : RigidBody3D
 		Camera = new Camera3D { Position = new Vector3(0, 0.6f, 0), Fov = 75f, Near = 0.05f, Far = 20000f, Current = true };
 		AddChild(Camera);
 
+		BuildTool = new BuildTool { Camera = Camera, Body = this };
+		AddChild(BuildTool);
+
 		Input.MouseMode = Input.MouseModeEnum.Captured;
 	}
 
@@ -43,7 +48,11 @@ public partial class Player : RigidBody3D
 		if (e is InputEventMouseMotion motion && Input.MouseMode == Input.MouseModeEnum.Captured)
 			_pendingMouse += motion.Relative;
 		else if (e is InputEventMouseButton { Pressed: true } && Input.MouseMode != Input.MouseModeEnum.Captured)
+		{
+			// Consume the click so it only grabs the mouse and doesn't also place a block.
 			Input.MouseMode = Input.MouseModeEnum.Captured;
+			GetViewport().SetInputAsHandled();
+		}
 		else if (e.IsActionPressed("release_mouse"))
 			Input.MouseMode = Input.MouseModeEnum.Visible;
 		else if (e.IsActionPressed("toggle_dampeners"))
