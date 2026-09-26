@@ -1,3 +1,4 @@
+using Driftworks.Items;
 using Godot;
 using Godot.Collections;
 
@@ -15,6 +16,9 @@ public partial class BuildTool : Node3D
 	public Camera3D Camera { get; set; } = null!;
 	public CollisionObject3D Body { get; set; } = null!;
 	public Node GridParent { get; set; } = null!;
+
+	/// <summary>Inventory that pays for placed blocks and receives refunds; null means creative (free) building.</summary>
+	public Inventory? CostSource { get; set; }
 
 	public BlockDefinition? Selected { get; private set; }
 
@@ -60,7 +64,7 @@ public partial class BuildTool : Node3D
 		if (e.IsActionPressed("primary_action"))
 			Place();
 		else if (e.IsActionPressed("secondary_action"))
-			AimedGrid?.Remove(AimedCell);
+			RemoveAimed();
 		else if (e.IsActionPressed("rotate_block_yaw"))
 			Rotate(Camera.GlobalBasis.Y);
 		else if (e.IsActionPressed("rotate_block_pitch"))
@@ -76,7 +80,7 @@ public partial class BuildTool : Node3D
 			return;
 
 		_ghost.GlobalTransform = _placeTransform;
-		_ghostMaterial.AlbedoColor = _placeValid ? new Color(0.3f, 1f, 0.4f, 0.35f) : new Color(1f, 0.25f, 0.2f, 0.35f);
+		_ghostMaterial.AlbedoColor = _placeValid && CanAfford(Selected!) ? new Color(0.3f, 1f, 0.4f, 0.35f) : new Color(1f, 0.25f, 0.2f, 0.35f);
 		if (!wasVisible)
 			_ghost.ResetPhysicsInterpolation();
 	}
@@ -96,6 +100,19 @@ public partial class BuildTool : Node3D
 			flame.Scale = new Vector3(1, 1, 0.8f);
 	}
 
+	public bool CanAfford(BlockDefinition block) => CostSource is null || CostSource.Has(block.Cost);
+
+	/// <summary>Removes the aimed block, refunding its cost in survival (whatever fits in the inventory).</summary>
+	private void RemoveAimed()
+	{
+		if (AimedGrid is not { } grid || !grid.TryGet(AimedCell, out var block))
+			return;
+		grid.Remove(AimedCell);
+		if (CostSource is not null)
+			foreach (var (item, amount) in block.Definition.Cost)
+				CostSource.Add(item, amount);
+	}
+
 	/// <summary>Rotates the block 90° around the grid axis closest to <paramref name="worldAxis"/>.</summary>
 	private void Rotate(Vector3 worldAxis)
 	{
@@ -111,8 +128,11 @@ public partial class BuildTool : Node3D
 
 	private void Place()
 	{
-		if (!_placeValid || Selected is null)
+		if (!_placeValid || Selected is null || !CanAfford(Selected))
 			return;
+		if (CostSource is not null)
+			foreach (var (item, amount) in Selected.Cost)
+				CostSource.TryRemove(item, amount);
 		if (_placeGrid is null)
 			BlockGrid.Create(GridParent, _placeTransform * new Transform3D(_orientation.Inverse(), Vector3.Zero), isStatic: true)
 				.TryAdd(Vector3I.Zero, Selected, _orientation);

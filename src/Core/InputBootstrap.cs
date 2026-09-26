@@ -22,6 +22,8 @@ public partial class InputBootstrap : Node
 		Bind("toggle_grid_static", Key.K);
 		Bind("rotate_block_yaw", Key.R);
 		Bind("rotate_block_pitch", Key.T);
+		Bind("toggle_creative", Key.F2);
+		Bind("toggle_light", Key.L);
 		for (int slot = 0; slot <= 9; slot++)
 			Bind($"slot_{slot}", Key.Key0 + slot);
 		Bind("primary_action", MouseButton.Left);

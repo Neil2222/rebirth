@@ -62,6 +62,13 @@ public partial class BlockGrid : RigidBody3D
 		MaxContactsReported = 16;
 	}
 
+	public override void _PhysicsProcess(double delta)
+	{
+		UpdatePower((float)delta);
+		UpdateRefining((float)delta);
+		ApplyPendingDamage();
+	}
+
 	public bool Has(Vector3I cell) => _blocks.ContainsKey(cell);
 
 	public bool TryGet(Vector3I cell, out PlacedBlock block) => _blocks.TryGetValue(cell, out block);
@@ -83,9 +90,11 @@ public partial class BlockGrid : RigidBody3D
 			Sleeping = false;
 	}
 
-	public bool TryAdd(Vector3I cell, BlockDefinition definition, Basis orientation)
+	/// <param name="charge">Initial battery charge as a fraction of capacity (ignored for other blocks).</param>
+	public bool TryAdd(Vector3I cell, BlockDefinition definition, Basis orientation, float charge = 0.25f)
 	{
-		if (!AddInternal(cell, new PlacedBlock(definition, orientation), definition.MaxIntegrity))
+		var state = new BlockState { Integrity = definition.MaxIntegrity, StoredEnergy = definition.BatteryCapacity * charge };
+		if (!AddInternal(cell, new PlacedBlock(definition, orientation), state))
 			return false;
 		OnBlocksChanged();
 		return true;
@@ -106,11 +115,11 @@ public partial class BlockGrid : RigidBody3D
 		return true;
 	}
 
-	private bool AddInternal(Vector3I cell, PlacedBlock block, float integrity)
+	private bool AddInternal(Vector3I cell, PlacedBlock block, BlockState state)
 	{
 		if (!_blocks.TryAdd(cell, block))
 			return false;
-		_integrity[cell] = integrity;
+		_state[cell] = state;
 
 		var shape = new CollisionShape3D { Shape = _cellShape, Position = CellCenter(cell) };
 		AddChild(shape);
@@ -132,7 +141,7 @@ public partial class BlockGrid : RigidBody3D
 	{
 		if (!_blocks.Remove(cell, out var block))
 			return false;
-		_integrity.Remove(cell);
+		_state.Remove(cell);
 
 		_shapes.Remove(cell, out var shape);
 		shape!.QueueFree();
@@ -148,6 +157,7 @@ public partial class BlockGrid : RigidBody3D
 	{
 		RebuildMesh();
 		RebuildFlightCapabilities();
+		RebuildPowerAndCargo();
 	}
 
 	private void ApplyMassDelta(Vector3I cell, float mass)
@@ -172,7 +182,7 @@ public partial class BlockGrid : RigidBody3D
 		foreach (var (cell, block) in _blocks)
 		{
 			Vector3 center = CellCenter(cell);
-			float health = _integrity[cell] / block.Definition.MaxIntegrity;
+			float health = _state[cell].Integrity / block.Definition.MaxIntegrity;
 			Color color = DamagedColor.Lerp(block.Definition.Color, 0.25f + 0.75f * health).SrgbToLinear();
 			foreach (var (dir, u, v) in Faces)
 			{

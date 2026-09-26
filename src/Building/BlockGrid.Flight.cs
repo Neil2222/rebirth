@@ -82,8 +82,9 @@ public partial class BlockGrid
 		Vector3 force = Vector3.Zero;
 		for (int axis = 0; axis < 3; axis++)
 		{
-			float positive = _thrustCapacity[axis * 2];
-			float negative = _thrustCapacity[axis * 2 + 1];
+			// Under a power shortage every consumer gets the same fraction of what it asked for.
+			float positive = _thrustCapacity[axis * 2] * PowerSatisfaction;
+			float negative = _thrustCapacity[axis * 2 + 1] * PowerSatisfaction;
 			float f = 0f;
 			if (Mathf.Abs(move[axis]) > 0.01f)
 				f = move[axis] * (move[axis] > 0f ? positive : negative);
@@ -98,11 +99,12 @@ public partial class BlockGrid
 		state.LinearVelocity = (state.LinearVelocity + toWorld * force * (dt / Mass)).LimitLength(MaxSpeed);
 
 		// Angular: gyros apply at most _gyroTorque to reach the requested angular velocity.
-		if (_gyroTorque > 0f)
+		float gyroTorque = _gyroTorque * PowerSatisfaction;
+		if (gyroTorque > 0f)
 		{
 			Vector3 target = toWorld * (ControlFrame * Controls.Rotate);
 			Basis inverseInertia = state.InverseInertiaTensor;
-			Vector3 torque = (inverseInertia.Inverse() * (target - state.AngularVelocity) / dt).LimitLength(_gyroTorque);
+			Vector3 torque = (inverseInertia.Inverse() * (target - state.AngularVelocity) / dt).LimitLength(gyroTorque);
 			state.AngularVelocity += inverseInertia * torque * dt;
 		}
 	}

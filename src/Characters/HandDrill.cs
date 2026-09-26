@@ -18,6 +18,8 @@ public partial class HandDrill : Node3D
 	/// <summary>Equipped in the player's hand.</summary>
 	public bool Equipped { get; set; }
 	public bool Drilling { get; private set; }
+	/// <summary>True while drilling is blocked because the inventory has no room left.</summary>
+	public bool InventoryFull { get; private set; }
 
 	private float _cooldown;
 	private Node3D _model = null!;
@@ -55,7 +57,8 @@ public partial class HandDrill : Node3D
 	public override void _PhysicsProcess(double delta)
 	{
 		_model.Visible = Equipped;
-		Drilling = Equipped && Input.MouseMode == Input.MouseModeEnum.Captured && Input.IsActionPressed("primary_action");
+		InventoryFull = Inventory.FreeSpace <= 0f;
+		Drilling = Equipped && !InventoryFull && Input.MouseMode == Input.MouseModeEnum.Captured && Input.IsActionPressed("primary_action");
 		if (Drilling)
 			_model.RotateObjectLocal(Vector3.Forward, 25f * (float)delta);
 

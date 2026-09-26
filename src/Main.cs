@@ -20,6 +20,7 @@ public partial class Main : Node3D
 		AddAsteroid(new Vector3(-22, -4, -26), 8f, 4);
 		BuildCrates(new Vector3(0, 0, -15));
 		BuildStarterShip(new Transform3D(Basis.Identity, new Vector3(14, 0, -8)));
+		BuildStarterStation(new Transform3D(Basis.Identity, new Vector3(-12, -7, -2)));
 
 		Player = new Player { Name = "Player" };
 		AddChild(Player);
@@ -48,6 +49,24 @@ public partial class Main : Node3D
 		ship.TryAdd(new Vector3I(2, 0, 1), BlockCatalog.Thruster, new Basis(Vector3.Up, Mathf.Pi / 2f));      // left
 		ship.TryAdd(new Vector3I(0, 1, 1), BlockCatalog.Thruster, new Basis(Vector3.Right, -Mathf.Pi / 2f));  // down
 		ship.TryAdd(new Vector3I(0, -1, 1), BlockCatalog.Thruster, new Basis(Vector3.Right, Mathf.Pi / 2f));  // up
+		ship.TryAdd(new Vector3I(0, 1, 2), BlockCatalog.Battery, identity, charge: 1f);
+	}
+
+	/// <summary>Static base with a refinery, cargo, a battery, and solar panels on the sunward (+X) side.</summary>
+	private void BuildStarterStation(Transform3D transform)
+	{
+		var station = BlockGrid.Create(this, transform, isStatic: true);
+		Basis identity = Basis.Identity;
+		for (int x = -1; x <= 1; x++)
+			for (int z = -1; z <= 1; z++)
+				station.TryAdd(new Vector3I(x, 0, z), BlockCatalog.LightArmor, identity);
+		station.TryAdd(new Vector3I(-1, 1, 0), BlockCatalog.Battery, identity, charge: 1f);
+		station.TryAdd(new Vector3I(0, 1, 0), BlockCatalog.Refinery, identity);
+		station.TryAdd(new Vector3I(1, 1, 0), BlockCatalog.CargoContainer, identity);
+		// Panels collect on their local +Y; turn that towards +X.
+		var sunward = new Basis(Vector3.Back, -Mathf.Pi / 2f);
+		for (int z = -1; z <= 1; z++)
+			station.TryAdd(new Vector3I(2, 0, z), BlockCatalog.SolarPanel, sunward);
 	}
 
 	private void BuildEnvironment()
@@ -73,6 +92,8 @@ public partial class Main : Node3D
 		};
 		AddChild(sun);
 		sun.LookAt(new Vector3(-1, -0.4f, -0.6f), Vector3.Up);
+		// The light shines along its -Z, so +Z points back at the sun.
+		Sun.Direction = sun.GlobalBasis.Z;
 	}
 
 	private void BuildCrates(Vector3 origin)

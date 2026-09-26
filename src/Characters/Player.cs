@@ -1,3 +1,4 @@
+using System.Linq;
 using Driftworks.Building;
 using Driftworks.Items;
 using Godot;
@@ -19,13 +20,22 @@ public partial class Player : RigidBody3D
 	[Export] public float ShipMaxTurnRate = 2.5f;  // rad/s
 
 	private const uint PlayerCollisionLayer = 1;
+	public const float CarryCapacity = 1500f;   // kg
+	private const double MessageSeconds = 4.0;
 
 	public bool DampenersOn { get; private set; } = true;
 	public bool JetpackOn { get; private set; } = true;
 	public Camera3D Camera { get; private set; } = null!;
+	public SpotLight3D HelmetLight { get; private set; } = null!;
 	public BuildTool BuildTool { get; private set; } = null!;
 	public HandDrill Drill { get; private set; } = null!;
-	public Inventory Inventory { get; } = new();
+	public Inventory Inventory { get; } = new() { Capacity = CarryCapacity };
+
+	/// <summary>Creative mode builds for free; survival pays ingots from the inventory.</summary>
+	public bool Creative { get; private set; }
+
+	/// <summary>Short feedback line for the HUD, or null when there is nothing recent to say.</summary>
+	public string? Message => Time.GetTicksMsec() / 1000.0 - _messageTime < MessageSeconds ? _message : null;
 
 	/// <summary>Item in hand, or null for the empty hand.</summary>
 	public ToolbarItem? Equipped { get; private set; }
@@ -36,6 +46,8 @@ public partial class Player : RigidBody3D
 	private Vector3I _cockpitCell;
 	private Node3D? _seat;
 	private Vector2 _pendingMouse;
+	private string? _message;
+	private double _messageTime = double.NegativeInfinity;
 
 	public override void _Ready()
 	{
@@ -51,11 +63,18 @@ public partial class Player : RigidBody3D
 
 		Camera = new Camera3D { Position = new Vector3(0, 0.6f, 0), Fov = 75f, Near = 0.05f, Far = 20000f, Current = true };
 		AddChild(Camera);
+		HelmetLight = new SpotLight3D { SpotRange = 45f, SpotAngle = 32f, LightEnergy = 3f, Position = new Vector3(0.15f, 0.1f, 0f) };
+		Camera.AddChild(HelmetLight);
 
-		BuildTool = new BuildTool { Camera = Camera, Body = this };
+		BuildTool = new BuildTool { Camera = Camera, Body = this, CostSource = Inventory };
 		AddChild(BuildTool);
 		Drill = new HandDrill { Camera = Camera, Body = this, Inventory = Inventory };
 		AddChild(Drill);
+
+		// Starter kit: enough ingots for a handful of blocks before the first refinery run.
+		Inventory.Add("iron_ingot", 800f);
+		Inventory.Add("nickel_ingot", 150f);
+		Inventory.Add("silicon_wafer", 150f);
 
 		Input.MouseMode = Input.MouseModeEnum.Captured;
 	}
@@ -76,18 +95,35 @@ public partial class Player : RigidBody3D
 			DampenersOn = !DampenersOn;
 		else if (e.IsActionPressed("toggle_jetpack"))
 			JetpackOn = !JetpackOn;
+		else if (e.IsActionPressed("toggle_light"))
+			HelmetLight.Visible = !HelmetLight.Visible;
 		else if (e.IsActionPressed("use"))
 			Use();
 		else if (e.IsActionPressed("toggle_grid_static") && PilotedGrid is null)
 			BuildTool.AimedGrid?.ToggleStatic();
+		else if (e.IsActionPressed("toggle_creative"))
+		{
+			Creative = !Creative;
+			BuildTool.CostSource = Creative ? null : Inventory;
+			ShowMessage(Creative ? "Creative mode: building is free" : "Survival mode: blocks cost ingots");
+		}
 		else
 		{
-			for (int slot = 0; slot <= 9; slot++)
+			for (int key = 0; key <= 9; key++)
 			{
-				if (e.IsActionPressed($"slot_{slot}"))
-					Equip(slot >= 1 && slot <= Toolbar.Slots.Count ? Toolbar.Slots[slot - 1] : null);
+				if (!e.IsActionPressed($"slot_{key}"))
+					continue;
+				int index = (key + 9) % 10;   // keys 1..9 then 0
+				ToolbarItem? item = index < Toolbar.Slots.Count ? Toolbar.Slots[index] : null;
+				Equip(item == Equipped ? null : item);
 			}
 		}
+	}
+
+	public void ShowMessage(string message)
+	{
+		_message = message;
+		_messageTime = Time.GetTicksMsec() / 1000.0;
 	}
 
 	private void Equip(ToolbarItem? item)
@@ -110,9 +146,29 @@ public partial class Player : RigidBody3D
 	private void Use()
 	{
 		if (PilotedGrid is not null)
+		{
 			ExitCockpit();
-		else if (BuildTool.AimedGrid is { } grid && grid.TryGet(BuildTool.AimedCell, out var block) && block.Definition.Kind == BlockKind.Cockpit)
+			return;
+		}
+		if (BuildTool.AimedGrid is not { } grid || !grid.TryGet(BuildTool.AimedCell, out var block))
+			return;
+		if (block.Definition.Kind == BlockKind.Cockpit)
 			EnterCockpit(grid, BuildTool.AimedCell);
+		else if (block.Definition.CargoCapacity > 0f)
+			TradeWith(grid.Inventory);
+	}
+
+	/// <summary>Unloads carried ore into a grid's inventory and picks up the ingots it holds.</summary>
+	private void TradeWith(Inventory grid)
+	{
+		float deposited = 0f, collected = 0f;
+		foreach (var (id, amount) in Inventory.Items.ToArray())
+			if (ItemCatalog.Get(id).Category == ItemCategory.Ore)
+				deposited += Inventory.TransferTo(grid, id, amount);
+		foreach (var (id, amount) in grid.Items.ToArray())
+			if (ItemCatalog.Get(id).Category == ItemCategory.Ingot)
+				collected += grid.TransferTo(Inventory, id, amount);
+		ShowMessage($"Deposited {deposited:0} kg ore, took {collected:0} kg ingots");
 	}
 
 	private void EnterCockpit(BlockGrid grid, Vector3I cell)

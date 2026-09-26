@@ -15,10 +15,10 @@ public partial class BlockGrid
 	private static readonly Vector3I[] Neighbours =
 		[Vector3I.Right, Vector3I.Left, Vector3I.Up, Vector3I.Down, Vector3I.Back, Vector3I.Forward];
 
-	private readonly Dictionary<Vector3I, float> _integrity = new();
+	private readonly Dictionary<Vector3I, BlockState> _state = new();
 	private readonly List<(Vector3I Cell, float Amount)> _pendingDamage = new();
 
-	public float Integrity(Vector3I cell) => _integrity[cell];
+	public float Integrity(Vector3I cell) => _state[cell].Integrity;
 
 	/// <summary>Damage is applied on the next physics tick, so it is safe to call from physics callbacks.</summary>
 	public void QueueDamage(Vector3I cell, float amount) => _pendingDamage.Add((cell, amount));
@@ -72,7 +72,7 @@ public partial class BlockGrid
 		}
 	}
 
-	public override void _PhysicsProcess(double delta)
+	private void ApplyPendingDamage()
 	{
 		if (_pendingDamage.Count == 0)
 			return;
@@ -80,10 +80,10 @@ public partial class BlockGrid
 		var destroyed = new List<Vector3I>();
 		foreach (var (cell, amount) in _pendingDamage)
 		{
-			if (!_integrity.TryGetValue(cell, out float integrity) || integrity <= 0f)
+			if (!_state.TryGetValue(cell, out var state) || state.Integrity <= 0f)
 				continue;
-			_integrity[cell] = integrity - amount;
-			if (integrity - amount <= 0f)
+			state.Integrity -= amount;
+			if (state.Integrity <= 0f)
 				destroyed.Add(cell);
 		}
 		_pendingDamage.Clear();
@@ -145,9 +145,9 @@ public partial class BlockGrid
 			foreach (var cell in components[i])
 			{
 				var block = _blocks[cell];
-				float integrity = _integrity[cell];
+				var state = _state[cell];
 				RemoveInternal(cell);
-				piece.AddInternal(cell, block, integrity);
+				piece.AddInternal(cell, block, state);
 			}
 			piece.OnBlocksChanged();
 			piece.LinearVelocity = LinearVelocity + AngularVelocity.Cross(piece.GlobalTransform * piece.CenterOfMass - oldCenterOfMass);
