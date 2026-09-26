@@ -57,7 +57,12 @@ public partial class Hud : CanvasLayer
 	private string SuitText() =>
 		$"Speed: {Player.LinearVelocity.Length(),6:0.0} m/s\n" +
 		$"Jetpack [X]: {OnOff(Player.JetpackOn)}   Dampeners [Z]: {OnOff(Player.DampenersOn)}   Light [L]: {OnOff(Player.HelmetLight.Visible)}\n" +
-		$"Mode [F2]: {(Player.Creative ? "Creative" : "Survival")}\n\n";
+		$"Mode [F2]: {(Player.Creative ? "Creative" : "Survival")}\n" +
+		GravityText(Player.Gravity) +
+		(Player.Walking ? $"Walking{(Player.Grounded ? "" : " (airborne)")}: WASD, Shift sprint, Space jump, X jetpack\n" : "") + "\n";
+
+	private static string GravityText(Vector3 gravity) =>
+		gravity.Length() > 0.05f ? $"Gravity: {gravity.Length() / 9.81f:0.00} g\n" : "";
 
 	private string ShipText(BlockGrid ship)
 	{
@@ -69,6 +74,7 @@ public partial class Hud : CanvasLayer
 			$"Thrust kN  fwd {Thrust(Vector3.Forward)}  back {Thrust(Vector3.Back)}  up {Thrust(Vector3.Up)}  " +
 			$"down {Thrust(Vector3.Down)}  left {Thrust(Vector3.Left)}  right {Thrust(Vector3.Right)}\n" +
 			$"Gyro torque: {ship.GyroTorque / 1e6f:0.0} MN·m\n" +
+			GravityText(ship.GetGravity()) +
 			PowerText(ship) +
 			(ship.IsStatic ? "Station (static) - get out and press K on it to make it a ship\n" : "") +
 			"[F] leave cockpit";

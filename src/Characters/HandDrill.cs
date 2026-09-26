@@ -75,14 +75,14 @@ public partial class HandDrill : Node3D
 		Vector3 forward = -Camera.GlobalBasis.Z;
 		var ray = PhysicsRayQueryParameters3D.Create(from, from + forward * Reach, exclude: [Body.GetRid()]);
 		var hit = GetWorld3D().DirectSpaceState.IntersectRay(ray);
-		if (hit.Count == 0 || hit["collider"].AsGodotObject() is not VoxelAsteroid asteroid)
+		if (hit.Count == 0 || hit["collider"].AsGodotObject() is not IMinable terrain)
 		{
 			_dust.Emitting = false;
 			return;
 		}
 
 		Vector3 point = hit["position"].AsVector3();
-		float[] mined = asteroid.Carve(point + forward * 0.4f, BiteRadius);
+		float[] mined = terrain.Carve(point + forward * 0.4f, BiteRadius);
 		for (int m = 0; m < mined.Length; m++)
 		{
 			var material = VoxelMaterials.All[m];

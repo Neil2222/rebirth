@@ -18,6 +18,15 @@ public partial class Player : RigidBody3D
 	[Export] public float RollSpeed = 1.6f;        // rad/s
 	[Export] public float ShipMouseRate = 0.06f;   // rad/s of ship rotation per pixel of mouse movement per tick
 	[Export] public float ShipMaxTurnRate = 2.5f;  // rad/s
+	[Export] public float WalkSpeed = 5f;          // m/s
+	[Export] public float SprintSpeed = 9f;        // m/s
+	[Export] public float JumpSpeed = 5f;          // m/s
+
+	private const float WalkGravityThreshold = 0.5f;  // m/s²; weaker gravity still means floating
+	private const float UprightRate = 3f;            // rad/s
+	private const float GroundProbe = 1.1f;          // capsule half-height (0.9) plus slack
+	private const float GroundAcceleration = 40f;
+	private const float AirAcceleration = 4f;
 
 	private const uint PlayerCollisionLayer = 1;
 	public const float CarryCapacity = 1500f;   // kg
@@ -30,6 +39,14 @@ public partial class Player : RigidBody3D
 	public BuildTool BuildTool { get; private set; } = null!;
 	public HandDrill Drill { get; private set; } = null!;
 	public Inventory Inventory { get; } = new() { Capacity = CarryCapacity };
+
+	/// <summary>Gravity acting on the player (m/s²), from the physics state.</summary>
+	public Vector3 Gravity { get; private set; }
+	/// <summary>Jetpack off in gravity: upright, walking, jumping.</summary>
+	public bool Walking { get; private set; }
+	public bool Grounded { get; private set; }
+
+	private float _headPitch;   // walking only; flying pitches the whole body
 
 	/// <summary>Creative mode builds for free; survival pays ingots from the inventory.</summary>
 	public bool Creative { get; private set; }
@@ -212,6 +229,7 @@ public partial class Player : RigidBody3D
 
 		Camera.Reparent(this, keepGlobalTransform: false);
 		Camera.Transform = new Transform3D(Basis.Identity, new Vector3(0, 0.6f, 0));
+		_headPitch = 0f;
 		_seat!.QueueFree();
 		_seat = null;
 		PilotedGrid = null;
@@ -266,8 +284,33 @@ public partial class Player : RigidBody3D
 
 	public override void _IntegrateForces(PhysicsDirectBodyState3D state)
 	{
+		Gravity = state.TotalGravity;
+		bool walk = !JetpackOn && Gravity.LengthSquared() > WalkGravityThreshold * WalkGravityThreshold;
+		if (walk != Walking)
+		{
+			Walking = walk;
+			// Switching to free flight folds the head's pitch into the body, so the view doesn't jump.
+			if (!walk)
+			{
+				var folded = state.Transform.Basis * new Basis(Vector3.Right, _headPitch);
+				state.Transform = new Transform3D(folded.Orthonormalized(), state.Transform.Origin);
+				_headPitch = 0f;
+				Camera.Rotation = Vector3.Zero;
+			}
+		}
+		state.AngularVelocity = Vector3.Zero;
+
+		if (walk)
+			Walk(state);
+		else
+			Fly(state);
+	}
+
+	private void Fly(PhysicsDirectBodyState3D state)
+	{
 		float dt = state.Step;
 		Basis basis = state.Transform.Basis;
+		Grounded = false;
 
 		// Rotation: post-multiply so every axis is relative to the player's current orientation.
 		float roll = Input.GetAxis("roll_left", "roll_right");
@@ -279,17 +322,17 @@ public partial class Player : RigidBody3D
 			_pendingMouse = Vector2.Zero;
 			state.Transform = new Transform3D(basis.Orthonormalized(), state.Transform.Origin);
 		}
-		state.AngularVelocity = Vector3.Zero;
 
 		if (!JetpackOn)
 			return;
 
-		// Thrust per local axis; dampeners counter drift on any axis without input.
+		// Thrust per local axis; dampeners counter drift on any axis without input. Gravity is
+		// integrated after this callback, so dampen the velocity it is about to produce: that hovers.
 		var input = new Vector3(
 			Input.GetAxis("move_left", "move_right"),
 			Input.GetAxis("move_down", "move_up"),
 			Input.GetAxis("move_forward", "move_back"));
-		Vector3 localVelocity = basis.Inverse() * state.LinearVelocity;
+		Vector3 localVelocity = basis.Inverse() * (state.LinearVelocity + state.TotalGravity * dt);
 		float maxAccel = ThrustForce / Mass;
 		Vector3 accel = Vector3.Zero;
 		for (int axis = 0; axis < 3; axis++)
@@ -301,5 +344,45 @@ public partial class Player : RigidBody3D
 		}
 
 		state.LinearVelocity = (state.LinearVelocity + basis * accel * dt).LimitLength(MaxSpeed);
+	}
+
+	/// <summary>On foot in gravity: body upright along -gravity, mouse yaws the body and pitches the head.</summary>
+	private void Walk(PhysicsDirectBodyState3D state)
+	{
+		float dt = state.Step;
+		Vector3 up = -Gravity.Normalized();
+		Basis basis = state.Transform.Basis;
+
+		basis = new Basis(basis.Y, -_pendingMouse.X * MouseSensitivity) * basis;
+		_headPitch = Mathf.Clamp(_headPitch - _pendingMouse.Y * MouseSensitivity, -1.5f, 1.5f);
+		_pendingMouse = Vector2.Zero;
+		Camera.Rotation = new Vector3(_headPitch, 0f, 0f);
+
+		// Swing upright gradually, e.g. after switching the jetpack off upside down.
+		float tilt = basis.Y.AngleTo(up);
+		if (tilt > 1e-4f)
+		{
+			Vector3 axis = basis.Y.Cross(up);
+			axis = axis.LengthSquared() > 1e-8f ? axis.Normalized() : basis.X;
+			basis = new Basis(axis, Mathf.Min(tilt, UprightRate * dt)) * basis;
+		}
+		Vector3 origin = state.Transform.Origin;
+		state.Transform = new Transform3D(basis.Orthonormalized(), origin);
+
+		var ray = PhysicsRayQueryParameters3D.Create(origin, origin - up * GroundProbe, exclude: [GetRid()]);
+		Grounded = state.GetSpaceState().IntersectRay(ray).Count > 0;
+
+		Vector3 forward = (-basis.Z).Slide(up).Normalized();
+		Vector3 right = basis.X.Slide(up).Normalized();
+		Vector3 wish = right * Input.GetAxis("move_left", "move_right") - forward * Input.GetAxis("move_forward", "move_back");
+		float speed = Input.IsActionPressed("sprint") ? SprintSpeed : WalkSpeed;
+		wish = wish.LimitLength(1f) * speed;
+
+		Vector3 vertical = up * state.LinearVelocity.Dot(up);
+		Vector3 horizontal = state.LinearVelocity - vertical;
+		horizontal = horizontal.MoveToward(wish, (Grounded ? GroundAcceleration : AirAcceleration) * dt);
+		if (Grounded && Input.IsActionPressed("move_up") && vertical.Dot(up) <= 0.1f)
+			vertical = up * JumpSpeed;
+		state.LinearVelocity = horizontal + vertical;
 	}
 }

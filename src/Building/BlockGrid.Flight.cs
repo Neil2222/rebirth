@@ -78,7 +78,8 @@ public partial class BlockGrid
 
 		// Linear: per grid axis, use thrusters facing that way.
 		Vector3 move = ControlFrame * Controls.Move;
-		Vector3 localVelocity = toLocal * state.LinearVelocity;
+		// Gravity is integrated after this callback; dampening the velocity it will produce makes ships hover.
+		Vector3 localVelocity = toLocal * (state.LinearVelocity + state.TotalGravity * dt);
 		Vector3 force = Vector3.Zero;
 		for (int axis = 0; axis < 3; axis++)
 		{

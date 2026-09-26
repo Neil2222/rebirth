@@ -18,6 +18,8 @@ public partial class Main : Node3D
 		AddAsteroid(new Vector3(150, 40, -300), 55f, 2);
 		AddAsteroid(new Vector3(-90, 30, -60), 14f, 3);
 		AddAsteroid(new Vector3(-22, -4, -26), 8f, 4);
+		// Close enough to fly to (~1 km of surface), far enough that its gravity (2.5 radii) misses the spawn.
+		AddChild(new Planet { Name = "Planet", Position = new Vector3(0, -1100, -1300), Radius = 600f, Seed = 7 });
 		BuildCrates(new Vector3(0, 0, -15));
 		BuildStarterShip(new Transform3D(Basis.Identity, new Vector3(14, 0, -8)));
 		BuildStarterStation(new Transform3D(Basis.Identity, new Vector3(-12, -7, -2)));
