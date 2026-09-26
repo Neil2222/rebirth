@@ -28,6 +28,9 @@ public partial class ForgeScreen : CanvasLayer
 	public BlockGrid Design { get; private set; } = null!;
 	public string DesignName => _name.Text.Trim().Length > 0 ? _name.Text.Trim() : "Untitled";
 
+	/// <summary>The design on the bench as a blueprint, or null when the bench is empty.</summary>
+	public Blueprint? CurrentBlueprint() => Design.BlockCount == 0 ? null : Blueprint.FromGrid(Design, DesignName, kind: _kind);
+
 	private enum Mode { Build, Paint }
 
 	private SubViewport _viewport = null!;
@@ -61,6 +64,8 @@ public partial class ForgeScreen : CanvasLayer
 
 	// UI.
 	private LineEdit _name = null!;
+	private OptionButton _kindPicker = null!;
+	private DesignKind _kind = DesignKind.Ship;
 	private Label _stats = null!;
 	private Label _toast = null!;
 	private double _toastUntil;
@@ -104,6 +109,8 @@ public partial class ForgeScreen : CanvasLayer
 		Design.Clear();
 		blueprint.BuildInto(Design);
 		_name.Text = blueprint.Name;
+		_kind = blueprint.Kind;
+		_kindPicker.Select((int)blueprint.Kind);
 		FocusCamera();
 		UpdateStats();
 	}
@@ -241,10 +248,15 @@ public partial class ForgeScreen : CanvasLayer
 		bar.AddChild(new Control { CustomMinimumSize = new Vector2(24, 0) });
 		_name = new LineEdit { Text = "New Design", CustomMinimumSize = new Vector2(260, 0), PlaceholderText = "Design name" };
 		bar.AddChild(_name);
+		_kindPicker = new OptionButton { TooltipText = "Ship: printed free-flying. Station: printed anchored. Body: worn by you." };
+		foreach (var kind in System.Enum.GetValues<DesignKind>())
+			_kindPicker.AddItem(kind.ToString(), (int)kind);
+		_kindPicker.ItemSelected += index => _kind = (DesignKind)(int)index;
+		bar.AddChild(_kindPicker);
 		AddButton(bar, "New", NewDesign);
 		AddButton(bar, "Save", SaveDesign);
 		AddButton(bar, "Load", ShowLoadDialog);
-		AddButton(bar, "Print to world", PrintDesign);
+		AddButton(bar, "Print (creative)", PrintDesign);
 		AddButton(bar, "Use as my body", WearDesign);
 		bar.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
 		AddButton(bar, "Close  [B]", Close);
@@ -416,7 +428,7 @@ public partial class ForgeScreen : CanvasLayer
 			Toast("Nothing to save yet");
 			return;
 		}
-		string path = BlueprintLibrary.Save(Blueprint.FromGrid(Design, DesignName));
+		string path = BlueprintLibrary.Save(CurrentBlueprint()!);
 		Toast($"Saved \"{DesignName}\"  ({path})");
 	}
 
@@ -425,7 +437,7 @@ public partial class ForgeScreen : CanvasLayer
 		if (Design.BlockCount == 0)
 			Toast("Nothing to print yet");
 		else if (Printer is not null)
-			Toast(Printer(Blueprint.FromGrid(Design, DesignName)));
+			Toast(Printer(CurrentBlueprint()!));
 	}
 
 	private void WearDesign()
@@ -435,7 +447,7 @@ public partial class ForgeScreen : CanvasLayer
 			Toast("Nothing to wear yet");
 			return;
 		}
-		BodySetter?.Invoke(Blueprint.FromGrid(Design, DesignName));
+		BodySetter?.Invoke(CurrentBlueprint()!);
 		Toast($"You are now \"{DesignName}\" (shown at 1.9 m tall; V switches first/third person)");
 	}
 
@@ -658,7 +670,7 @@ public partial class ForgeScreen : CanvasLayer
 
 	private void PushUndo()
 	{
-		_undo.Push(Blueprint.FromGrid(Design, DesignName));
+		_undo.Push(Blueprint.FromGrid(Design, DesignName, kind: _kind));
 		if (_undo.Count > MaxUndo)
 		{
 			var keep = _undo.Take(MaxUndo).Reverse().ToList();

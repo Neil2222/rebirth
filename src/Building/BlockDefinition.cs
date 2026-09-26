@@ -4,7 +4,7 @@ using Godot;
 
 namespace Rebirth.Building;
 
-public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery }
+public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator }
 
 /// <param name="Paint">Default neon colour of the block's edges and accents; players can repaint.</param>
 /// <param name="BodyShade">Brightness (0..1) of the dark body, so block types stay distinguishable.</param>
@@ -98,8 +98,16 @@ public static class BlockCatalog
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 600f, ["nickel_ingot"] = 60f, ["silicon_wafer"] = 60f },
 	};
 
+	/// <summary>Prints blueprints from the grid's ingots; the result appears in front of its -Z face.</summary>
+	public static readonly BlockDefinition Fabricator = new("fabricator", "Fabricator", BlockKind.Fabricator, Neon.Violet, 0.09f, 2500f, 150f)
+	{
+		PowerDraw = 1.5f,
+		CargoCapacity = 1_000f,
+		Cost = new Dictionary<string, float> { ["iron_ingot"] = 500f, ["nickel_ingot"] = 100f, ["silicon_wafer"] = 80f },
+	};
+
 	public static readonly IReadOnlyList<BlockDefinition> All =
-		[LightArmor, HeavyArmor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery];
+		[LightArmor, HeavyArmor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator];
 
 	private static readonly Dictionary<string, BlockDefinition> ById = All.ToDictionary(b => b.Id);
 
@@ -117,6 +125,7 @@ public static class Neon
 	public static readonly Color Green = new(0.30f, 1.00f, 0.45f);
 	public static readonly Color Red = new(1.00f, 0.18f, 0.22f);
 	public static readonly Color White = new(0.85f, 0.95f, 1.00f);
+	public static readonly Color Violet = new(0.62f, 0.35f, 1.00f);
 
-	public static readonly IReadOnlyList<Color> Palette = [Cyan, Blue, Magenta, Orange, Amber, Green, Red, White];
+	public static readonly IReadOnlyList<Color> Palette = [Cyan, Blue, Violet, Magenta, Orange, Amber, Green, Red, White];
 }

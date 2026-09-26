@@ -62,6 +62,7 @@ public partial class BlockGrid : RigidBody3D
 			return;
 		UpdatePower((float)delta);
 		UpdateRefining((float)delta);
+		UpdateFabrication((float)delta);
 		ApplyPendingDamage();
 	}
 
@@ -178,6 +179,7 @@ public partial class BlockGrid : RigidBody3D
 	{
 		if (!_blocks.Remove(cell, out var block))
 			return false;
+		DropFabricator(cell);
 		_state.Remove(cell);
 
 		_shapes.Remove(cell, out var shape);

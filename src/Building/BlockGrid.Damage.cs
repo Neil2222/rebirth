@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
 namespace Rebirth.Building;
@@ -145,8 +146,10 @@ public partial class BlockGrid
 			{
 				var block = _blocks[cell];
 				var state = _state[cell];
+				var jobs = FabricatorQueue(cell).ToList();
 				RemoveInternal(cell);
 				piece.AddInternal(cell, block, state);
+				piece.RestoreFabricator(cell, jobs);
 			}
 			piece.OnBlocksChanged();
 			piece.LinearVelocity = LinearVelocity + AngularVelocity.Cross(piece.GlobalTransform * piece.CenterOfMass - oldCenterOfMass);

@@ -30,7 +30,7 @@ public static class SaveSystem
 			.OrderByDescending(slot => FileAccess.GetModifiedTime(PathFor(slot)))
 			.FirstOrDefault();
 
-	public static SaveGame Capture(Node world, Player player, BlockGrid? forgeDesign)
+	public static SaveGame Capture(Node world, Player player, Blueprint? forgeDesign)
 	{
 		var save = new SaveGame { Player = player.ToSave() };
 		foreach (var grid in world.GetChildren().OfType<BlockGrid>())
@@ -48,6 +48,13 @@ public static class SaveSystem
 				Dampeners = grid.Controls.Dampeners,
 				Blocks = Blueprint.FromGrid(grid, grid.Name, includeState: true),
 				Inventory = grid.Inventory.Items.ToDictionary(kv => kv.Key, kv => kv.Value),
+				Fabricators = grid.FabricatorQueues.Select(f => new FabricatorSave
+				{
+					Cell = [f.Cell.X, f.Cell.Y, f.Cell.Z],
+					Queue = f.Queue.Select(job => job.Design).ToList(),
+					Progress = f.Queue[0].Progress,
+					Paid = f.Queue[0].Paid,
+				}).ToList(),
 			});
 		}
 		foreach (var terrain in world.GetChildren().OfType<IEditableTerrain>())
@@ -56,8 +63,7 @@ public static class SaveSystem
 			if (densities.Length > 0)
 				save.Terrain.Add(new TerrainSave { Id = terrain.TerrainId, Points = points, Densities = densities });
 		}
-		if (forgeDesign is { BlockCount: > 0 })
-			save.ForgeDesign = Blueprint.FromGrid(forgeDesign, forgeDesign.Name);
+		save.ForgeDesign = forgeDesign;
 		return save;
 	}
 
@@ -109,6 +115,16 @@ public static class SaveSystem
 			grid.Controls = grid.Controls with { Dampeners = saved.Dampeners };
 			foreach (var (item, amount) in saved.Inventory)
 				grid.Inventory.Add(item, amount);
+			foreach (var fabricator in saved.Fabricators)
+			{
+				var jobs = fabricator.Queue.Select((design, i) => new FabricatorJob
+				{
+					Design = design,
+					Progress = i == 0 ? fabricator.Progress : 0f,
+					Paid = i == 0 && fabricator.Paid,
+				}).ToList();
+				grid.RestoreFabricator(new Vector3I(fabricator.Cell[0], fabricator.Cell[1], fabricator.Cell[2]), jobs);
+			}
 		}
 
 		player.ApplySave(save.Player);

@@ -49,6 +49,16 @@ public sealed class GridSave
 	public bool Dampeners { get; set; } = true;
 	public Blueprint Blocks { get; set; } = new();
 	public Dictionary<string, float> Inventory { get; set; } = new();
+	public List<FabricatorSave> Fabricators { get; set; } = new();
+}
+
+public sealed class FabricatorSave
+{
+	public int[] Cell { get; set; } = [0, 0, 0];
+	public List<Blueprint> Queue { get; set; } = new();
+	/// <summary>Progress of the first job, which has been paid for when <see cref="Paid"/> is set.</summary>
+	public float Progress { get; set; }
+	public bool Paid { get; set; }
 }
 
 public sealed class TerrainSave

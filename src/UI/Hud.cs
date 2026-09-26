@@ -94,9 +94,9 @@ public partial class Hud : CanvasLayer
 	private string ToolbarText()
 	{
 		var equipped = Player.Equipped;
-		var slots = Toolbar.Slots.Select((item, i) =>
+		var slots = Toolbar.Pages[Player.ToolbarPage].Select((item, i) =>
 			item == equipped ? $"> [{Toolbar.KeyFor(i)}] {item.Name} <" : $"  [{Toolbar.KeyFor(i)}] {item.Name}");
-		string text = string.Join("\n", slots) + "\n";
+		string text = $"Toolbar page {Player.ToolbarPage + 1}/{Toolbar.Pages.Count}  [Tab]\n" + string.Join("\n", slots) + "\n";
 		if (equipped?.Block is { } block)
 		{
 			text += "LMB place   RMB remove   R/T rotate\n";
@@ -122,6 +122,8 @@ public partial class Hud : CanvasLayer
 			$"{(grid.IsStatic ? "Station" : "Ship")} [K: toggle]\n";
 		if (def.Kind == BlockKind.Cockpit)
 			text += "[F] sit in cockpit\n";
+		else if (def.Kind == BlockKind.Fabricator)
+			text += $"[F] open fabricator   ({grid.FabricatorStatus(Player.BuildTool.AimedCell)})\n";
 		else if (def.CargoCapacity > 0f)
 			text += "[F] unload ore, take ingots\n";
 		text += PowerText(grid);

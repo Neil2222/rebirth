@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Rebirth.Items;
 using Rebirth.World;
 using Godot;
@@ -71,7 +72,7 @@ public partial class BlockGrid
 			solar += block.Definition.SolarOutput * Mathf.Max(0f, up.Dot(Sun.Direction));
 		}
 
-		float demand = Refining ? _refineryDraw : 0f;
+		float demand = (Refining ? _refineryDraw : 0f) + _fabricatorDraw;
 		if (!Freeze)
 		{
 			demand += _gyroDraw;
@@ -116,7 +117,7 @@ public partial class BlockGrid
 		PowerDelivered = delivered;
 	}
 
-	private bool HasConsumers() => _thrusters.Count > 0 || _gyroDraw > 0f || _refineryDraw > 0f;
+	private bool HasConsumers() => _thrusters.Count > 0 || _gyroDraw > 0f || _refineryDraw > 0f || _fabricatorQueues.Values.Any(q => q.Count > 0);
 
 	private void UpdateRefining(float dt)
 	{

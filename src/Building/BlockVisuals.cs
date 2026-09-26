@@ -21,6 +21,7 @@ public static class BlockVisuals
 		BlockKind.SolarPanel => SolarPanel(paint),
 		BlockKind.CargoContainer => CargoContainer(paint),
 		BlockKind.Refinery => Refinery(paint),
+		BlockKind.Fabricator => Fabricator(paint),
 		_ => null,
 	};
 
@@ -229,6 +230,24 @@ public static class BlockVisuals
 			Mesh = new CylinderMesh { TopRadius = 0.38f, BottomRadius = 0.38f, Height = 0.05f, Material = Glow(paint, 4f) },
 			Position = new Vector3(0, H + 0.91f, 0),
 		});
+		return root;
+	}
+
+	private static Node3D Fabricator(Color paint)
+	{
+		// Output aperture on the front (-Z) face: a glowing frame with two print-head rails.
+		var root = new Node3D();
+		var glow = Glow(paint, 3f);
+		var horizontal = new BoxMesh { Size = new Vector3(2.1f, 0.12f, 0.06f), Material = glow };
+		var vertical = new BoxMesh { Size = new Vector3(0.12f, 2.1f, 0.06f), Material = glow };
+		float z = -H - 0.03f;
+		root.AddChild(new MeshInstance3D { Mesh = horizontal, Position = new Vector3(0, 1.0f, z) });
+		root.AddChild(new MeshInstance3D { Mesh = horizontal, Position = new Vector3(0, -1.0f, z) });
+		root.AddChild(new MeshInstance3D { Mesh = vertical, Position = new Vector3(1.0f, 0, z) });
+		root.AddChild(new MeshInstance3D { Mesh = vertical, Position = new Vector3(-1.0f, 0, z) });
+		var rail = new BoxMesh { Size = new Vector3(1.7f, 0.05f, 0.05f), Material = Glow(paint, 1.5f) };
+		root.AddChild(new MeshInstance3D { Mesh = rail, Position = new Vector3(0, 0.35f, z) });
+		root.AddChild(new MeshInstance3D { Mesh = rail, Position = new Vector3(0, -0.35f, z) });
 		return root;
 	}
 }

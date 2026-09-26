@@ -89,7 +89,7 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | 0 | Prototype-fundament: grids, bouwen, vliegen, schade, voxel-minen, planeten, zwaartekracht, energie | klaar |
 | A1 | Neon-stijl, Forge, blueprints, opslaan/laden | klaar |
 | A2 | Third-person camera, robotlichaam uit de Forge | klaar |
-| B | Fabricator die blueprints print, kosten, presets per ontwerptype | |
+| B | Fabricator die blueprints print, kosten, presets per ontwerptype | klaar |
 | C | Automatisering: aangrenzende machines, zichtbare stromen, drones met routes | |
 | D | Nexus-overzicht en Uplink | |
 | E | Planeten genezen, meekleurend terrein, DNA-incubatie, nederzettingen | |

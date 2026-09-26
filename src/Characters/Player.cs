@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Rebirth.Building;
 using Rebirth.Core;
@@ -61,6 +62,12 @@ public partial class Player : RigidBody3D
 
 	/// <summary>Short feedback line for the HUD, or null when there is nothing recent to say.</summary>
 	public string? Message => Time.GetTicksMsec() / 1000.0 - _messageTime < MessageSeconds ? _message : null;
+
+	/// <summary>F on a fabricator: the world opens its panel.</summary>
+	public event Action<BlockGrid, Vector3I>? FabricatorRequested;
+
+	/// <summary>Toolbar page shown on the number keys (Tab flips).</summary>
+	public int ToolbarPage { get; private set; }
 
 	/// <summary>Item in hand, or null for the empty hand.</summary>
 	public ToolbarItem? Equipped { get; private set; }
@@ -135,13 +142,19 @@ public partial class Player : RigidBody3D
 			JetpackOn = !JetpackOn;
 		else if (e.IsActionPressed("toggle_light"))
 			HelmetLight.Visible = !HelmetLight.Visible;
+		else if (e.IsActionPressed("toolbar_page"))
+			ToolbarPage = (ToolbarPage + 1) % Toolbar.Pages.Count;
 		else if (e.IsActionPressed("toggle_view"))
 		{
 			Rig.FirstPerson = !Rig.FirstPerson;
 			ApplyCameraMode();
 		}
 		else if (e.IsActionPressed("use"))
+		{
 			Use();
+			// A panel opened by F must not also see this press and close again.
+			GetViewport().SetInputAsHandled();
+		}
 		else if (e.IsActionPressed("toggle_grid_static") && PilotedGrid is null)
 			BuildTool.AimedGrid?.ToggleStatic();
 		else if (e.IsActionPressed("toggle_creative"))
@@ -157,7 +170,8 @@ public partial class Player : RigidBody3D
 				if (!e.IsActionPressed($"slot_{key}"))
 					continue;
 				int index = (key + 9) % 10;   // keys 1..9 then 0
-				ToolbarItem? item = index < Toolbar.Slots.Count ? Toolbar.Slots[index] : null;
+				var slots = Toolbar.Pages[ToolbarPage];
+				ToolbarItem? item = index < slots.Count ? slots[index] : null;
 				Equip(item == Equipped ? null : item);
 			}
 		}
@@ -258,6 +272,8 @@ public partial class Player : RigidBody3D
 			return;
 		if (block.Definition.Kind == BlockKind.Cockpit)
 			EnterCockpit(grid, BuildTool.AimedCell);
+		else if (block.Definition.Kind == BlockKind.Fabricator)
+			FabricatorRequested?.Invoke(grid, BuildTool.AimedCell);
 		else if (block.Definition.CargoCapacity > 0f)
 			TradeWith(grid.Inventory);
 	}

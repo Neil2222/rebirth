@@ -1,11 +1,14 @@
 using System.Collections.Generic;
-using System.Globalization;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Godot;
 using Rebirth.Building;
 
 namespace Rebirth.Persistence;
+
+/// <summary>What a design is for: printed as a ship, printed as a station, or worn as a robot body.</summary>
+public enum DesignKind { Ship, Station, Body }
 
 /// <summary>
 /// A grid design: which block sits in which cell, how it is turned, and its paint. Saves reuse it
@@ -17,6 +20,7 @@ public sealed class Blueprint
 
 	public int Version { get; set; } = CurrentVersion;
 	public string Name { get; set; } = "Untitled";
+	public DesignKind Kind { get; set; } = DesignKind.Ship;
 	public List<BlueprintBlock> Blocks { get; set; } = new();
 
 	public static readonly JsonSerializerOptions Json = new()
@@ -24,15 +28,16 @@ public sealed class Blueprint
 		WriteIndented = true,
 		PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
 		DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+		Converters = { new JsonStringEnumConverter() },
 	};
 
 	public void Add(Vector3I cell, BlockDefinition block, Basis orientation, Color? paint = null) =>
 		Blocks.Add(BlueprintBlock.From(cell, new PlacedBlock(block, orientation, paint ?? block.Paint), state: null));
 
 	/// <param name="includeState">Also record integrity and battery charge (for saves, not designs).</param>
-	public static Blueprint FromGrid(BlockGrid grid, string name, bool includeState = false)
+	public static Blueprint FromGrid(BlockGrid grid, string name, bool includeState = false, DesignKind kind = DesignKind.Ship)
 	{
-		var blueprint = new Blueprint { Name = name };
+		var blueprint = new Blueprint { Name = name, Kind = kind };
 		foreach (var (cell, block) in grid.Blocks)
 			blueprint.Blocks.Add(BlueprintBlock.From(cell, block, includeState ? grid.StateOf(cell) : null));
 		return blueprint;
@@ -61,6 +66,23 @@ public sealed class Blueprint
 
 	public static Blueprint FromJson(string json) =>
 		JsonSerializer.Deserialize<Blueprint>(json, Json) ?? throw new JsonException("Empty blueprint");
+
+	public float TotalMass() => Blocks.Sum(b => BlockCatalog.Get(b.Id).Mass);
+
+	/// <summary>Space the design occupies, in metres, relative to cell (0,0,0)'s center.</summary>
+	public Aabb Bounds()
+	{
+		if (Blocks.Count == 0)
+			return new Aabb();
+		Vector3I min = Blocks[0].CellVector(), max = min;
+		foreach (var block in Blocks)
+		{
+			min = min.Min(block.CellVector());
+			max = max.Max(block.CellVector());
+		}
+		Vector3 half = Vector3.One * (BlockGrid.CellSize * 0.5f);
+		return new Aabb(BlockGrid.CellCenter(min) - half, (Vector3)(max - min + Vector3I.One) * BlockGrid.CellSize);
+	}
 
 	/// <summary>Total ingots needed to print this design.</summary>
 	public Dictionary<string, float> TotalCost()

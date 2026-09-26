@@ -23,7 +23,7 @@ public static class Presets
 	/// </summary>
 	public static Blueprint Custodian()
 	{
-		var bp = new Blueprint { Name = "Custodian" };
+		var bp = new Blueprint { Name = "Custodian", Kind = DesignKind.Body };
 		foreach (int x in new[] { -1, 1 })
 		{
 			bp.Add(new Vector3I(x, 0, 0), BlockCatalog.HeavyArmor, Basis.Identity);
@@ -75,16 +75,18 @@ public static class Presets
 		return bp;
 	}
 
-	/// <summary>Static base: refinery, cargo, battery, and solar panels facing +X.</summary>
+	/// <summary>Static base: refinery, fabricator, cargo, battery, and solar panels facing +X.</summary>
 	public static Blueprint Outpost()
 	{
-		var bp = new Blueprint { Name = "Outpost" };
+		var bp = new Blueprint { Name = "Outpost", Kind = DesignKind.Station };
 		for (int x = -1; x <= 1; x++)
 			for (int z = -1; z <= 1; z++)
 				bp.Add(new Vector3I(x, 0, z), BlockCatalog.LightArmor, Basis.Identity);
 		bp.Add(new Vector3I(-1, 1, 0), BlockCatalog.Battery, Basis.Identity);
 		bp.Add(new Vector3I(0, 1, 0), BlockCatalog.Refinery, Basis.Identity);
 		bp.Add(new Vector3I(1, 1, 0), BlockCatalog.CargoContainer, Basis.Identity);
+		// Prints out of its -Z face, away from the rest of the base.
+		bp.Add(new Vector3I(0, 1, -1), BlockCatalog.Fabricator, Basis.Identity);
 		// Panels collect on their local +Y; turn that towards +X.
 		var sunward = new Basis(Vector3.Back, -Mathf.Pi / 2f);
 		for (int z = -1; z <= 1; z++)

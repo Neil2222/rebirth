@@ -4,7 +4,6 @@ using Rebirth.Building;
 using Rebirth.Characters;
 using Rebirth.Core;
 using Rebirth.Forge;
-using Rebirth.Items;
 using Rebirth.Persistence;
 using Rebirth.UI;
 using Rebirth.World;
@@ -25,6 +24,7 @@ public partial class Main : Node3D
 
 	public Player Player { get; private set; } = null!;
 	public ForgeScreen Forge { get; private set; } = null!;
+	public FabricatorPanel Fabricator { get; private set; } = null!;
 
 	private Hud _hud = null!;
 	private double _nextAutosave;
@@ -49,7 +49,16 @@ public partial class Main : Node3D
 
 		Forge = new ForgeScreen { Name = "Forge", Printer = Print, BodySetter = Player.SetBody };
 		AddChild(Forge);
-		Forge.Closed += OnForgeClosed;
+		Forge.Closed += OnOverlayClosed;
+		Fabricator = new FabricatorPanel { Name = "FabricatorPanel" };
+		AddChild(Fabricator);
+		Fabricator.Closed += OnOverlayClosed;
+		Player.FabricatorRequested += (grid, cell) =>
+		{
+			GameState.WorldInputBlocked = true;
+			_hud.Visible = false;
+			Fabricator.Open(grid, cell, Player);
+		};
 
 		var save = SaveSystem.PendingLoad;
 		SaveSystem.PendingLoad = null;
@@ -106,7 +115,7 @@ public partial class Main : Node3D
 		GetViewport().SetInputAsHandled();
 	}
 
-	private void OnForgeClosed()
+	private void OnOverlayClosed()
 	{
 		GameState.WorldInputBlocked = false;
 		_hud.Visible = true;
@@ -114,27 +123,18 @@ public partial class Main : Node3D
 	}
 
 	/// <summary>
-	/// Materialises a design in front of the player as a ship. Survival pays the full ingot cost
-	/// up front; creative prints for free with charged batteries.
+	/// The Forge's instant print, for creative mode: materialises a design in front of the player,
+	/// free and fully charged. In survival, designs are printed at a fabricator.
 	/// </summary>
 	private string Print(Blueprint blueprint)
 	{
-		var cost = blueprint.TotalCost();
 		if (!Player.Creative)
-		{
-			var missing = cost.Where(kv => Player.Inventory.Get(kv.Key) < kv.Value)
-				.Select(kv => $"{kv.Value - Player.Inventory.Get(kv.Key):0} {ItemCatalog.DisplayName(kv.Key)}")
-				.ToList();
-			if (missing.Count > 0)
-				return "Not enough materials. Missing: " + string.Join(", ", missing) + "  (F2 = creative)";
-		}
-
+			return "In survival, print designs at a Fabricator (toolbar page 2). F2 = creative";
+		if (blueprint.Kind == DesignKind.Body)
+			return "Bodies are worn, not printed: use \"Use as my body\"";
 		if (FindPrintSpot(blueprint) is not { } spot)
 			return "No free space in front of you to print into";
-		if (!Player.Creative)
-			foreach (var (item, amount) in cost)
-				Player.Inventory.TryRemove(item, amount);
-		var grid = SpawnBlueprint(blueprint, spot, isStatic: false, charge: Player.Creative ? 1f : 0.25f);
+		var grid = SpawnBlueprint(blueprint, spot, isStatic: blueprint.Kind == DesignKind.Station, charge: 1f);
 		grid.LinearVelocity = Player.LinearVelocity;
 		Player.ShowMessage($"Printed \"{blueprint.Name}\"");
 		return $"Printed \"{blueprint.Name}\" in front of you";
@@ -178,7 +178,7 @@ public partial class Main : Node3D
 	private void SaveTo(string slot, string? message)
 	{
 		_nextAutosave = Now + AutosaveSeconds;
-		SaveSystem.Write(SaveSystem.Capture(this, Player, Forge.Design), slot);
+		SaveSystem.Write(SaveSystem.Capture(this, Player, Forge.CurrentBlueprint()), slot);
 		if (message is not null)
 			Player.ShowMessage(message);
 	}
