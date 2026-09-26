@@ -30,9 +30,9 @@ public partial class Hud : CanvasLayer
 	{
 		var label = new Label { HorizontalAlignment = align };
 		label.AddThemeFontSizeOverride("font_size", 20);
-		label.AddThemeColorOverride("font_color", new Color(0.75f, 0.95f, 1f));
-		label.AddThemeConstantOverride("outline_size", 6);
-		label.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.8f));
+		label.AddThemeColorOverride("font_color", UiTheme.HudText);
+		label.AddThemeConstantOverride("outline_size", 7);
+		label.AddThemeColorOverride("font_outline_color", UiTheme.HudOutline);
 		label.SetAnchorsPreset(anchor);
 		label.GrowHorizontal = align switch
 		{

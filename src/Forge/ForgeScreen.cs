@@ -9,7 +9,7 @@ using Rebirth.UI;
 namespace Rebirth.Forge;
 
 /// <summary>
-/// The Forge: a neon hangar in its own 3D world where designs are built block by block, with a
+/// The Forge: a warm workshop in its own 3D world where designs are built block by block, with a
 /// parts palette, live stats, paint, mirror symmetry, undo, and blueprint save/load/print.
 /// The game world keeps running behind it.
 /// </summary>
@@ -133,29 +133,31 @@ public partial class ForgeScreen : CanvasLayer
 		_hangar = new Node3D { Name = "Hangar" };
 		_viewport.AddChild(_hangar);
 
+		// A bright, warm workshop: soft sky-like fill, gentle contact shadows, no glare.
 		var env = new Godot.Environment
 		{
 			BackgroundMode = Godot.Environment.BGMode.Color,
-			BackgroundColor = new Color(0.006f, 0.01f, 0.018f),
+			BackgroundColor = new Color(0.93f, 0.87f, 0.78f),
 			AmbientLightSource = Godot.Environment.AmbientSource.Color,
-			AmbientLightColor = new Color(0.12f, 0.14f, 0.2f),
-			TonemapMode = Godot.Environment.ToneMapper.Aces,
+			AmbientLightColor = new Color(0.78f, 0.74f, 0.72f),
+			AmbientLightEnergy = 0.8f,
+			TonemapMode = Godot.Environment.ToneMapper.Filmic,
+			SsaoEnabled = true,
+			SsaoRadius = 1.6f,
+			SsaoIntensity = 1.8f,
 			GlowEnabled = true,
-			GlowIntensity = 0.9f,
-			GlowHdrThreshold = 1.0f,
-			GlowBlendMode = Godot.Environment.GlowBlendModeEnum.Screen,
+			GlowIntensity = 0.4f,
+			GlowHdrThreshold = 1.2f,
+			GlowBlendMode = Godot.Environment.GlowBlendModeEnum.Softlight,
 		};
-		env.SetGlowLevel(0, 1f);
-		env.SetGlowLevel(2, 1f);
-		env.SetGlowLevel(4, 0.6f);
 		_hangar.AddChild(new WorldEnvironment { Environment = env });
 
-		var key = new DirectionalLight3D { LightEnergy = 1.1f, ShadowEnabled = true };
+		var key = new DirectionalLight3D { LightEnergy = 1.3f, LightColor = new Color(1f, 0.93f, 0.82f), ShadowEnabled = true, ShadowBlur = 2.5f };
 		_hangar.AddChild(key);
 		key.LookAt(new Vector3(-0.5f, -1f, -0.7f), Vector3.Up);
-		var rim = new DirectionalLight3D { LightEnergy = 0.35f, LightColor = new Color(0.4f, 0.7f, 1f) };
-		_hangar.AddChild(rim);
-		rim.LookAt(new Vector3(0.6f, -0.2f, 0.8f), Vector3.Up);
+		var fill = new DirectionalLight3D { LightEnergy = 0.35f, LightColor = new Color(0.7f, 0.85f, 1f) };
+		_hangar.AddChild(fill);
+		fill.LookAt(new Vector3(0.6f, -0.2f, 0.8f), Vector3.Up);
 
 		var floorMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/hangar_floor.gdshader") };
 		_hangar.AddChild(new MeshInstance3D
@@ -165,7 +167,7 @@ public partial class ForgeScreen : CanvasLayer
 		});
 
 		// Which way is forward: the Control Core looks towards -Z.
-		var arrowMaterial = new StandardMaterial3D { ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded, AlbedoColor = new Color(1f, 0.45f, 0.1f) };
+		var arrowMaterial = new StandardMaterial3D { AlbedoColor = Palette.Orange, Roughness = 0.6f };
 		var arrow = new MeshInstance3D
 		{
 			Mesh = new PrismMesh { Size = new Vector3(2f, 3f, 0.05f), Material = arrowMaterial },
@@ -176,7 +178,7 @@ public partial class ForgeScreen : CanvasLayer
 		{
 			Text = "FRONT",
 			FontSize = 96,
-			Modulate = new Color(1f, 0.45f, 0.1f),
+			Modulate = Palette.Orange,
 			Transform = new Transform3D(new Basis(Vector3.Right, -Mathf.Pi / 2f), new Vector3(0, FloorY + 0.03f, -19.5f)),
 		});
 
@@ -190,7 +192,7 @@ public partial class ForgeScreen : CanvasLayer
 				{
 					ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
 					Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-					AlbedoColor = new Color(1f, 0.25f, 0.85f, 0.035f),
+					AlbedoColor = new Color(Palette.Coral, 0.12f),
 					CullMode = BaseMaterial3D.CullModeEnum.Disabled,
 				},
 			},
@@ -232,7 +234,7 @@ public partial class ForgeScreen : CanvasLayer
 
 	private void BuildUi()
 	{
-		var root = new Control { Theme = NeonTheme.Create(), MouseFilter = Control.MouseFilterEnum.Ignore };
+		var root = new Control { Theme = UiTheme.Create(), MouseFilter = Control.MouseFilterEnum.Ignore };
 		root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		AddChild(root);
 
@@ -241,8 +243,8 @@ public partial class ForgeScreen : CanvasLayer
 		var bar = new HBoxContainer();
 		bar.AddThemeConstantOverride("separation", 8);
 		top.AddChild(bar);
-		var title = new Label { Text = "REBIRTH  //  FORGE", VerticalAlignment = VerticalAlignment.Center };
-		title.AddThemeColorOverride("font_color", NeonTheme.Accent);
+		var title = new Label { Text = "REBIRTH  ·  FORGE", VerticalAlignment = VerticalAlignment.Center };
+		title.AddThemeColorOverride("font_color", UiTheme.Accent);
 		title.AddThemeFontSizeOverride("font_size", 20);
 		bar.AddChild(title);
 		bar.AddChild(new Control { CustomMinimumSize = new Vector2(24, 0) });
@@ -268,18 +270,18 @@ public partial class ForgeScreen : CanvasLayer
 		var parts = new VBoxContainer();
 		parts.AddThemeConstantOverride("separation", 4);
 		left.AddChild(parts);
-		parts.AddChild(NeonTheme.Heading("PARTS"));
+		parts.AddChild(UiTheme.Heading("PARTS"));
 		var group = new ButtonGroup();
 		foreach (var block in BlockCatalog.All)
 		{
 			var button = new Button { Text = "  " + block.DisplayName, ToggleMode = true, ButtonGroup = group, Alignment = HorizontalAlignment.Left };
-			button.AddThemeColorOverride("font_color", block.Paint);
+			button.Icon = Swatch(block.Paint);
 			button.Pressed += () => SelectPart(block);
 			parts.AddChild(button);
 			_partButtons[block] = button;
 		}
 		parts.AddChild(new Control { CustomMinimumSize = new Vector2(0, 12) });
-		parts.AddChild(NeonTheme.Heading("TOOL"));
+		parts.AddChild(UiTheme.Heading("TOOL"));
 		var modeGroup = new ButtonGroup();
 		_buildButton = new Button { Text = "Build", ToggleMode = true, ButtonGroup = modeGroup, ButtonPressed = true };
 		_buildButton.Pressed += () => SetMode(Mode.Build);
@@ -303,7 +305,7 @@ public partial class ForgeScreen : CanvasLayer
 		right.OffsetBottom = -64;
 		var statsBox = new VBoxContainer();
 		right.AddChild(statsBox);
-		statsBox.AddChild(NeonTheme.Heading("DESIGN READOUT"));
+		statsBox.AddChild(UiTheme.Heading("DESIGN READOUT"));
 		_stats = new Label();
 		_stats.AddThemeFontSizeOverride("font_size", 14);
 		statsBox.AddChild(_stats);
@@ -313,18 +315,18 @@ public partial class ForgeScreen : CanvasLayer
 		var row = new HBoxContainer();
 		row.AddThemeConstantOverride("separation", 6);
 		bottom.AddChild(row);
-		row.AddChild(NeonTheme.Heading("PAINT"));
+		row.AddChild(UiTheme.Heading("PAINT"));
 		var defaultPaint = new Button { Text = "Default", ToggleMode = true, ButtonPressed = true };
 		var paintGroup = new ButtonGroup();
 		defaultPaint.ButtonGroup = paintGroup;
 		defaultPaint.Pressed += () => SetPaint(null);
 		row.AddChild(defaultPaint);
-		foreach (var color in Neon.Palette)
+		foreach (var color in Palette.Swatches)
 		{
 			var swatch = new Button { ToggleMode = true, ButtonGroup = paintGroup, CustomMinimumSize = new Vector2(34, 30) };
-			swatch.AddThemeStyleboxOverride("normal", NeonTheme.Box(color * 0.55f, color));
-			swatch.AddThemeStyleboxOverride("hover", NeonTheme.Box(color * 0.8f, Colors.White));
-			swatch.AddThemeStyleboxOverride("pressed", NeonTheme.Box(color, Colors.White, 3));
+			swatch.AddThemeStyleboxOverride("normal", UiTheme.Box(color, UiTheme.PanelEdge, 2, 15));
+			swatch.AddThemeStyleboxOverride("hover", UiTheme.Box(color, UiTheme.Accent, 3, 15));
+			swatch.AddThemeStyleboxOverride("pressed", UiTheme.Box(color, UiTheme.Text, 4, 15));
 			swatch.Pressed += () => SetPaint(color);
 			row.AddChild(swatch);
 		}
@@ -334,7 +336,7 @@ public partial class ForgeScreen : CanvasLayer
 			Text = "LMB place/paint   RMB remove   RMB-drag orbit   MMB-drag pan   Wheel zoom   R/T rotate   F focus   Ctrl+Z undo",
 			VerticalAlignment = VerticalAlignment.Center,
 		};
-		help.AddThemeColorOverride("font_color", NeonTheme.Dim);
+		help.AddThemeColorOverride("font_color", UiTheme.Dim);
 		help.AddThemeFontSizeOverride("font_size", 13);
 		row.AddChild(help);
 
@@ -344,8 +346,9 @@ public partial class ForgeScreen : CanvasLayer
 		_toast.GrowVertical = Control.GrowDirection.Begin;
 		_toast.Position += new Vector2(0, -80);
 		_toast.AddThemeFontSizeOverride("font_size", 20);
-		_toast.AddThemeConstantOverride("outline_size", 6);
-		_toast.AddThemeColorOverride("font_outline_color", Colors.Black);
+		_toast.AddThemeColorOverride("font_color", UiTheme.Text);
+		_toast.AddThemeConstantOverride("outline_size", 8);
+		_toast.AddThemeColorOverride("font_outline_color", UiTheme.Panel);
 		root.AddChild(_toast);
 
 		BuildLoadDialog(root);
@@ -364,6 +367,19 @@ public partial class ForgeScreen : CanvasLayer
 		return panel;
 	}
 
+	/// <summary>Small round colour dot used as a part icon.</summary>
+	private static Texture2D Swatch(Color color)
+	{
+		var image = Image.CreateEmpty(18, 18, false, Image.Format.Rgba8);
+		for (int y = 0; y < 18; y++)
+			for (int x = 0; x < 18; x++)
+			{
+				float d = new Vector2(x - 8.5f, y - 8.5f).Length();
+				image.SetPixel(x, y, d <= 8f ? (d >= 6.8f ? color.Darkened(0.35f) : color) : Colors.Transparent);
+			}
+		return ImageTexture.CreateFromImage(image);
+	}
+
 	private static void AddButton(Container parent, string text, Action action)
 	{
 		var button = new Button { Text = text };
@@ -377,7 +393,7 @@ public partial class ForgeScreen : CanvasLayer
 		var box = new VBoxContainer();
 		box.AddThemeConstantOverride("separation", 8);
 		_loadPopup.AddChild(box);
-		box.AddChild(NeonTheme.Heading("LOAD DESIGN   (★ = preset)"));
+		box.AddChild(UiTheme.Heading("LOAD DESIGN   (★ = preset)"));
 		_loadList = new ItemList { CustomMinimumSize = new Vector2(400, 340) };
 		_loadList.ItemActivated += index => LoadEntry((int)index);
 		box.AddChild(_loadList);

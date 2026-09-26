@@ -90,7 +90,7 @@ public partial class BlockGrid : RigidBody3D
 	}
 
 	/// <param name="charge">Initial battery charge as a fraction of capacity (ignored for other blocks).</param>
-	/// <param name="paint">Neon colour; the block type's default when omitted.</param>
+	/// <param name="paint">Paint colour; the block type's default when omitted.</param>
 	public bool TryAdd(Vector3I cell, BlockDefinition definition, Basis orientation, float charge = 0.25f, Color? paint = null)
 	{
 		var state = new BlockState { Integrity = definition.MaxIntegrity, StoredEnergy = definition.BatteryCapacity * charge };

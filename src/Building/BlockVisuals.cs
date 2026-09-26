@@ -4,8 +4,8 @@ namespace Rebirth.Building;
 
 /// <summary>
 /// Extra geometry on top of a block's cube so functional blocks are recognisable and their facing
-/// is visible. Built in block-local space (cell center at origin, -Z = forward). Accents glow in the
-/// block's paint colour; bodies are dark metal.
+/// is visible. Built in block-local space (cell center at origin, -Z = forward). Retro-futuristic
+/// toy style: chrome trims, bubble glass, chunky round parts, and light only where a lamp is.
 /// </summary>
 public static class BlockVisuals
 {
@@ -16,12 +16,12 @@ public static class BlockVisuals
 	{
 		BlockKind.Cockpit => Cockpit(paint),
 		BlockKind.Thruster => Thruster(paint),
-		BlockKind.Gyroscope => Gyroscope(paint),
-		BlockKind.Battery => Battery(paint),
-		BlockKind.SolarPanel => SolarPanel(paint),
+		BlockKind.Gyroscope => Gyroscope(),
+		BlockKind.Battery => Battery(),
+		BlockKind.SolarPanel => SolarPanel(),
 		BlockKind.CargoContainer => CargoContainer(paint),
-		BlockKind.Refinery => Refinery(paint),
-		BlockKind.Fabricator => Fabricator(paint),
+		BlockKind.Refinery => Refinery(),
+		BlockKind.Fabricator => Fabricator(),
 		_ => null,
 	};
 
@@ -61,16 +61,16 @@ public static class BlockVisuals
 		ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
 	};
 
-	public static readonly Color GhostValid = new(0.3f, 1f, 0.6f, 0.3f);
-	public static readonly Color GhostInvalid = new(1f, 0.25f, 0.2f, 0.3f);
+	public static readonly Color GhostValid = new(0.55f, 0.95f, 0.65f, 0.35f);
+	public static readonly Color GhostInvalid = new(1f, 0.45f, 0.4f, 0.35f);
 
-	/// <summary>One-shot burst of tumbling glowing fragments where a block was destroyed.</summary>
+	/// <summary>One-shot burst of tumbling chunks where a block was destroyed.</summary>
 	public static void SpawnDebris(Node parent, Vector3 position, Color color)
 	{
 		var particles = new CpuParticles3D
 		{
-			Mesh = new BoxMesh { Size = Vector3.One * 0.3f, Material = Glow(color, 2f) },
-			Amount = 18,
+			Mesh = new BoxMesh { Size = Vector3.One * 0.35f, Material = Plastic(color) },
+			Amount = 16,
 			Lifetime = 2.0,
 			OneShot = true,
 			Explosiveness = 1f,
@@ -78,11 +78,11 @@ public static class BlockVisuals
 			Spread = 180f,
 			Gravity = Vector3.Zero,
 			InitialVelocityMin = 2f,
-			InitialVelocityMax = 7f,
-			AngularVelocityMin = -360f,
-			AngularVelocityMax = 360f,
+			InitialVelocityMax = 6f,
+			AngularVelocityMin = -300f,
+			AngularVelocityMax = 300f,
 			ScaleAmountMin = 0.5f,
-			ScaleAmountMax = 1.4f,
+			ScaleAmountMax = 1.3f,
 			EmissionShape = CpuParticles3D.EmissionShapeEnum.Box,
 			EmissionBoxExtents = Vector3.One * H,
 			Position = position,
@@ -92,162 +92,154 @@ public static class BlockVisuals
 		particles.Finished += particles.QueueFree;
 	}
 
-	private static StandardMaterial3D Glow(Color color, float energy = 2.5f) => new()
+	// ------------------------------------------------------------ materials
+
+	private static StandardMaterial3D Plastic(Color color) => new() { AlbedoColor = color, Roughness = 0.5f };
+
+	private static StandardMaterial3D Chrome() => new() { AlbedoColor = new Color(0.86f, 0.84f, 0.8f), Metallic = 0.85f, Roughness = 0.22f };
+
+	private static StandardMaterial3D Brass() => new() { AlbedoColor = new Color(0.86f, 0.66f, 0.3f), Metallic = 0.8f, Roughness = 0.3f };
+
+	/// <summary>A small light: gently emissive so it reads as "on" without flooding the scene.</summary>
+	private static StandardMaterial3D Lamp(Color color, float energy = 1.2f) => new()
 	{
-		AlbedoColor = color * 0.2f,
+		AlbedoColor = color,
 		EmissionEnabled = true,
 		Emission = color,
 		EmissionEnergyMultiplier = energy,
-	};
-
-	private static StandardMaterial3D DarkMetal() => new()
-	{
-		AlbedoColor = new Color(0.05f, 0.055f, 0.065f),
-		Metallic = 0.8f,
 		Roughness = 0.3f,
 	};
+
+	private static MeshInstance3D Part(Mesh mesh, Vector3 position, Basis? basis = null) =>
+		new() { Mesh = mesh, Transform = new Transform3D(basis ?? Basis.Identity, position) };
+
+	private static readonly Basis ToZ = new(Vector3.Right, Mathf.Pi / 2f);   // Y-aligned primitives onto Z
+
+	// ------------------------------------------------------------ blocks
 
 	private static Node3D Cockpit(Color paint)
 	{
 		var root = new Node3D();
 		var glass = new StandardMaterial3D
 		{
-			AlbedoColor = new Color(paint, 0.25f),
+			AlbedoColor = new Color(0.7f, 0.9f, 1f, 0.35f),
 			Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-			EmissionEnabled = true,
-			Emission = paint,
-			EmissionEnergyMultiplier = 0.6f,
-			Metallic = 0.9f,
+			Metallic = 0.3f,
 			Roughness = 0.05f,
+			// Back faces culled: from inside the pilot sees straight out through the bubble.
+			CullMode = BaseMaterial3D.CullModeEnum.Back,
 		};
-		// One-sided quad facing outwards (-Z), so the pilot looks straight through it from inside.
+		// A bubble canopy: a flattened sphere, half of it sunk into the block.
 		root.AddChild(new MeshInstance3D
 		{
-			Mesh = new QuadMesh { Size = new Vector2(2.0f, 1.1f), Material = glass },
-			Transform = new Transform3D(new Basis(Vector3.Up, Mathf.Pi), new Vector3(0, 0.25f, -H - 0.01f)),
+			Mesh = new SphereMesh { Radius = 0.95f, Height = 1.9f, Material = glass },
+			Transform = new Transform3D(Basis.Identity.Scaled(new Vector3(1f, 0.8f, 0.55f)), new Vector3(0, 0.15f, -H)),
+			CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
 		});
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.9f, OuterRadius = 1.02f, Material = Chrome() }, new Vector3(0, 0.15f, -H), ToZ.Scaled(new Vector3(1f, 1f, 0.8f))));
+		// Antenna with a friendly blinker on top.
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.03f, BottomRadius = 0.05f, Height = 0.7f, Material = Chrome() }, new Vector3(0.7f, H + 0.35f, 0.5f)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.1f, Height = 0.2f, Material = Lamp(new Color(1f, 0.35f, 0.25f)) }, new Vector3(0.7f, H + 0.72f, 0.5f)));
 		return root;
 	}
 
 	private static Node3D Thruster(Color paint)
 	{
 		var root = new Node3D();
-		// Cylinders are Y-aligned; tip them onto +Z (the exhaust side).
-		var toZ = new Basis(Vector3.Right, Mathf.Pi / 2f);
-		root.AddChild(new MeshInstance3D
-		{
-			Mesh = new CylinderMesh { TopRadius = 0.95f, BottomRadius = 0.75f, Height = 0.35f, Material = DarkMetal() },
-			Transform = new Transform3D(toZ, new Vector3(0, 0, H + 0.175f)),
-		});
-		root.AddChild(new MeshInstance3D
-		{
-			Mesh = new TorusMesh { InnerRadius = 0.78f, OuterRadius = 0.9f, Material = Glow(paint) },
-			Transform = new Transform3D(toZ, new Vector3(0, 0, H + 0.36f)),
-		});
+		// Bell nozzle on the exhaust side (+Z), with a painted rim.
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.55f, BottomRadius = 0.95f, Height = 0.6f, Material = Plastic(Palette.Slate) }, new Vector3(0, 0, H + 0.3f), ToZ));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.88f, OuterRadius = 1.02f, Material = Plastic(paint.Lightened(0.15f)) }, new Vector3(0, 0, H + 0.6f), ToZ));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.75f, BottomRadius = 0.75f, Height = 0.04f, Material = Lamp(new Color(1f, 0.6f, 0.25f), 0.8f) }, new Vector3(0, 0, H + 0.58f), ToZ));
 
 		var flameMaterial = new StandardMaterial3D
 		{
 			ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
 			Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
 			BlendMode = BaseMaterial3D.BlendModeEnum.Add,
-			AlbedoColor = new Color(paint, 0.85f),
+			AlbedoColor = new Color(1f, 0.62f, 0.25f, 0.7f),
 			CullMode = BaseMaterial3D.CullModeEnum.Disabled,
 		};
-		// Flame is a cone of length 1 starting at the nozzle; its Z scale is the throttle.
-		var flame = new Node3D { Name = FlameName, Position = new Vector3(0, 0, H + 0.35f), Scale = new Vector3(1, 1, 0.001f) };
+		// Flame is a soft cone of length 1 starting at the nozzle; its Z scale is the throttle.
+		var flame = new Node3D { Name = FlameName, Position = new Vector3(0, 0, H + 0.6f), Scale = new Vector3(1, 1, 0.001f) };
 		flame.AddChild(new MeshInstance3D
 		{
-			Mesh = new CylinderMesh { TopRadius = 0.7f, BottomRadius = 0.05f, Height = 1f, Material = flameMaterial },
-			Transform = new Transform3D(toZ, new Vector3(0, 0, 0.5f)),
+			Mesh = new CylinderMesh { TopRadius = 0.7f, BottomRadius = 0.08f, Height = 1f, Material = flameMaterial },
+			Transform = new Transform3D(ToZ, new Vector3(0, 0, 0.5f)),
 			CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
 		});
 		root.AddChild(flame);
 		return root;
 	}
 
-	private static Node3D Gyroscope(Color paint)
+	private static Node3D Gyroscope()
 	{
 		var root = new Node3D();
-		var ring = new TorusMesh { InnerRadius = 1.22f, OuterRadius = 1.32f, Material = Glow(paint) };
+		var ring = new TorusMesh { InnerRadius = 1.22f, OuterRadius = 1.36f, Material = Brass() };
 		root.AddChild(new MeshInstance3D { Mesh = ring });
-		root.AddChild(new MeshInstance3D { Mesh = ring, Basis = new Basis(Vector3.Right, Mathf.Pi / 2f) });
+		root.AddChild(Part(ring, Vector3.Zero, new Basis(Vector3.Right, Mathf.Pi / 2f)));
 		return root;
 	}
 
-	private static Node3D Battery(Color paint)
+	private static Node3D Battery()
 	{
-		// Charge strips on the four side faces.
+		// Chrome bands and a row of charge lamps on the front.
 		var root = new Node3D();
-		var strip = new BoxMesh { Size = new Vector3(0.22f, 1.8f, 0.04f), Material = Glow(paint) };
-		for (int i = 0; i < 4; i++)
-		{
-			var basis = new Basis(Vector3.Up, i * Mathf.Pi / 2f);
-			root.AddChild(new MeshInstance3D { Mesh = strip, Transform = new Transform3D(basis, basis * new Vector3(0, 0, H + 0.02f)) });
-		}
+		var band = new BoxMesh { Size = new Vector3(2.56f, 0.18f, 2.56f), Material = Chrome() };
+		root.AddChild(Part(band, new Vector3(0, 0.75f, 0)));
+		root.AddChild(Part(band, new Vector3(0, -0.75f, 0)));
+		Color[] lamps = [new(0.4f, 0.95f, 0.5f), new(0.4f, 0.95f, 0.5f), new(1f, 0.8f, 0.3f)];
+		for (int i = 0; i < lamps.Length; i++)
+			root.AddChild(Part(new SphereMesh { Radius = 0.11f, Height = 0.22f, Material = Lamp(lamps[i]) }, new Vector3(-0.35f + i * 0.35f, 0, -H - 0.02f)));
 		return root;
 	}
 
-	private static Node3D SolarPanel(Color paint)
+	private static Node3D SolarPanel()
 	{
-		// Dark cells with glowing seams on the +Y face; that face must point at the sun.
+		// Deep-blue cells in a chrome frame on the +Y face; that face must point at the sun.
 		var root = new Node3D();
-		var cells = new StandardMaterial3D { AlbedoColor = new Color(0.02f, 0.03f, 0.08f), Metallic = 0.7f, Roughness = 0.15f };
-		var cell = new BoxMesh { Size = new Vector3(1.1f, 0.05f, 1.1f), Material = cells };
-		foreach (var (x, z) in new[] { (-0.6f, -0.6f), (0.6f, -0.6f), (-0.6f, 0.6f), (0.6f, 0.6f) })
-			root.AddChild(new MeshInstance3D { Mesh = cell, Position = new Vector3(x, H + 0.025f, z) });
-		var seam = Glow(paint, 1.5f);
-		root.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(2.3f, 0.03f, 0.06f), Material = seam }, Position = new Vector3(0, H + 0.02f, 0) });
-		root.AddChild(new MeshInstance3D { Mesh = new BoxMesh { Size = new Vector3(0.06f, 0.03f, 2.3f), Material = seam }, Position = new Vector3(0, H + 0.02f, 0) });
+		var cells = new StandardMaterial3D { AlbedoColor = new Color(0.12f, 0.2f, 0.45f), Metallic = 0.4f, Roughness = 0.2f };
+		var cell = new BoxMesh { Size = new Vector3(1.05f, 0.06f, 1.05f), Material = cells };
+		foreach (var (x, z) in new[] { (-0.58f, -0.58f), (0.58f, -0.58f), (-0.58f, 0.58f), (0.58f, 0.58f) })
+			root.AddChild(Part(cell, new Vector3(x, H + 0.03f, z)));
+		var chrome = Chrome();
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(2.4f, 0.08f, 0.1f), Material = chrome }, new Vector3(0, H + 0.03f, 0)));
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(0.1f, 0.08f, 2.4f), Material = chrome }, new Vector3(0, H + 0.03f, 0)));
 		return root;
 	}
 
 	private static Node3D CargoContainer(Color paint)
 	{
-		// Glowing hatch outline on the front face.
+		// A lighter inset door on the front with two chunky handles.
 		var root = new Node3D();
-		var glow = Glow(paint);
-		var horizontal = new BoxMesh { Size = new Vector3(1.6f, 0.08f, 0.04f), Material = glow };
-		var vertical = new BoxMesh { Size = new Vector3(0.08f, 1.6f, 0.04f), Material = glow };
-		float z = -H - 0.02f;
-		root.AddChild(new MeshInstance3D { Mesh = horizontal, Position = new Vector3(0, 0.8f, z) });
-		root.AddChild(new MeshInstance3D { Mesh = horizontal, Position = new Vector3(0, -0.8f, z) });
-		root.AddChild(new MeshInstance3D { Mesh = vertical, Position = new Vector3(0.8f, 0, z) });
-		root.AddChild(new MeshInstance3D { Mesh = vertical, Position = new Vector3(-0.8f, 0, z) });
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(1.8f, 1.8f, 0.08f), Material = Plastic(paint.Lightened(0.25f)) }, new Vector3(0, 0, -H - 0.04f)));
+		var handle = new CapsuleMesh { Radius = 0.07f, Height = 0.6f, Material = Chrome() };
+		root.AddChild(Part(handle, new Vector3(-0.45f, 0, -H - 0.14f)));
+		root.AddChild(Part(handle, new Vector3(0.45f, 0, -H - 0.14f)));
 		return root;
 	}
 
-	private static Node3D Refinery(Color paint)
+	private static Node3D Refinery()
 	{
-		// Furnace chimney on top with a glowing mouth.
+		// A stubby round chimney with a warm furnace glow in its mouth.
 		var root = new Node3D();
-		root.AddChild(new MeshInstance3D
-		{
-			Mesh = new CylinderMesh { TopRadius = 0.45f, BottomRadius = 0.6f, Height = 0.9f, Material = DarkMetal() },
-			Position = new Vector3(0, H + 0.45f, 0),
-		});
-		root.AddChild(new MeshInstance3D
-		{
-			Mesh = new CylinderMesh { TopRadius = 0.38f, BottomRadius = 0.38f, Height = 0.05f, Material = Glow(paint, 4f) },
-			Position = new Vector3(0, H + 0.91f, 0),
-		});
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.5f, BottomRadius = 0.65f, Height = 0.9f, Material = Plastic(Palette.Slate) }, new Vector3(0, H + 0.45f, 0)));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.46f, OuterRadius = 0.6f, Material = Chrome() }, new Vector3(0, H + 0.9f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.44f, BottomRadius = 0.44f, Height = 0.05f, Material = Lamp(new Color(1f, 0.5f, 0.15f), 1.6f) }, new Vector3(0, H + 0.88f, 0)));
 		return root;
 	}
 
-	private static Node3D Fabricator(Color paint)
+	private static Node3D Fabricator()
 	{
-		// Output aperture on the front (-Z) face: a glowing frame with two print-head rails.
+		// Output hatch on the front (-Z): a chrome arch with a row of work lights.
 		var root = new Node3D();
-		var glow = Glow(paint, 3f);
-		var horizontal = new BoxMesh { Size = new Vector3(2.1f, 0.12f, 0.06f), Material = glow };
-		var vertical = new BoxMesh { Size = new Vector3(0.12f, 2.1f, 0.06f), Material = glow };
-		float z = -H - 0.03f;
-		root.AddChild(new MeshInstance3D { Mesh = horizontal, Position = new Vector3(0, 1.0f, z) });
-		root.AddChild(new MeshInstance3D { Mesh = horizontal, Position = new Vector3(0, -1.0f, z) });
-		root.AddChild(new MeshInstance3D { Mesh = vertical, Position = new Vector3(1.0f, 0, z) });
-		root.AddChild(new MeshInstance3D { Mesh = vertical, Position = new Vector3(-1.0f, 0, z) });
-		var rail = new BoxMesh { Size = new Vector3(1.7f, 0.05f, 0.05f), Material = Glow(paint, 1.5f) };
-		root.AddChild(new MeshInstance3D { Mesh = rail, Position = new Vector3(0, 0.35f, z) });
-		root.AddChild(new MeshInstance3D { Mesh = rail, Position = new Vector3(0, -0.35f, z) });
+		var chrome = Chrome();
+		float z = -H - 0.05f;
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(2.1f, 0.16f, 0.1f), Material = chrome }, new Vector3(0, 1.0f, z)));
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(0.16f, 2.0f, 0.1f), Material = chrome }, new Vector3(1.0f, 0, z)));
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(0.16f, 2.0f, 0.1f), Material = chrome }, new Vector3(-1.0f, 0, z)));
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(1.84f, 1.84f, 0.04f), Material = Plastic(new Color(0.2f, 0.2f, 0.25f)) }, new Vector3(0, -0.08f, z + 0.03f)));
+		for (int i = 0; i < 4; i++)
+			root.AddChild(Part(new SphereMesh { Radius = 0.08f, Height = 0.16f, Material = Lamp(new Color(1f, 0.85f, 0.5f)) }, new Vector3(-0.6f + i * 0.4f, 1.0f, z - 0.08f)));
 		return root;
 	}
 }

@@ -1,30 +1,34 @@
 shader_type spatial;
 
-// Voxel terrain. COLOR.rgb: material colour (linear). COLOR.a: how strongly it glows (ore veins).
-// A faint world-space grid traces where the terrain crosses axis planes, Tron style.
-uniform vec3 grid_color : source_color = vec3(0.1, 0.55, 0.8);
-uniform float grid_spacing = 8.0;
-uniform float grid_strength = 0.35;
-uniform float ore_glow = 0.7;
-
+// Soft cartoon rock. COLOR.rgb: material colour (linear). COLOR.a: faint self-light for ore patches.
+// Big gentle colour mottling and a warm rim keep smooth surfaces from looking plain.
 varying vec3 world_position;
+
+float hash13(vec3 p3) {
+	p3 = fract(p3 * 0.1031);
+	p3 += dot(p3, p3.zyx + 31.32);
+	return fract((p3.x + p3.y) * p3.z);
+}
+
+float noise3(vec3 p) {
+	vec3 i = floor(p);
+	vec3 f = fract(p);
+	f = f * f * (3.0 - 2.0 * f);
+	return mix(mix(mix(hash13(i), hash13(i + vec3(1, 0, 0)), f.x), mix(hash13(i + vec3(0, 1, 0)), hash13(i + vec3(1, 1, 0)), f.x), f.y),
+		mix(mix(hash13(i + vec3(0, 0, 1)), hash13(i + vec3(1, 0, 1)), f.x), mix(hash13(i + vec3(0, 1, 1)), hash13(i + vec3(1, 1, 1)), f.x), f.y), f.z);
+}
 
 void vertex() {
 	world_position = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
 }
 
 void fragment() {
-	vec3 color = COLOR.rgb;
-	float glow = COLOR.a;
-
-	// Distance to the nearest grid plane on each axis, in screen-space-stable units.
-	vec3 cell = abs(fract(world_position / grid_spacing + 0.5) - 0.5) * grid_spacing;
-	// fwidth can be exactly 0 on some pixels; smoothstep(0, 0, x) is NaN and bloom would smear it.
-	vec3 width = max(fwidth(world_position) * 1.2, vec3(1e-4));
-	vec3 lines = 1.0 - smoothstep(vec3(0.0), width, cell);
-	float grid = max(max(lines.x, lines.y), lines.z);
-
-	ALBEDO = mix(color, color * 0.25, glow);
+	float mottle = noise3(world_position * 0.08) * 0.65 + noise3(world_position * 0.35) * 0.35;
+	vec3 color = COLOR.rgb * (0.86 + 0.24 * mottle);
+	ALBEDO = color;
 	ROUGHNESS = 0.9;
-	EMISSION = color * glow * ore_glow + grid_color * grid * grid_strength;
+	SPECULAR = 0.2;
+	RIM = 0.35;
+	RIM_TINT = 0.6;
+	EMISSION = color * COLOR.a;
 }

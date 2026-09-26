@@ -11,6 +11,8 @@ namespace Rebirth.World;
 public partial class VoxelAsteroid : StaticBody3D, IVoxelSource, IMinable, IEditableTerrain
 {
 	public const int ChunkSize = 16;
+	/// <summary>How far the surface bulges in or out, as a fraction of the radius.</summary>
+	private const float Lumpiness = 0.22f;
 
 	public float Radius { get; set; } = 30f;
 	public int Seed { get; set; }
@@ -130,8 +132,8 @@ public partial class VoxelAsteroid : StaticBody3D, IVoxelSource, IMinable, IEdit
 
 	private void Generate()
 	{
-		// Noise can push the surface out to ~1.35 R; keep a margin of empty points around it.
-		_size = Mathf.CeilToInt(Radius * 2.8f) + 4;
+		// Noise can push the surface out to (1 + Lumpiness) R; keep a margin of empty points around it.
+		_size = Mathf.CeilToInt(Radius * 2f * (1f + Lumpiness)) + 6;
 		_half = (_size - 1) * 0.5f;
 		_chunks = Mathf.CeilToInt((_size - 1) / (float)ChunkSize);
 		_chunkMeshes = new MeshInstance3D?[_chunks * _chunks * _chunks];
@@ -139,12 +141,12 @@ public partial class VoxelAsteroid : StaticBody3D, IVoxelSource, IMinable, IEdit
 		_density = new float[_size * _size * _size];
 		_material = new byte[_size * _size * _size];
 
-		var shape = new FastNoiseLite { Seed = Seed, NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth, Frequency = 1.3f / Radius, FractalOctaves = 4 };
-		var detail = new FastNoiseLite { Seed = Seed + 1, NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth, Frequency = 0.15f };
+		// Few, broad octaves: soft pebble-like lumps rather than a crumbly rock.
+		var shape = new FastNoiseLite { Seed = Seed, NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth, Frequency = 0.9f / Radius, FractalOctaves = 2 };
 		var ores = new OreVeins(Seed + 2);
 
 		// Noise is at most 1, so beyond this radius every point is empty and needs no noise at all.
-		float reach = Radius * 1.35f + 2f;
+		float reach = Radius * (1f + Lumpiness) + 2f;
 		Parallel.For(0, _size, z =>
 		{
 			for (int y = 0; y < _size; y++)
@@ -159,7 +161,7 @@ public partial class VoxelAsteroid : StaticBody3D, IVoxelSource, IMinable, IEdit
 					continue;
 				}
 
-				float d = Radius * (1f + 0.35f * shape.GetNoise3Dv(p)) - p.Length() + 1.5f * detail.GetNoise3Dv(p);
+				float d = Radius * (1f + Lumpiness * shape.GetNoise3Dv(p)) - p.Length();
 				_density[i] = Mathf.Clamp(d, -4f, 4f);
 				if (d > -1f)
 					_material[i] = ores.At(p, VoxelMaterials.Stone);

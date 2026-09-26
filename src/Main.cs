@@ -215,32 +215,37 @@ public partial class Main : Node3D
 
 	private void BuildEnvironment()
 	{
-		var skyMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/starfield.gdshader") };
+		var skyMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/retro_sky.gdshader") };
 		var env = new Godot.Environment
 		{
 			BackgroundMode = Godot.Environment.BGMode.Sky,
 			Sky = new Sky { SkyMaterial = skyMaterial },
-			AmbientLightSource = Godot.Environment.AmbientSource.Color,
-			AmbientLightColor = new Color(0.05f, 0.06f, 0.10f),
-			TonemapMode = Godot.Environment.ToneMapper.Aces,
-			// Neon lives on bloom: emissive edges bleed into a soft halo.
+			// The colourful sky doubles as a soft fill light, so shadows are tinted rather than black.
+			AmbientLightSource = Godot.Environment.AmbientSource.Sky,
+			AmbientLightEnergy = 1.1f,
+			ReflectedLightSource = Godot.Environment.ReflectionSource.Sky,
+			TonemapMode = Godot.Environment.ToneMapper.Filmic,
+			TonemapExposure = 1.05f,
+			// Soft contact shadows where things touch: the cosy, tactile look.
+			SsaoEnabled = true,
+			SsaoRadius = 1.6f,
+			SsaoIntensity = 1.6f,
+			// Only real lights (lamps, flames) bloom, and gently.
 			GlowEnabled = true,
-			GlowIntensity = 0.9f,
-			GlowStrength = 1.0f,
-			GlowBloom = 0f,
-			GlowHdrThreshold = 1.0f,
-			GlowBlendMode = Godot.Environment.GlowBlendModeEnum.Screen,
+			GlowIntensity = 0.45f,
+			GlowHdrThreshold = 1.2f,
+			GlowBlendMode = Godot.Environment.GlowBlendModeEnum.Softlight,
+			AdjustmentEnabled = true,
+			AdjustmentSaturation = 1.08f,
 		};
-		env.SetGlowLevel(0, 1f);
-		env.SetGlowLevel(2, 1f);
-		env.SetGlowLevel(4, 0.6f);
 		AddChild(new WorldEnvironment { Environment = env });
 
 		var sun = new DirectionalLight3D
 		{
-			LightEnergy = 1.4f,
-			LightColor = new Color(1f, 0.96f, 0.9f),
+			LightEnergy = 1.5f,
+			LightColor = new Color(1f, 0.9f, 0.76f),
 			ShadowEnabled = true,
+			ShadowBlur = 2.5f,
 			DirectionalShadowMaxDistance = 400f,
 		};
 		AddChild(sun);
@@ -254,15 +259,7 @@ public partial class Main : Node3D
 		var mesh = new BoxMesh
 		{
 			Size = Vector3.One,
-			Material = new StandardMaterial3D
-			{
-				AlbedoColor = new Color(0.06f, 0.05f, 0.04f),
-				Metallic = 0.6f,
-				Roughness = 0.4f,
-				EmissionEnabled = true,
-				Emission = Neon.Orange,
-				EmissionEnergyMultiplier = 0.35f,
-			},
+			Material = new StandardMaterial3D { AlbedoColor = new Color(0.78f, 0.6f, 0.4f), Roughness = 0.9f },   // cardboard
 		};
 		var shape = new BoxShape3D { Size = Vector3.One };
 		var rng = new RandomNumberGenerator { Seed = 42 };

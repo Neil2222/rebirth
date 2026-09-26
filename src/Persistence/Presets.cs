@@ -28,13 +28,13 @@ public static class Presets
 		{
 			bp.Add(new Vector3I(x, 0, 0), BlockCatalog.HeavyArmor, Basis.Identity);
 			bp.Add(new Vector3I(x, 1, 0), BlockCatalog.LightArmor, Basis.Identity);
-			bp.Add(new Vector3I(x, 3, 0), BlockCatalog.Gyroscope, Basis.Identity, Neon.Cyan);
-			bp.Add(new Vector3I(x, 2, 1), BlockCatalog.Thruster, PushUp, Neon.Cyan);
+			bp.Add(new Vector3I(x, 3, 0), BlockCatalog.Gyroscope, Basis.Identity, Palette.Orange);
+			bp.Add(new Vector3I(x, 2, 1), BlockCatalog.Thruster, PushUp);
 		}
 		for (int x = -1; x <= 1; x++)
 			bp.Add(new Vector3I(x, 2, 0), BlockCatalog.LightArmor, Basis.Identity);
-		bp.Add(new Vector3I(0, 3, 0), BlockCatalog.Battery, Basis.Identity, Neon.Cyan);
-		bp.Add(new Vector3I(0, 4, 0), BlockCatalog.Cockpit, Basis.Identity, Neon.Cyan);
+		bp.Add(new Vector3I(0, 3, 0), BlockCatalog.Battery, Basis.Identity);
+		bp.Add(new Vector3I(0, 4, 0), BlockCatalog.Cockpit, Basis.Identity);
 		return bp;
 	}
 
@@ -62,16 +62,16 @@ public static class Presets
 	public static Blueprint ScoutDrone()
 	{
 		var bp = new Blueprint { Name = "Scout Drone" };
-		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.Cockpit, Basis.Identity, Neon.Cyan);
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.Cockpit, Basis.Identity);
 		bp.Add(new Vector3I(0, 0, 1), BlockCatalog.Battery, Basis.Identity);
 		bp.Add(new Vector3I(0, 0, 2), BlockCatalog.Gyroscope, Basis.Identity);
 		bp.Add(new Vector3I(0, 1, 1), BlockCatalog.SolarPanel, Basis.Identity);
-		bp.Add(new Vector3I(0, 0, 3), BlockCatalog.Thruster, PushForward, Neon.Cyan);
-		bp.Add(new Vector3I(0, -1, 0), BlockCatalog.Thruster, PushBack, Neon.Cyan);
-		bp.Add(new Vector3I(-1, 0, 1), BlockCatalog.Thruster, PushRight, Neon.Cyan);
-		bp.Add(new Vector3I(1, 0, 1), BlockCatalog.Thruster, PushLeft, Neon.Cyan);
-		bp.Add(new Vector3I(0, 1, 2), BlockCatalog.Thruster, PushDown, Neon.Cyan);
-		bp.Add(new Vector3I(0, -1, 2), BlockCatalog.Thruster, PushUp, Neon.Cyan);
+		bp.Add(new Vector3I(0, 0, 3), BlockCatalog.Thruster, PushForward);
+		bp.Add(new Vector3I(0, -1, 0), BlockCatalog.Thruster, PushBack);
+		bp.Add(new Vector3I(-1, 0, 1), BlockCatalog.Thruster, PushRight);
+		bp.Add(new Vector3I(1, 0, 1), BlockCatalog.Thruster, PushLeft);
+		bp.Add(new Vector3I(0, 1, 2), BlockCatalog.Thruster, PushDown);
+		bp.Add(new Vector3I(0, -1, 2), BlockCatalog.Thruster, PushUp);
 		return bp;
 	}
 

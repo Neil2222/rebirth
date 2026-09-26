@@ -16,4 +16,8 @@ void fragment() {
 	}
 	ALBEDO = COLOR.rgb; // linear vertex colours
 	ROUGHNESS = 0.9;
+	SPECULAR = 0.2;
+	// Same soft rim as the near terrain, so the switch-over doesn't show.
+	RIM = 0.35;
+	RIM_TINT = 0.6;
 }

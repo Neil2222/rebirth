@@ -35,7 +35,7 @@ public partial class FabricatorPanel : CanvasLayer
 		Layer = 9;
 		Visible = false;
 
-		var root = new Control { Theme = NeonTheme.Create() };
+		var root = new Control { Theme = UiTheme.Create() };
 		root.SetAnchorsPreset(Control.LayoutPreset.FullRect);
 		root.MouseFilter = Control.MouseFilterEnum.Ignore;
 		AddChild(root);
@@ -50,7 +50,7 @@ public partial class FabricatorPanel : CanvasLayer
 		outer.AddThemeConstantOverride("separation", 10);
 		panel.AddChild(outer);
 		var title = new Label { Text = "FABRICATOR" };
-		title.AddThemeColorOverride("font_color", Neon.Violet);
+		title.AddThemeColorOverride("font_color", UiTheme.Accent);
 		title.AddThemeFontSizeOverride("font_size", 22);
 		outer.AddChild(title);
 
@@ -59,7 +59,7 @@ public partial class FabricatorPanel : CanvasLayer
 		outer.AddChild(columns);
 
 		var left = new VBoxContainer { CustomMinimumSize = new Vector2(300, 0) };
-		left.AddChild(NeonTheme.Heading("DESIGNS  (★ = preset)"));
+		left.AddChild(UiTheme.Heading("DESIGNS  (★ = preset)"));
 		_list = new ItemList { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
 		_list.ItemSelected += _ => UpdateDetails();
 		_list.ItemActivated += _ => QueueSelected();
@@ -67,7 +67,7 @@ public partial class FabricatorPanel : CanvasLayer
 		columns.AddChild(left);
 
 		var middle = new VBoxContainer { CustomMinimumSize = new Vector2(360, 0) };
-		middle.AddChild(NeonTheme.Heading("SELECTED"));
+		middle.AddChild(UiTheme.Heading("SELECTED"));
 		_details = new Label { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
 		middle.AddChild(_details);
 		var buttons = new HBoxContainer();
@@ -78,11 +78,11 @@ public partial class FabricatorPanel : CanvasLayer
 		columns.AddChild(middle);
 
 		var right = new VBoxContainer { CustomMinimumSize = new Vector2(320, 0) };
-		right.AddChild(NeonTheme.Heading("QUEUE"));
+		right.AddChild(UiTheme.Heading("QUEUE"));
 		_queue = new Label();
 		right.AddChild(_queue);
 		right.AddChild(new Control { CustomMinimumSize = new Vector2(0, 12) });
-		right.AddChild(NeonTheme.Heading("GRID CARGO"));
+		right.AddChild(UiTheme.Heading("GRID CARGO"));
 		_cargo = new Label { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
 		right.AddChild(_cargo);
 		var deposit = new HBoxContainer();
@@ -92,7 +92,7 @@ public partial class FabricatorPanel : CanvasLayer
 
 		var bottom = new HBoxContainer();
 		_message = new Label { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-		_message.AddThemeColorOverride("font_color", NeonTheme.Accent);
+		_message.AddThemeColorOverride("font_color", UiTheme.Accent);
 		bottom.AddChild(_message);
 		AddButton(bottom, "Close  [F]", Close);
 		outer.AddChild(bottom);

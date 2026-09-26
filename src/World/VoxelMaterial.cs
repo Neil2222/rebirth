@@ -5,7 +5,7 @@ namespace Rebirth.World;
 
 /// <param name="OreItemId">Inventory item produced when this material is mined.</param>
 /// <param name="YieldPerCubicMetre">Kilograms of ore per fully solid cubic metre mined.</param>
-/// <param name="Glow">Emission strength (0..1); ore veins glow so they are easy to spot.</param>
+/// <param name="Glow">Faint self-illumination (0..1) so ore patches stay visible in shadow.</param>
 public sealed record VoxelMaterial(string Name, Color Color, string OreItemId, float YieldPerCubicMetre, float Glow);
 
 public static class VoxelMaterials
@@ -19,12 +19,12 @@ public static class VoxelMaterials
 	/// <summary>Indexed by the material byte stored per voxel.</summary>
 	public static readonly IReadOnlyList<VoxelMaterial> All =
 	[
-		new("Stone", new Color(0.10f, 0.095f, 0.115f), "stone", 80f, 0f),
-		new("Iron", new Color(1.00f, 0.35f, 0.15f), "iron_ore", 150f, 1f),
-		new("Nickel", new Color(0.30f, 1.00f, 0.60f), "nickel_ore", 150f, 1f),
-		new("Silicon", new Color(0.70f, 0.80f, 1.00f), "silicon_ore", 150f, 1f),
-		// Dead-planet crust: ashen purple. Healing planets will shift this colour.
-		new("Regolith", new Color(0.20f, 0.16f, 0.23f), "stone", 60f, 0f),
+		new("Stone", new Color(0.66f, 0.63f, 0.66f), "stone", 80f, 0f),
+		new("Iron", new Color(0.88f, 0.46f, 0.30f), "iron_ore", 150f, 0.12f),
+		new("Nickel", new Color(0.50f, 0.80f, 0.64f), "nickel_ore", 150f, 0.12f),
+		new("Silicon", new Color(0.86f, 0.84f, 0.96f), "silicon_ore", 150f, 0.12f),
+		// Dusty, sleepy crust of a planet waiting to come alive.
+		new("Regolith", new Color(0.80f, 0.69f, 0.62f), "stone", 60f, 0f),
 	];
 }
 

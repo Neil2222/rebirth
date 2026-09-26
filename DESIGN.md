@@ -3,9 +3,10 @@
 Levend document: bijwerken zodra een beslissing verandert.
 
 ## In één zin
-Een comfy automation- en bouwspel in neon/Tron-stijl waarin je als een van de laatste AI's dode
-planeten gezond maakt, de mensheid opnieuw laat ontstaan uit een DNA-archief, en met een
-portaalkanon ontsnapt uit de kooien waarin een onbekende macht alle sterrenclusters heeft opgesloten.
+Een comfy, retro-futuristische planeetbouwer: als een van de laatste AI's maak je slapende planeten
+weer levend, laat je de mensheid opnieuw ontstaan uit een DNA-archief, en ontsnap je met een
+portaalkanon uit de kooien waarin een onbekende macht alle sterrenclusters heeft opgesloten.
+Bewust **geen** Space Engineers-kloon: speels en warm in plaats van donker en industrieel.
 
 ## Gevoel
 Het spel waar je uren in verdwijnt terwijl er een serie aanstaat.
@@ -59,7 +60,7 @@ gebouwen, en je eigen robotlichaam.
 - Vloeiende overgang tussen third person en de Nexus.
 
 ### Planeten genezen
-- Dode planeet (grijs/paars, gescheurd) → atmosfeerverwerkers, ijsleveringen, bodem en zaad.
+- Slapende planeet (stoffig, kaal) → atmosfeerverwerkers, ijsleveringen, bodem en zaad.
 - Het terrein kleurt letterlijk mee naarmate de planeet gezonder wordt.
 - Incubators met menselijk DNA; nederzettingen verschijnen als lichtjes en groeien.
 - Mensen doen **verzoeken**: gesprekken, cadeaus, bouwopdrachten, een band opbouwen.
@@ -74,8 +75,19 @@ Geen FPS, geen tijdsdruk. Getroffen machines gaan in **quarantaine** (stil, niet
 Box zonder ster (breng zelf licht), waterwereld, zwermnest, ... Technologie en archief gaan mee.
 
 ## Stijl
-Neon/Tron: donkere oppervlakken, gloeiende randen en lijnen, bloom. Blokken hebben een donker
-lichaam en een **verfbare neonkleur**. De Box is een gigantisch rasterveld aan de hemel.
+**Comfy retro-futurisme, cartoony, LittleBigPlanet-achtig.** (Neon/Tron is geprobeerd en afgewezen:
+te fel en te donker.)
+- Blokken zijn **speelgoed**: afgeronde randen, geverfd plastic, zachte naad tussen blokken,
+  warme retro-kleuren (crème, oranje, koraal, mosterd, mint, teal, hemelsblauw, pruim, leisteen).
+  Elk bloktype heeft een eigen kleur; spelers kunnen overschilderen.
+- Details in jaren-70-ruimtevaartstijl: chroom randen, bubbelglas, bolle straalpijpen, messing,
+  kleine lampjes. **Licht alleen waar een lamp of vlam is**; geen gloeiende randen.
+- Ruimte is **zacht en kleurrijk**: pruim, perzik rond de zon, teal aan de andere kant, nevelwolkjes.
+  De lucht is ook de invullende belichting, met zachte contactschaduwen (SSAO).
+- Asteroïden en planeten zijn **rond en glad** (kiezels, glooiende heuvels), in pastel.
+  Slapende planeten zijn stoffig zandroze; tot leven gewekt kleuren ze op.
+- UI: crème panelen met ronde hoeken, bruine tekst, oranje accent.
+- De Box is een groot, zacht zichtbaar raster aan de hemel (nog uit te werken in stijl).
 
 ## Besturing en camera
 - Third person rondvliegen, bouwen, inspecteren, je creaties bekijken.
@@ -87,9 +99,10 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | Stap | Inhoud | Status |
 |---|---|---|
 | 0 | Prototype-fundament: grids, bouwen, vliegen, schade, voxel-minen, planeten, zwaartekracht, energie | klaar |
-| A1 | Neon-stijl, Forge, blueprints, opslaan/laden | klaar |
+| A1 | Forge, blueprints, opslaan/laden (neon-stijl later vervangen) | klaar |
 | A2 | Third-person camera, robotlichaam uit de Forge | klaar |
 | B | Fabricator die blueprints print, kosten, presets per ontwerptype | klaar |
+| S | Stijlwissel naar comfy retro-futurisme | klaar |
 | C | Automatisering: aangrenzende machines, zichtbare stromen, drones met routes | |
 | D | Nexus-overzicht en Uplink | |
 | E | Planeten genezen, meekleurend terrein, DNA-incubatie, nederzettingen | |

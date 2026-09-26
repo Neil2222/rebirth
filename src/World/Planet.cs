@@ -16,7 +16,7 @@ public partial class Planet : StaticBody3D, IVoxelSource, IMinable, IEditableTer
 {
 	public const int ChunkSize = 16;
 	private const int ChunkShift = 4;               // log2(ChunkSize), floor division that works for negatives
-	private const float MaxRelief = 40f;            // |height| never exceeds this
+	private const float MaxRelief = 26f;            // |height| never exceeds this
 	private const float ChunkReach = ChunkSize;     // chunk center to any vertex it can emit (half diagonal + one cell)
 	private const float FarMeshSink = 1.5f;         // far mesh sits below the real surface so chunks cover it
 	private const int MaxChunksInFlight = 16;
@@ -31,7 +31,6 @@ public partial class Planet : StaticBody3D, IVoxelSource, IMinable, IEditableTer
 	public int PendingChunks => _inFlight.Count;
 
 	private FastNoiseLite _height = null!;
-	private FastNoiseLite _detail = null!;
 	private OreVeins _ores = null!;
 	private ShaderMaterial _terrainMaterial = null!;
 
@@ -54,8 +53,8 @@ public partial class Planet : StaticBody3D, IVoxelSource, IMinable, IEditableTer
 
 	public override void _Ready()
 	{
-		_height = new FastNoiseLite { Seed = Seed, NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth, Frequency = 1f / 220f, FractalOctaves = 5 };
-		_detail = new FastNoiseLite { Seed = Seed + 1, NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth, Frequency = 0.12f };
+		// Rolling hills: few octaves, no fine crumble.
+		_height = new FastNoiseLite { Seed = Seed, NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth, Frequency = 1f / 260f, FractalOctaves = 2 };
 		_ores = new OreVeins(Seed + 2);
 		_terrainMaterial = SurfaceNets.CreateTerrainMaterial();
 
@@ -76,7 +75,7 @@ public partial class Planet : StaticBody3D, IVoxelSource, IMinable, IEditableTer
 		float r = p.Length();
 		if (r < 1f)
 			return Radius;
-		return Radius + Height(p / r) - r + 1.2f * _detail.GetNoise3Dv(p);
+		return Radius + Height(p / r) - r;
 	}
 
 	public byte Material(int x, int y, int z)
@@ -292,8 +291,8 @@ public partial class Planet : StaticBody3D, IVoxelSource, IMinable, IEditableTer
 		var vertices = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
 		var indices = arrays[(int)Mesh.ArrayType.Index].AsInt32Array();
 		var colors = new Color[vertices.Length];
-		Color low = VoxelMaterials.All[VoxelMaterials.Regolith].Color.Darkened(0.25f);
-		Color high = VoxelMaterials.All[VoxelMaterials.Regolith].Color.Lightened(0.15f);
+		Color low = VoxelMaterials.All[VoxelMaterials.Regolith].Color.Darkened(0.1f);
+		Color high = VoxelMaterials.All[VoxelMaterials.Regolith].Color.Lightened(0.06f);
 		for (int i = 0; i < vertices.Length; i++)
 		{
 			Vector3 dir = vertices[i].Normalized();

@@ -27,9 +27,7 @@ public partial class BlueprintModel : Node3D
 			return model;
 
 		var scaled = new Node3D();
-		// Shrunk models get wider, brighter edges so the neon doesn't vanish into a pixel or two.
-		Material meshMaterial = material ?? (targetHeight is null ? BlockMesher.Material : BlockMesher.SmallModelMaterial);
-		if (BlockMesher.Build(blocks, _ => 1f, meshMaterial) is { } mesh)
+		if (BlockMesher.Build(blocks, _ => 1f, material ?? BlockMesher.Material) is { } mesh)
 			scaled.AddChild(new MeshInstance3D { Mesh = mesh, CastShadow = CastShadows(material) });
 
 		foreach (var (cell, block) in blocks)

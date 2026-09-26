@@ -6,10 +6,9 @@ namespace Rebirth.Building;
 
 public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator }
 
-/// <param name="Paint">Default neon colour of the block's edges and accents; players can repaint.</param>
-/// <param name="BodyShade">Brightness (0..1) of the dark body, so block types stay distinguishable.</param>
+/// <param name="Paint">Default paint colour; each block type has its own so they are easy to tell apart.</param>
 /// <param name="MaxIntegrity">Damage the block absorbs before it is destroyed.</param>
-public sealed record BlockDefinition(string Id, string DisplayName, BlockKind Kind, Color Paint, float BodyShade, float Mass, float MaxIntegrity)
+public sealed record BlockDefinition(string Id, string DisplayName, BlockKind Kind, Color Paint, float Mass, float MaxIntegrity)
 {
 	/// <summary>Newtons, pushing the grid along the block's local forward (-Z); exhaust leaves through +Z.</summary>
 	public float Thrust { get; init; }
@@ -43,55 +42,55 @@ public sealed class BlockState
 public static class BlockCatalog
 {
 	// Masses, outputs and power figures are in the ballpark of Space Engineers' large-grid blocks.
-	public static readonly BlockDefinition LightArmor = new("light_armor", "Light Armor Block", BlockKind.Armor, Neon.Cyan, 0.16f, 418f, 100f)
+	public static readonly BlockDefinition LightArmor = new("light_armor", "Light Armor Block", BlockKind.Armor, Palette.Cream, 418f, 100f)
 	{
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 60f },
 	};
 
-	public static readonly BlockDefinition HeavyArmor = new("heavy_armor", "Heavy Armor Block", BlockKind.Armor, Neon.Cyan, 0.07f, 3300f, 600f)
+	public static readonly BlockDefinition HeavyArmor = new("heavy_armor", "Heavy Armor Block", BlockKind.Armor, Palette.Slate, 3300f, 600f)
 	{
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 400f },
 	};
 
-	public static readonly BlockDefinition Cockpit = new("cockpit", "Control Core", BlockKind.Cockpit, Neon.White, 0.12f, 1200f, 80f)
+	public static readonly BlockDefinition Cockpit = new("cockpit", "Control Core", BlockKind.Cockpit, Palette.Sky, 1200f, 80f)
 	{
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 150f, ["silicon_wafer"] = 50f },
 	};
 
-	public static readonly BlockDefinition Thruster = new("ion_thruster", "Ion Thruster", BlockKind.Thruster, Neon.Magenta, 0.12f, 700f, 80f)
+	public static readonly BlockDefinition Thruster = new("ion_thruster", "Ion Thruster", BlockKind.Thruster, Palette.Orange, 700f, 80f)
 	{
 		Thrust = 250_000f,
 		PowerDraw = 3.4f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 200f, ["nickel_ingot"] = 80f },
 	};
 
-	public static readonly BlockDefinition Gyroscope = new("gyroscope", "Gyroscope", BlockKind.Gyroscope, Neon.Amber, 0.12f, 1400f, 80f)
+	public static readonly BlockDefinition Gyroscope = new("gyroscope", "Gyroscope", BlockKind.Gyroscope, Palette.Mustard, 1400f, 80f)
 	{
 		Torque = 30_000_000f,
 		PowerDraw = 0.03f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 250f, ["nickel_ingot"] = 30f },
 	};
 
-	public static readonly BlockDefinition Battery = new("battery", "Battery", BlockKind.Battery, Neon.Green, 0.10f, 1500f, 80f)
+	public static readonly BlockDefinition Battery = new("battery", "Battery", BlockKind.Battery, Palette.Mint, 1500f, 80f)
 	{
 		BatteryCapacity = 3f,
 		BatteryMaxPower = 12f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 100f, ["nickel_ingot"] = 40f, ["silicon_wafer"] = 20f },
 	};
 
-	public static readonly BlockDefinition SolarPanel = new("solar_panel", "Solar Panel", BlockKind.SolarPanel, Neon.Blue, 0.14f, 400f, 60f)
+	public static readonly BlockDefinition SolarPanel = new("solar_panel", "Solar Panel", BlockKind.SolarPanel, Palette.Cream, 400f, 60f)
 	{
 		SolarOutput = 0.16f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 60f, ["silicon_wafer"] = 60f },
 	};
 
-	public static readonly BlockDefinition CargoContainer = new("cargo_container", "Cargo Container", BlockKind.CargoContainer, Neon.White, 0.13f, 900f, 100f)
+	public static readonly BlockDefinition CargoContainer = new("cargo_container", "Cargo Container", BlockKind.CargoContainer, Palette.Plum, 900f, 100f)
 	{
 		CargoCapacity = 15_000f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 150f },
 	};
 
-	public static readonly BlockDefinition Refinery = new("refinery", "Refinery", BlockKind.Refinery, Neon.Orange, 0.10f, 3000f, 150f)
+	public static readonly BlockDefinition Refinery = new("refinery", "Refinery", BlockKind.Refinery, Palette.Coral, 3000f, 150f)
 	{
 		PowerDraw = 0.56f,
 		CargoCapacity = 2_000f,
@@ -99,7 +98,7 @@ public static class BlockCatalog
 	};
 
 	/// <summary>Prints blueprints from the grid's ingots; the result appears in front of its -Z face.</summary>
-	public static readonly BlockDefinition Fabricator = new("fabricator", "Fabricator", BlockKind.Fabricator, Neon.Violet, 0.09f, 2500f, 150f)
+	public static readonly BlockDefinition Fabricator = new("fabricator", "Fabricator", BlockKind.Fabricator, Palette.Teal, 2500f, 150f)
 	{
 		PowerDraw = 1.5f,
 		CargoCapacity = 1_000f,
@@ -114,18 +113,18 @@ public static class BlockCatalog
 	public static BlockDefinition Get(string id) => ById[id];
 }
 
-/// <summary>The palette of neon colours used for blocks and accents.</summary>
-public static class Neon
+/// <summary>Warm retro-futuristic paint colours for blocks, accents and the paint tool.</summary>
+public static class Palette
 {
-	public static readonly Color Cyan = new(0.10f, 0.90f, 1.00f);
-	public static readonly Color Blue = new(0.25f, 0.45f, 1.00f);
-	public static readonly Color Magenta = new(1.00f, 0.25f, 0.85f);
-	public static readonly Color Orange = new(1.00f, 0.45f, 0.10f);
-	public static readonly Color Amber = new(1.00f, 0.78f, 0.20f);
-	public static readonly Color Green = new(0.30f, 1.00f, 0.45f);
-	public static readonly Color Red = new(1.00f, 0.18f, 0.22f);
-	public static readonly Color White = new(0.85f, 0.95f, 1.00f);
-	public static readonly Color Violet = new(0.62f, 0.35f, 1.00f);
+	public static readonly Color Cream = new(0.95f, 0.90f, 0.80f);
+	public static readonly Color Orange = new(0.96f, 0.50f, 0.18f);
+	public static readonly Color Coral = new(0.93f, 0.40f, 0.38f);
+	public static readonly Color Mustard = new(0.93f, 0.72f, 0.22f);
+	public static readonly Color Mint = new(0.56f, 0.83f, 0.64f);
+	public static readonly Color Teal = new(0.16f, 0.58f, 0.60f);
+	public static readonly Color Sky = new(0.46f, 0.72f, 0.90f);
+	public static readonly Color Plum = new(0.52f, 0.34f, 0.56f);
+	public static readonly Color Slate = new(0.40f, 0.44f, 0.50f);
 
-	public static readonly IReadOnlyList<Color> Palette = [Cyan, Blue, Violet, Magenta, Orange, Amber, Green, Red, White];
+	public static readonly IReadOnlyList<Color> Swatches = [Cream, Orange, Coral, Mustard, Mint, Teal, Sky, Plum, Slate];
 }

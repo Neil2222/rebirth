@@ -168,6 +168,6 @@ public static class SurfaceNets
 		return new ConcavePolygonShape3D { Data = faces };
 	}
 
-	/// <summary>Neon terrain material shared by all voxel terrain (see terrain.gdshader).</summary>
+	/// <summary>Soft cartoon terrain material shared by all voxel terrain (see terrain.gdshader).</summary>
 	public static ShaderMaterial CreateTerrainMaterial() => new() { Shader = GD.Load<Shader>("res://shaders/terrain.gdshader") };
 }

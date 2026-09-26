@@ -95,7 +95,7 @@ public partial class Player : RigidBody3D
 		Rig = new CameraRig { Name = "CameraRig", Target = this, Exclude = [GetRid()] };
 		AddChild(Rig);
 		// The light sits on the head so it points where the body faces, whichever view is active.
-		HelmetLight = new SpotLight3D { SpotRange = 45f, SpotAngle = 32f, LightEnergy = 3f, Position = HeadOffset + new Vector3(0, 0.1f, -0.35f) };
+		HelmetLight = new SpotLight3D { SpotRange = 40f, SpotAngle = 35f, LightEnergy = 1.6f, LightColor = new Color(1f, 0.88f, 0.7f), Position = HeadOffset + new Vector3(0, 0.1f, -0.35f) };
 		AddChild(HelmetLight);
 		SetBody(Body);
 
