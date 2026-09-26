@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using Godot;
 
 namespace Driftworks.Building;
@@ -29,7 +28,4 @@ public static class BlockCatalog
 	public static readonly BlockDefinition Cockpit = new("cockpit", "Cockpit", BlockKind.Cockpit, new Color(0.25f, 0.33f, 0.45f), 1200f, 80f);
 	public static readonly BlockDefinition Thruster = new("ion_thruster", "Ion Thruster", BlockKind.Thruster, new Color(0.45f, 0.47f, 0.50f), 700f, 80f, Thrust: 250_000f);
 	public static readonly BlockDefinition Gyroscope = new("gyroscope", "Gyroscope", BlockKind.Gyroscope, new Color(0.75f, 0.62f, 0.25f), 1400f, 80f, Torque: 30_000_000f);
-
-	/// <summary>Blocks bound to toolbar slots 1..N.</summary>
-	public static readonly IReadOnlyList<BlockDefinition> Toolbar = [LightArmor, HeavyArmor, Cockpit, Thruster, Gyroscope];
 }

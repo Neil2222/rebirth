@@ -1,6 +1,7 @@
 using System.Linq;
 using Driftworks.Building;
 using Driftworks.Characters;
+using Driftworks.Items;
 using Godot;
 
 namespace Driftworks.UI;
@@ -10,12 +11,20 @@ public partial class Hud : CanvasLayer
 	public Player Player { get; set; } = null!;
 
 	private Label _status = null!;
+	private Label _inventory = null!;
 
 	public override void _Ready()
 	{
 		_status = new Label { Position = new Vector2(20, 20) };
 		_status.AddThemeFontSizeOverride("font_size", 20);
 		AddChild(_status);
+
+		_inventory = new Label { HorizontalAlignment = HorizontalAlignment.Right };
+		_inventory.SetAnchorsPreset(Control.LayoutPreset.TopRight);
+		_inventory.GrowHorizontal = Control.GrowDirection.Begin;
+		_inventory.Position -= new Vector2(20, -20);
+		_inventory.AddThemeFontSizeOverride("font_size", 20);
+		AddChild(_inventory);
 
 		var crosshair = new Label
 		{
@@ -30,7 +39,16 @@ public partial class Hud : CanvasLayer
 
 	public override void _Process(double delta)
 	{
-		_status.Text = Player.PilotedGrid is { } ship ? ShipText(ship) : SuitText() + ToolbarText(Player.BuildTool.Selected);
+		_status.Text = Player.PilotedGrid is { } ship ? ShipText(ship) : SuitText() + ToolbarText(Player.Equipped);
+		_inventory.Text = InventoryText(Player.Inventory);
+	}
+
+	private static string InventoryText(Inventory inventory)
+	{
+		if (inventory.Items.Count == 0)
+			return "Inventory: empty";
+		var lines = inventory.Items.OrderBy(kv => kv.Key).Select(kv => $"{ItemCatalog.DisplayName(kv.Key)}: {kv.Value:0} kg");
+		return "Inventory\n" + string.Join("\n", lines);
 	}
 
 	private string SuitText() =>
@@ -52,13 +70,16 @@ public partial class Hud : CanvasLayer
 			"[F] leave cockpit";
 	}
 
-	private static string ToolbarText(BlockDefinition? selected)
+	private static string ToolbarText(ToolbarItem? equipped)
 	{
-		var slots = BlockCatalog.Toolbar.Select((b, i) => b == selected ? $"> [{i + 1}] {b.DisplayName} <" : $"  [{i + 1}] {b.DisplayName}");
-		string hand = selected is null ? "> [0] Empty hand <" : "  [0] Empty hand";
-		string hint = selected is null
-			? "\n[F] enter cockpit   [K] station <-> ship"
-			: "\nLMB place   RMB remove   R/T rotate";
+		var slots = Toolbar.Slots.Select((item, i) => item == equipped ? $"> [{i + 1}] {item.Name} <" : $"  [{i + 1}] {item.Name}");
+		string hand = equipped is null ? "> [0] Empty hand <" : "  [0] Empty hand";
+		string hint = equipped switch
+		{
+			null => "\n[F] enter cockpit   [K] station <-> ship",
+			{ IsDrill: true } => "\nHold LMB to drill",
+			_ => "\nLMB place   RMB remove   R/T rotate",
+		};
 		return string.Join("\n", slots.Append(hand)) + hint;
 	}
 }

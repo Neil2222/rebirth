@@ -24,8 +24,8 @@ public partial class InputBootstrap : Node
 		Bind("rotate_block_pitch", Key.T);
 		for (int slot = 0; slot <= 9; slot++)
 			Bind($"slot_{slot}", Key.Key0 + slot);
-		Bind("build_place", MouseButton.Left);
-		Bind("build_remove", MouseButton.Right);
+		Bind("primary_action", MouseButton.Left);
+		Bind("secondary_action", MouseButton.Right);
 	}
 
 	private static void Bind(string action, Key key) => Bind(action, new InputEventKey { PhysicalKeycode = key });

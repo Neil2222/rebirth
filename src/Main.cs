@@ -1,6 +1,7 @@
 using Driftworks.Building;
 using Driftworks.Characters;
 using Driftworks.UI;
+using Driftworks.World;
 using Godot;
 
 namespace Driftworks;
@@ -13,9 +14,10 @@ public partial class Main : Node3D
 	public override void _Ready()
 	{
 		BuildEnvironment();
-		BuildAsteroid(new Vector3(0, -20, -120), 40f, 1);
-		BuildAsteroid(new Vector3(150, 40, -300), 70f, 2);
-		BuildAsteroid(new Vector3(-90, 30, -60), 12f, 3);
+		AddAsteroid(new Vector3(0, -20, -120), 35f, 1);
+		AddAsteroid(new Vector3(150, 40, -300), 55f, 2);
+		AddAsteroid(new Vector3(-90, 30, -60), 14f, 3);
+		AddAsteroid(new Vector3(-22, -4, -26), 8f, 4);
 		BuildCrates(new Vector3(0, 0, -15));
 		BuildStarterShip(new Transform3D(Basis.Identity, new Vector3(14, 0, -8)));
 
@@ -24,6 +26,9 @@ public partial class Main : Node3D
 		Player.BuildTool.GridParent = this;
 		AddChild(new Hud { Player = Player });
 	}
+
+	private void AddAsteroid(Vector3 position, float radius, int seed) =>
+		AddChild(new VoxelAsteroid { Position = position, Radius = radius, Seed = seed });
 
 	/// <summary>Small ship with thrust on all six axes, a gyroscope, and a cockpit facing -Z.</summary>
 	private void BuildStarterShip(Transform3D transform)
@@ -68,42 +73,6 @@ public partial class Main : Node3D
 		};
 		AddChild(sun);
 		sun.LookAt(new Vector3(-1, -0.4f, -0.6f), Vector3.Up);
-	}
-
-	private void BuildAsteroid(Vector3 position, float radius, int seed)
-	{
-		var mesh = AsteroidMesh(radius, seed);
-		var body = new StaticBody3D { Position = position };
-		body.AddChild(new MeshInstance3D { Mesh = mesh });
-		body.AddChild(new CollisionShape3D { Shape = mesh.CreateTrimeshShape() });
-		AddChild(body);
-	}
-
-	/// <summary>Noise-displaced sphere with flat shading for a low-poly rock look.</summary>
-	private static ArrayMesh AsteroidMesh(float radius, int seed)
-	{
-		var sphere = new SphereMesh { Radius = radius, Height = radius * 2f, RadialSegments = 48, Rings = 24 };
-		var arrays = sphere.GetMeshArrays();
-		var vertices = arrays[(int)Mesh.ArrayType.Vertex].AsVector3Array();
-		var indices = arrays[(int)Mesh.ArrayType.Index].AsInt32Array();
-
-		var noise = new FastNoiseLite
-		{
-			Seed = seed,
-			NoiseType = FastNoiseLite.NoiseTypeEnum.SimplexSmooth,
-			Frequency = 1.2f / radius,
-			FractalOctaves = 4,
-		};
-		for (int i = 0; i < vertices.Length; i++)
-			vertices[i] = vertices[i].Normalized() * radius * (1f + 0.35f * noise.GetNoise3Dv(vertices[i]));
-
-		var st = new SurfaceTool();
-		st.Begin(Mesh.PrimitiveType.Triangles);
-		foreach (int index in indices)
-			st.AddVertex(vertices[index]);
-		st.GenerateNormals();
-		st.SetMaterial(new StandardMaterial3D { AlbedoColor = new Color(0.42f, 0.38f, 0.34f), Roughness = 0.95f });
-		return st.Commit();
 	}
 
 	private void BuildCrates(Vector3 origin)

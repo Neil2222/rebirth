@@ -1,4 +1,5 @@
 using Driftworks.Building;
+using Driftworks.Items;
 using Godot;
 
 namespace Driftworks.Characters;
@@ -23,6 +24,11 @@ public partial class Player : RigidBody3D
 	public bool JetpackOn { get; private set; } = true;
 	public Camera3D Camera { get; private set; } = null!;
 	public BuildTool BuildTool { get; private set; } = null!;
+	public HandDrill Drill { get; private set; } = null!;
+	public Inventory Inventory { get; } = new();
+
+	/// <summary>Item in hand, or null for the empty hand.</summary>
+	public ToolbarItem? Equipped { get; private set; }
 
 	/// <summary>Grid being piloted, or null when on foot.</summary>
 	public BlockGrid? PilotedGrid { get; private set; }
@@ -48,6 +54,8 @@ public partial class Player : RigidBody3D
 
 		BuildTool = new BuildTool { Camera = Camera, Body = this };
 		AddChild(BuildTool);
+		Drill = new HandDrill { Camera = Camera, Body = this, Inventory = Inventory };
+		AddChild(Drill);
 
 		Input.MouseMode = Input.MouseModeEnum.Captured;
 	}
@@ -72,6 +80,31 @@ public partial class Player : RigidBody3D
 			Use();
 		else if (e.IsActionPressed("toggle_grid_static") && PilotedGrid is null)
 			BuildTool.AimedGrid?.ToggleStatic();
+		else
+		{
+			for (int slot = 0; slot <= 9; slot++)
+			{
+				if (e.IsActionPressed($"slot_{slot}"))
+					Equip(slot >= 1 && slot <= Toolbar.Slots.Count ? Toolbar.Slots[slot - 1] : null);
+			}
+		}
+	}
+
+	private void Equip(ToolbarItem? item)
+	{
+		Equipped = item;
+		BuildTool.Select(item?.Block);
+		Drill.Equipped = item?.IsDrill == true;
+	}
+
+	/// <summary>Hand tools only work on foot.</summary>
+	private void SetHandToolsActive(bool active)
+	{
+		foreach (Node3D tool in new Node3D[] { BuildTool, Drill })
+		{
+			tool.ProcessMode = active ? ProcessModeEnum.Inherit : ProcessModeEnum.Disabled;
+			tool.Visible = active;
+		}
 	}
 
 	private void Use()
@@ -95,8 +128,7 @@ public partial class Player : RigidBody3D
 		Freeze = true;
 		CollisionLayer = 0;
 		CollisionMask = 0;
-		BuildTool.ProcessMode = ProcessModeEnum.Disabled;
-		BuildTool.Visible = false;
+		SetHandToolsActive(false);
 
 		_seat = new Node3D { Name = "Seat", Transform = grid.BlockTransform(cell) };
 		grid.AddChild(_seat);
@@ -133,8 +165,7 @@ public partial class Player : RigidBody3D
 		Freeze = false;
 		CollisionLayer = PlayerCollisionLayer;
 		CollisionMask = PlayerCollisionLayer;
-		BuildTool.ProcessMode = ProcessModeEnum.Inherit;
-		BuildTool.Visible = true;
+		SetHandToolsActive(true);
 		ResetPhysicsInterpolation();
 		Camera.ResetPhysicsInterpolation();
 	}

@@ -55,19 +55,11 @@ public partial class BuildTool : Node3D
 
 	public override void _UnhandledInput(InputEvent e)
 	{
-		for (int slot = 0; slot <= 9; slot++)
-		{
-			if (!e.IsActionPressed($"slot_{slot}"))
-				continue;
-			Select(slot >= 1 && slot <= BlockCatalog.Toolbar.Count ? BlockCatalog.Toolbar[slot - 1] : null);
-			return;
-		}
-
 		if (Selected is null || Input.MouseMode != Input.MouseModeEnum.Captured)
 			return;
-		if (e.IsActionPressed("build_place"))
+		if (e.IsActionPressed("primary_action"))
 			Place();
-		else if (e.IsActionPressed("build_remove"))
+		else if (e.IsActionPressed("secondary_action"))
 			AimedGrid?.Remove(AimedCell);
 		else if (e.IsActionPressed("rotate_block_yaw"))
 			Rotate(Camera.GlobalBasis.Y);
@@ -89,7 +81,7 @@ public partial class BuildTool : Node3D
 			_ghost.ResetPhysicsInterpolation();
 	}
 
-	private void Select(BlockDefinition? block)
+	public void Select(BlockDefinition? block)
 	{
 		Selected = block;
 		_ghostDecoration?.QueueFree();
