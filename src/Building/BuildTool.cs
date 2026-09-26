@@ -18,17 +18,23 @@ public partial class BuildTool : Node3D
 
 	public BlockDefinition? Selected { get; private set; }
 
+	/// <summary>Grid block under the crosshair, if any. Updated every physics tick, also without a selected block.</summary>
+	public BlockGrid? AimedGrid { get; private set; }
+	public Vector3I AimedCell { get; private set; }
+
 	private MeshInstance3D _ghost = null!;
+	private Node3D? _ghostDecoration;
 	private StandardMaterial3D _ghostMaterial = null!;
 	private readonly BoxShape3D _probe = new() { Size = Vector3.One * BlockGrid.CellSize * 0.9f };
+
+	// Block rotation relative to the target grid (or to the camera when starting a new grid).
+	private Basis _orientation = Basis.Identity;
 
 	// Recomputed every physics tick.
 	private BlockGrid? _placeGrid;
 	private Vector3I _placeCell;
 	private Transform3D _placeTransform;
 	private bool _placeValid;
-	private BlockGrid? _aimedGrid;
-	private Vector3I _aimedCell;
 
 	public override void _Ready()
 	{
@@ -53,7 +59,7 @@ public partial class BuildTool : Node3D
 		{
 			if (!e.IsActionPressed($"slot_{slot}"))
 				continue;
-			Selected = slot >= 1 && slot <= BlockCatalog.Toolbar.Count ? BlockCatalog.Toolbar[slot - 1] : null;
+			Select(slot >= 1 && slot <= BlockCatalog.Toolbar.Count ? BlockCatalog.Toolbar[slot - 1] : null);
 			return;
 		}
 
@@ -62,7 +68,11 @@ public partial class BuildTool : Node3D
 		if (e.IsActionPressed("build_place"))
 			Place();
 		else if (e.IsActionPressed("build_remove"))
-			_aimedGrid?.Remove(_aimedCell);
+			AimedGrid?.Remove(AimedCell);
+		else if (e.IsActionPressed("rotate_block_yaw"))
+			Rotate(Camera.GlobalBasis.Y);
+		else if (e.IsActionPressed("rotate_block_pitch"))
+			Rotate(Camera.GlobalBasis.X);
 	}
 
 	public override void _PhysicsProcess(double delta)
@@ -79,12 +89,43 @@ public partial class BuildTool : Node3D
 			_ghost.ResetPhysicsInterpolation();
 	}
 
+	private void Select(BlockDefinition? block)
+	{
+		Selected = block;
+		_ghostDecoration?.QueueFree();
+		_ghostDecoration = block is null ? null : BlockVisuals.CreateDecoration(block);
+		if (_ghostDecoration is null)
+			return;
+		_ghost.AddChild(_ghostDecoration);
+		foreach (var node in _ghostDecoration.FindChildren("*", nameof(MeshInstance3D), recursive: true, owned: false))
+			((MeshInstance3D)node).MaterialOverride = _ghostMaterial;
+		// Show a short static flame so the exhaust side of a thruster is obvious while placing.
+		if (_ghostDecoration.GetNodeOrNull<Node3D>(BlockVisuals.FlameName) is { } flame)
+			flame.Scale = new Vector3(1, 1, 0.8f);
+	}
+
+	/// <summary>Rotates the block 90° around the grid axis closest to <paramref name="worldAxis"/>.</summary>
+	private void Rotate(Vector3 worldAxis)
+	{
+		Basis gridBasis = _placeGrid?.GlobalBasis ?? Camera.GlobalBasis;
+		Vector3 axis = BlockGrid.DominantAxis(gridBasis.Inverse() * worldAxis);
+		_orientation = Snap(new Basis(axis, Mathf.Pi / 2f) * _orientation);
+	}
+
+	private static Basis Snap(Basis b) => new(
+		new Vector3(Mathf.Round(b.X.X), Mathf.Round(b.X.Y), Mathf.Round(b.X.Z)),
+		new Vector3(Mathf.Round(b.Y.X), Mathf.Round(b.Y.Y), Mathf.Round(b.Y.Z)),
+		new Vector3(Mathf.Round(b.Z.X), Mathf.Round(b.Z.Y), Mathf.Round(b.Z.Z)));
+
 	private void Place()
 	{
 		if (!_placeValid || Selected is null)
 			return;
-		var grid = _placeGrid ?? BlockGrid.Create(GridParent, _placeTransform, isStatic: true);
-		grid.TryAdd(_placeGrid is null ? Vector3I.Zero : _placeCell, Selected);
+		if (_placeGrid is null)
+			BlockGrid.Create(GridParent, _placeTransform * new Transform3D(_orientation.Inverse(), Vector3.Zero), isStatic: true)
+				.TryAdd(Vector3I.Zero, Selected, _orientation);
+		else
+			_placeGrid.TryAdd(_placeCell, Selected, _orientation);
 	}
 
 	private void UpdateTarget()
@@ -95,21 +136,21 @@ public partial class BuildTool : Node3D
 		var ray = PhysicsRayQueryParameters3D.Create(from, from + forward * Reach, exclude: [Body.GetRid()]);
 		var hit = space.IntersectRay(ray);
 
-		_aimedGrid = null;
+		AimedGrid = null;
 		_placeGrid = null;
 		if (hit.Count > 0 && hit["collider"].AsGodotObject() is BlockGrid grid)
 		{
-			Vector3I normal = DominantAxis(grid.GlobalBasis.Inverse() * hit["normal"].AsVector3());
+			Vector3I normal = BlockGrid.DominantAxis(grid.GlobalBasis.Inverse() * hit["normal"].AsVector3());
 			Vector3 local = grid.ToLocal(hit["position"].AsVector3());
-			_aimedGrid = grid;
-			_aimedCell = BlockGrid.LocalToCell(local - (Vector3)normal * (BlockGrid.CellSize * 0.5f));
+			AimedGrid = grid;
+			AimedCell = BlockGrid.LocalToCell(local - (Vector3)normal * (BlockGrid.CellSize * 0.5f));
 			_placeGrid = grid;
-			_placeCell = _aimedCell + normal;
-			_placeTransform = grid.GlobalTransform * new Transform3D(Basis.Identity, BlockGrid.CellCenter(_placeCell));
+			_placeCell = AimedCell + normal;
+			_placeTransform = grid.GlobalTransform * new Transform3D(_orientation, BlockGrid.CellCenter(_placeCell));
 		}
 		else
 		{
-			_placeTransform = new Transform3D(Camera.GlobalBasis.Orthonormalized(), from + forward * FreePlacementDistance);
+			_placeTransform = new Transform3D(Camera.GlobalBasis.Orthonormalized() * _orientation, from + forward * FreePlacementDistance);
 		}
 
 		_placeValid = (_placeGrid is null || !_placeGrid.Has(_placeCell)) && !Overlaps(space, _placeTransform, _placeGrid);
@@ -124,15 +165,5 @@ public partial class BuildTool : Node3D
 			Exclude = ignore is null ? new Array<Rid>() : [ignore.GetRid()],
 		};
 		return space.IntersectShape(query, 1).Count > 0;
-	}
-
-	private static Vector3I DominantAxis(Vector3 v)
-	{
-		Vector3 a = v.Abs();
-		if (a.X >= a.Y && a.X >= a.Z)
-			return new Vector3I(Mathf.Sign(v.X), 0, 0);
-		if (a.Y >= a.Z)
-			return new Vector3I(0, Mathf.Sign(v.Y), 0);
-		return new Vector3I(0, 0, Mathf.Sign(v.Z));
 	}
 }

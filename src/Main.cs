@@ -1,10 +1,11 @@
-using Godot;
+using Driftworks.Building;
 using Driftworks.Characters;
 using Driftworks.UI;
+using Godot;
 
 namespace Driftworks;
 
-/// <summary>Builds the test sandbox: sky, sun, a few asteroids, loose crates, and the player.</summary>
+/// <summary>Builds the test sandbox: sky, sun, asteroids, loose crates, a starter ship, and the player.</summary>
 public partial class Main : Node3D
 {
 	public Player Player { get; private set; } = null!;
@@ -16,11 +17,32 @@ public partial class Main : Node3D
 		BuildAsteroid(new Vector3(150, 40, -300), 70f, 2);
 		BuildAsteroid(new Vector3(-90, 30, -60), 12f, 3);
 		BuildCrates(new Vector3(0, 0, -15));
+		BuildStarterShip(new Transform3D(Basis.Identity, new Vector3(14, 0, -8)));
 
 		Player = new Player { Name = "Player" };
 		AddChild(Player);
 		Player.BuildTool.GridParent = this;
 		AddChild(new Hud { Player = Player });
+	}
+
+	/// <summary>Small ship with thrust on all six axes, a gyroscope, and a cockpit facing -Z.</summary>
+	private void BuildStarterShip(Transform3D transform)
+	{
+		var ship = BlockGrid.Create(this, transform, isStatic: false);
+		Basis identity = Basis.Identity;
+		ship.TryAdd(new Vector3I(0, 0, 0), BlockCatalog.Cockpit, identity);
+		ship.TryAdd(new Vector3I(0, 0, 1), BlockCatalog.Gyroscope, identity);
+		ship.TryAdd(new Vector3I(0, 0, 2), BlockCatalog.LightArmor, identity);
+		ship.TryAdd(new Vector3I(-1, 0, 1), BlockCatalog.LightArmor, identity);
+		ship.TryAdd(new Vector3I(1, 0, 1), BlockCatalog.LightArmor, identity);
+		// A thruster pushes the grid along its local -Z; these orientations aim that at each axis.
+		ship.TryAdd(new Vector3I(0, 0, 3), BlockCatalog.Thruster, identity);                                  // forward
+		ship.TryAdd(new Vector3I(-1, 0, 0), BlockCatalog.Thruster, new Basis(Vector3.Up, Mathf.Pi));          // backward
+		ship.TryAdd(new Vector3I(1, 0, 0), BlockCatalog.Thruster, new Basis(Vector3.Up, Mathf.Pi));           // backward
+		ship.TryAdd(new Vector3I(-2, 0, 1), BlockCatalog.Thruster, new Basis(Vector3.Up, -Mathf.Pi / 2f));    // right
+		ship.TryAdd(new Vector3I(2, 0, 1), BlockCatalog.Thruster, new Basis(Vector3.Up, Mathf.Pi / 2f));      // left
+		ship.TryAdd(new Vector3I(0, 1, 1), BlockCatalog.Thruster, new Basis(Vector3.Right, -Mathf.Pi / 2f));  // down
+		ship.TryAdd(new Vector3I(0, -1, 1), BlockCatalog.Thruster, new Basis(Vector3.Right, Mathf.Pi / 2f));  // up
 	}
 
 	private void BuildEnvironment()

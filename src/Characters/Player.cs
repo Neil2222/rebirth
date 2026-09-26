@@ -6,7 +6,7 @@ namespace Driftworks.Characters;
 /// <summary>
 /// Zero-g astronaut with a 6DOF jetpack. Rotation is driven directly by input
 /// (mouse = yaw/pitch, Q/E = roll); translation goes through physics so the
-/// player collides with and pushes objects.
+/// player collides with and pushes objects. Can sit in a cockpit to pilot a grid.
 /// </summary>
 public partial class Player : RigidBody3D
 {
@@ -14,12 +14,21 @@ public partial class Player : RigidBody3D
 	[Export] public float MaxSpeed = 100f;         // m/s, same cap as Space Engineers
 	[Export] public float MouseSensitivity = 0.0025f;
 	[Export] public float RollSpeed = 1.6f;        // rad/s
+	[Export] public float ShipMouseRate = 0.06f;   // rad/s of ship rotation per pixel of mouse movement per tick
+	[Export] public float ShipMaxTurnRate = 2.5f;  // rad/s
+
+	private const uint PlayerCollisionLayer = 1;
 
 	public bool DampenersOn { get; private set; } = true;
 	public bool JetpackOn { get; private set; } = true;
 	public Camera3D Camera { get; private set; } = null!;
 	public BuildTool BuildTool { get; private set; } = null!;
 
+	/// <summary>Grid being piloted, or null when on foot.</summary>
+	public BlockGrid? PilotedGrid { get; private set; }
+
+	private Vector3I _cockpitCell;
+	private Node3D? _seat;
 	private Vector2 _pendingMouse;
 
 	public override void _Ready()
@@ -30,7 +39,7 @@ public partial class Player : RigidBody3D
 		LinearDampMode = DampMode.Replace;
 		LinearDamp = 0f;
 		PhysicsMaterialOverride = new PhysicsMaterial { Friction = 0.4f, Bounce = 0.1f };
-		CustomIntegrator = false;
+		FreezeMode = FreezeModeEnum.Kinematic;
 
 		AddChild(new CollisionShape3D { Shape = new CapsuleShape3D { Radius = 0.4f, Height = 1.8f } });
 
@@ -59,6 +68,113 @@ public partial class Player : RigidBody3D
 			DampenersOn = !DampenersOn;
 		else if (e.IsActionPressed("toggle_jetpack"))
 			JetpackOn = !JetpackOn;
+		else if (e.IsActionPressed("use"))
+			Use();
+		else if (e.IsActionPressed("toggle_grid_static") && PilotedGrid is null)
+			BuildTool.AimedGrid?.ToggleStatic();
+	}
+
+	private void Use()
+	{
+		if (PilotedGrid is not null)
+			ExitCockpit();
+		else if (BuildTool.AimedGrid is { } grid && grid.TryGet(BuildTool.AimedCell, out var block) && block.Definition.Kind == BlockKind.Cockpit)
+			EnterCockpit(grid, BuildTool.AimedCell);
+	}
+
+	private void EnterCockpit(BlockGrid grid, Vector3I cell)
+	{
+		PilotedGrid = grid;
+		_cockpitCell = cell;
+		grid.BlockRemoved += OnPilotedBlockRemoved;
+		grid.ControlFrame = grid.BlockTransform(cell).Basis;
+		grid.CanSleep = false;
+		grid.Sleeping = false;
+
+		// Park the body: no collisions, no simulation. The camera rides along on a seat node in the grid.
+		Freeze = true;
+		CollisionLayer = 0;
+		CollisionMask = 0;
+		BuildTool.ProcessMode = ProcessModeEnum.Disabled;
+		BuildTool.Visible = false;
+
+		_seat = new Node3D { Name = "Seat", Transform = grid.BlockTransform(cell) };
+		grid.AddChild(_seat);
+		Camera.Reparent(_seat, keepGlobalTransform: false);
+		Camera.Transform = new Transform3D(Basis.Identity, new Vector3(0, 0.3f, -0.4f));
+		Camera.ResetPhysicsInterpolation();
+		_pendingMouse = Vector2.Zero;
+	}
+
+	private void OnPilotedBlockRemoved(Vector3I cell)
+	{
+		if (cell == _cockpitCell)
+			ExitCockpit();
+	}
+
+	private void ExitCockpit()
+	{
+		var grid = PilotedGrid!;
+		grid.BlockRemoved -= OnPilotedBlockRemoved;
+		grid.Controls = grid.Controls with { Move = Vector3.Zero, Rotate = Vector3.Zero };
+		grid.CanSleep = true;
+
+		Transform3D seat = grid.GlobalTransform * new Transform3D(grid.ControlFrame, BlockGrid.CellCenter(_cockpitCell));
+		Transform3D exit = FindExit(seat);
+
+		Camera.Reparent(this, keepGlobalTransform: false);
+		Camera.Transform = new Transform3D(Basis.Identity, new Vector3(0, 0.6f, 0));
+		_seat!.QueueFree();
+		_seat = null;
+		PilotedGrid = null;
+
+		GlobalTransform = exit;
+		LinearVelocity = grid.LinearVelocity;
+		Freeze = false;
+		CollisionLayer = PlayerCollisionLayer;
+		CollisionMask = PlayerCollisionLayer;
+		BuildTool.ProcessMode = ProcessModeEnum.Inherit;
+		BuildTool.Visible = true;
+		ResetPhysicsInterpolation();
+		Camera.ResetPhysicsInterpolation();
+	}
+
+	/// <summary>First free spot next to the cockpit: above, behind, the sides, in front, below.</summary>
+	private Transform3D FindExit(Transform3D seat)
+	{
+		var space = GetWorld3D().DirectSpaceState;
+		var probe = new PhysicsShapeQueryParameters3D { Shape = new CapsuleShape3D { Radius = 0.45f, Height = 1.9f } };
+		Vector3[] directions = [seat.Basis.Y, seat.Basis.Z, -seat.Basis.X, seat.Basis.X, -seat.Basis.Z, -seat.Basis.Y];
+		foreach (Vector3 dir in directions)
+		{
+			var candidate = new Transform3D(seat.Basis, seat.Origin + dir * BlockGrid.CellSize);
+			probe.Transform = candidate;
+			if (space.IntersectShape(probe, 1).Count == 0)
+				return candidate;
+		}
+		// Fully enclosed cockpit: pop out further above it.
+		return new Transform3D(seat.Basis, seat.Origin + seat.Basis.Y * BlockGrid.CellSize * 3f);
+	}
+
+	public override void _PhysicsProcess(double delta)
+	{
+		if (PilotedGrid is not { } grid)
+			return;
+
+		Vector2 mouse = _pendingMouse;
+		_pendingMouse = Vector2.Zero;
+		grid.Controls = new ShipControls
+		{
+			Move = new Vector3(
+				Input.GetAxis("move_left", "move_right"),
+				Input.GetAxis("move_down", "move_up"),
+				Input.GetAxis("move_forward", "move_back")),
+			Rotate = new Vector3(
+				Mathf.Clamp(-mouse.Y * ShipMouseRate, -ShipMaxTurnRate, ShipMaxTurnRate),
+				Mathf.Clamp(-mouse.X * ShipMouseRate, -ShipMaxTurnRate, ShipMaxTurnRate),
+				-Input.GetAxis("roll_left", "roll_right") * RollSpeed),
+			Dampeners = DampenersOn,
+		};
 	}
 
 	public override void _IntegrateForces(PhysicsDirectBodyState3D state)
