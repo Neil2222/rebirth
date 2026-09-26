@@ -1,8 +1,9 @@
-using Driftworks.Items;
-using Driftworks.World;
+using Rebirth.Core;
+using Rebirth.Items;
+using Rebirth.World;
 using Godot;
 
-namespace Driftworks.Characters;
+namespace Rebirth.Characters;
 
 /// <summary>Hold the primary action to bore into asteroids; mined ore goes into the inventory.</summary>
 public partial class HandDrill : Node3D
@@ -58,7 +59,7 @@ public partial class HandDrill : Node3D
 	{
 		_model.Visible = Equipped;
 		InventoryFull = Inventory.FreeSpace <= 0f;
-		Drilling = Equipped && !InventoryFull && Input.MouseMode == Input.MouseModeEnum.Captured && Input.IsActionPressed("primary_action");
+		Drilling = Equipped && !InventoryFull && !GameState.WorldInputBlocked && Input.MouseMode == Input.MouseModeEnum.Captured && Input.IsActionPressed("primary_action");
 		if (Drilling)
 			_model.RotateObjectLocal(Vector3.Forward, 25f * (float)delta);
 

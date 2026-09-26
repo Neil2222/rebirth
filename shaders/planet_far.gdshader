@@ -14,6 +14,6 @@ void fragment() {
 	if (distance(world_position, CAMERA_POSITION_WORLD) < near_radius) {
 		discard;
 	}
-	ALBEDO = pow(COLOR.rgb, vec3(2.2)); // vertex colours are sRGB
-	ROUGHNESS = 0.95;
+	ALBEDO = COLOR.rgb; // linear vertex colours
+	ROUGHNESS = 0.9;
 }

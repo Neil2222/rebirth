@@ -1,8 +1,8 @@
 using System.Collections.Generic;
 using System.Linq;
-using Driftworks.Building;
+using Rebirth.Building;
 
-namespace Driftworks.Characters;
+namespace Rebirth.Characters;
 
 /// <summary>Something the player can hold: a block to build with, or a hand tool.</summary>
 public sealed record ToolbarItem(string Name, BlockDefinition? Block = null, bool IsDrill = false);

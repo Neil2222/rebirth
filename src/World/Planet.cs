@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Godot;
 
-namespace Driftworks.World;
+namespace Rebirth.World;
 
 /// <summary>
 /// A planet far too large for a dense voxel array. Terrain density is a procedural function
@@ -12,7 +12,7 @@ namespace Driftworks.World;
 /// Near the camera, 16³ voxel chunks are streamed in on worker threads; everything else is drawn
 /// by a low-resolution far mesh whose shader hides itself where the voxel chunks take over.
 /// </summary>
-public partial class Planet : StaticBody3D, IVoxelSource, IMinable
+public partial class Planet : StaticBody3D, IVoxelSource, IMinable, IEditableTerrain
 {
 	public const int ChunkSize = 16;
 	private const int ChunkShift = 4;               // log2(ChunkSize), floor division that works for negatives
@@ -33,7 +33,7 @@ public partial class Planet : StaticBody3D, IVoxelSource, IMinable
 	private FastNoiseLite _height = null!;
 	private FastNoiseLite _detail = null!;
 	private OreVeins _ores = null!;
-	private StandardMaterial3D _terrainMaterial = null!;
+	private ShaderMaterial _terrainMaterial = null!;
 
 	// Sparse terrain edits and the chunks they touch (those can no longer be assumed fully solid).
 	private readonly ConcurrentDictionary<Vector3I, float> _edits = new();
@@ -105,6 +105,33 @@ public partial class Planet : StaticBody3D, IVoxelSource, IMinable
 			MarkEdited(x, y, z);
 		}
 		return mined;
+	}
+
+	public string TerrainId => Name;
+
+	public (int[] Points, float[] Densities) ExportEdits()
+	{
+		var edits = _edits.ToArray();
+		var points = new int[edits.Length * 3];
+		var densities = new float[edits.Length];
+		for (int n = 0; n < edits.Length; n++)
+		{
+			points[n * 3] = edits[n].Key.X;
+			points[n * 3 + 1] = edits[n].Key.Y;
+			points[n * 3 + 2] = edits[n].Key.Z;
+			densities[n] = edits[n].Value;
+		}
+		return (points, densities);
+	}
+
+	public void ImportEdits(int[] points, float[] densities)
+	{
+		for (int n = 0; n < densities.Length; n++)
+		{
+			int x = points[n * 3], y = points[n * 3 + 1], z = points[n * 3 + 2];
+			_edits[new Vector3I(x, y, z)] = densities[n];
+			MarkEdited(x, y, z);
+		}
 	}
 
 	/// <summary>A lattice point is read by the chunks of point-1..point+1 on each axis (see SurfaceNets).</summary>
@@ -272,7 +299,7 @@ public partial class Planet : StaticBody3D, IVoxelSource, IMinable
 			Vector3 dir = vertices[i].Normalized();
 			float h = Height(dir);
 			vertices[i] = dir * (Radius + h - FarMeshSink);
-			colors[i] = low.Lerp(high, Mathf.Clamp(0.5f + h / (2f * MaxRelief), 0f, 1f));
+			colors[i] = low.Lerp(high, Mathf.Clamp(0.5f + h / (2f * MaxRelief), 0f, 1f)).SrgbToLinear();
 		}
 
 		// Smooth normals from face normals, flipped outward where the winding disagrees.

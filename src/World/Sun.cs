@@ -1,6 +1,6 @@
 using Godot;
 
-namespace Driftworks.World;
+namespace Rebirth.World;
 
 public static class Sun
 {

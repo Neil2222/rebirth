@@ -1,9 +1,9 @@
 using System.Collections.Generic;
-using Driftworks.Items;
-using Driftworks.World;
+using Rebirth.Items;
+using Rebirth.World;
 using Godot;
 
-namespace Driftworks.Building;
+namespace Rebirth.Building;
 
 // Electrical network and the grid-wide inventory. Every block on a grid is connected (no wiring or
 // conveyors to lay), which keeps the Space Engineers loop of mine → refine → build without the plumbing.

@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Driftworks.Items;
+namespace Rebirth.Items;
 
 /// <summary>Item amounts by id, in kilograms, limited by a total mass capacity.</summary>
 public sealed class Inventory
@@ -27,6 +27,8 @@ public sealed class Inventory
 		_items[id] = Get(id) + amount;
 		return amount;
 	}
+
+	public void Clear() => _items.Clear();
 
 	public bool Has(IReadOnlyDictionary<string, float> items) => items.All(kv => Get(kv.Key) >= kv.Value);
 

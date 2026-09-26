@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 
-namespace Driftworks.Items;
+namespace Rebirth.Items;
 
 public enum ItemCategory { Ore, Ingot }
 

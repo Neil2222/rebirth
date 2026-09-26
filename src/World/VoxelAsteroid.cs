@@ -2,13 +2,13 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Godot;
 
-namespace Driftworks.World;
+namespace Rebirth.World;
 
 /// <summary>
 /// Minable asteroid backed by a dense density field (solid where density &gt; 0) on a 1 m lattice,
 /// meshed per 16³ chunk with <see cref="SurfaceNets"/>.
 /// </summary>
-public partial class VoxelAsteroid : StaticBody3D, IVoxelSource, IMinable
+public partial class VoxelAsteroid : StaticBody3D, IVoxelSource, IMinable, IEditableTerrain
 {
 	public const int ChunkSize = 16;
 
@@ -23,7 +23,8 @@ public partial class VoxelAsteroid : StaticBody3D, IVoxelSource, IMinable
 	private MeshInstance3D?[] _chunkMeshes = null!;
 	private CollisionShape3D?[] _chunkShapes = null!;
 	private readonly HashSet<int> _dirtyChunks = new();
-	private StandardMaterial3D _surfaceMaterial = null!;
+	private readonly HashSet<int> _editedPoints = new();
+	private ShaderMaterial _surfaceMaterial = null!;
 
 	public override void _Ready()
 	{
@@ -62,9 +63,41 @@ public partial class VoxelAsteroid : StaticBody3D, IVoxelSource, IMinable
 				continue;
 			mined[_material[i]] += Mathf.Clamp(d, 0f, 1f) - Mathf.Clamp(carved, 0f, 1f);
 			_density[i] = carved;
+			_editedPoints.Add(i);
 			MarkDirty(x, y, z);
 		}
 		return mined;
+	}
+
+	public string TerrainId => Name;
+
+	public (int[] Points, float[] Densities) ExportEdits()
+	{
+		var points = new int[_editedPoints.Count * 3];
+		var densities = new float[_editedPoints.Count];
+		int n = 0;
+		foreach (int i in _editedPoints)
+		{
+			points[n * 3] = i % _size;
+			points[n * 3 + 1] = i / _size % _size;
+			points[n * 3 + 2] = i / (_size * _size);
+			densities[n++] = _density[i];
+		}
+		return (points, densities);
+	}
+
+	public void ImportEdits(int[] points, float[] densities)
+	{
+		for (int n = 0; n < densities.Length; n++)
+		{
+			int x = points[n * 3], y = points[n * 3 + 1], z = points[n * 3 + 2];
+			if (!Inside(x, y, z))
+				continue;
+			int i = Index(x, y, z);
+			_density[i] = densities[n];
+			_editedPoints.Add(i);
+			MarkDirty(x, y, z);
+		}
 	}
 
 	private int Index(int x, int y, int z) => x + _size * (y + _size * z);

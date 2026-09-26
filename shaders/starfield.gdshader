@@ -23,12 +23,12 @@ void sky() {
 		col += tint * brightness * (0.6 + 2.0 * hash13(cell + 11.0));
 	}
 
-	// Faint nebula haze so space isn't pure black.
-	col += vec3(0.012, 0.010, 0.025) * (0.6 + 0.4 * dir.y);
+	// Faint cyan/magenta haze so space isn't pure black.
+	col += mix(vec3(0.020, 0.004, 0.030), vec3(0.000, 0.018, 0.028), 0.5 + 0.5 * dir.y);
 
 	if (LIGHT0_ENABLED) {
 		float s = max(dot(dir, LIGHT0_DIRECTION), 0.0);
-		col += LIGHT0_COLOR * (pow(s, 3000.0) * 30.0 + pow(s, 80.0) * 0.25);
+		col += LIGHT0_COLOR * (pow(s, 3000.0) * 6.0 + pow(s, 80.0) * 0.15);
 	}
 
 	COLOR = col;

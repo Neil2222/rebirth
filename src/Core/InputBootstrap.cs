@@ -1,6 +1,6 @@
 using Godot;
 
-namespace Driftworks.Core;
+namespace Rebirth.Core;
 
 /// <summary>Registers all input actions in code so bindings live in one readable place.</summary>
 public partial class InputBootstrap : Node
@@ -25,6 +25,10 @@ public partial class InputBootstrap : Node
 		Bind("toggle_creative", Key.F2);
 		Bind("toggle_light", Key.L);
 		Bind("sprint", Key.Shift);
+		Bind("open_forge", Key.B);
+		Bind("quick_save", Key.F5);
+		Bind("quick_load", Key.F9);
+		Bind("new_world", Key.F8);
 		for (int slot = 0; slot <= 9; slot++)
 			Bind($"slot_{slot}", Key.Key0 + slot);
 		Bind("primary_action", MouseButton.Left);

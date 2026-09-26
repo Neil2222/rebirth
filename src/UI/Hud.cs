@@ -1,10 +1,10 @@
 using System.Linq;
-using Driftworks.Building;
-using Driftworks.Characters;
-using Driftworks.Items;
+using Rebirth.Building;
+using Rebirth.Characters;
+using Rebirth.Items;
 using Godot;
 
-namespace Driftworks.UI;
+namespace Rebirth.UI;
 
 public partial class Hud : CanvasLayer
 {
@@ -30,6 +30,7 @@ public partial class Hud : CanvasLayer
 	{
 		var label = new Label { HorizontalAlignment = align };
 		label.AddThemeFontSizeOverride("font_size", 20);
+		label.AddThemeColorOverride("font_color", new Color(0.75f, 0.95f, 1f));
 		label.AddThemeConstantOverride("outline_size", 6);
 		label.AddThemeColorOverride("font_outline_color", new Color(0, 0, 0, 0.8f));
 		label.SetAnchorsPreset(anchor);
@@ -106,7 +107,8 @@ public partial class Hud : CanvasLayer
 		else if (equipped?.IsDrill == true)
 			text += "Hold LMB to drill\n";
 		else
-			text += "Press a number to take an item; again to put it away\n";
+			text += "Press a number to take an item; again to put it away\n" +
+				"[B] Forge   [F5] quicksave   [F9] quickload   [F8] new world\n";
 		return text;
 	}
 

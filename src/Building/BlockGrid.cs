@@ -1,8 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Godot;
 
-namespace Driftworks.Building;
+namespace Rebirth.Building;
 
 /// <summary>
 /// A rigid structure made of cubic blocks on an integer lattice. Cell (0,0,0) sits at the
@@ -40,10 +41,16 @@ public partial class BlockGrid : RigidBody3D
 	public int BlockCount => _blocks.Count;
 	public bool IsStatic => Freeze;
 
+	/// <summary>
+	/// A design being edited in the Forge: may be empty or disconnected while you work on it, and runs
+	/// no simulation (power, refining, damage).
+	/// </summary>
+	public bool DesignMode { get; init; }
+
 	/// <summary>Creates an empty grid under <paramref name="parent"/>.</summary>
-	public static BlockGrid Create(Node parent, Transform3D transform, bool isStatic)
+	public static BlockGrid Create(Node parent, Transform3D transform, bool isStatic, bool designMode = false)
 	{
-		var grid = new BlockGrid { Name = "Grid", Transform = transform, Freeze = isStatic, FreezeMode = FreezeModeEnum.Static };
+		var grid = new BlockGrid { Name = "Grid", Transform = transform, Freeze = isStatic, FreezeMode = FreezeModeEnum.Static, DesignMode = designMode };
 		parent.AddChild(grid, forceReadableName: true);
 		return grid;
 	}
@@ -64,6 +71,8 @@ public partial class BlockGrid : RigidBody3D
 
 	public override void _PhysicsProcess(double delta)
 	{
+		if (DesignMode)
+			return;
 		UpdatePower((float)delta);
 		UpdateRefining((float)delta);
 		ApplyPendingDamage();
@@ -72,6 +81,8 @@ public partial class BlockGrid : RigidBody3D
 	public bool Has(Vector3I cell) => _blocks.ContainsKey(cell);
 
 	public bool TryGet(Vector3I cell, out PlacedBlock block) => _blocks.TryGetValue(cell, out block);
+
+	public BlockState StateOf(Vector3I cell) => _state[cell];
 
 	public IEnumerable<KeyValuePair<Vector3I, PlacedBlock>> Blocks => _blocks;
 
@@ -91,13 +102,36 @@ public partial class BlockGrid : RigidBody3D
 	}
 
 	/// <param name="charge">Initial battery charge as a fraction of capacity (ignored for other blocks).</param>
-	public bool TryAdd(Vector3I cell, BlockDefinition definition, Basis orientation, float charge = 0.25f)
+	/// <param name="paint">Neon colour; the block type's default when omitted.</param>
+	public bool TryAdd(Vector3I cell, BlockDefinition definition, Basis orientation, float charge = 0.25f, Color? paint = null)
 	{
 		var state = new BlockState { Integrity = definition.MaxIntegrity, StoredEnergy = definition.BatteryCapacity * charge };
-		if (!AddInternal(cell, new PlacedBlock(definition, orientation), state))
+		return TryAdd(cell, new PlacedBlock(definition, orientation, paint ?? definition.Paint), state);
+	}
+
+	/// <summary>Adds a block with existing state, e.g. restored from a save.</summary>
+	public bool TryAdd(Vector3I cell, PlacedBlock block, BlockState state)
+	{
+		if (!AddInternal(cell, block, state))
 			return false;
 		OnBlocksChanged();
 		return true;
+	}
+
+	/// <summary>Adds many blocks with a single mesh and capability rebuild; occupied cells are skipped.</summary>
+	public void AddMany(IEnumerable<(Vector3I Cell, PlacedBlock Block, BlockState State)> blocks)
+	{
+		foreach (var (cell, block, state) in blocks)
+			AddInternal(cell, block, state);
+		OnBlocksChanged();
+	}
+
+	/// <summary>Removes every block (design grids only; live grids would free themselves).</summary>
+	public void Clear()
+	{
+		foreach (var cell in _blocks.Keys.ToArray())
+			RemoveInternal(cell);
+		OnBlocksChanged();
 	}
 
 	/// <summary>Removes a block. Any part no longer connected to the rest breaks off as its own grid.</summary>
@@ -105,14 +139,35 @@ public partial class BlockGrid : RigidBody3D
 	{
 		if (!RemoveInternal(cell))
 			return false;
-		if (_blocks.Count == 0)
+		if (_blocks.Count == 0 && !DesignMode)
 		{
 			QueueFree();
 			return true;
 		}
-		SplitDisconnected();
+		if (!DesignMode)
+			SplitDisconnected();
 		OnBlocksChanged();
 		return true;
+	}
+
+	public void Repaint(Vector3I cell, Color paint)
+	{
+		if (!_blocks.TryGetValue(cell, out var block) || block.Paint == paint)
+			return;
+		_blocks[cell] = block with { Paint = paint };
+		if (_decorations.Remove(cell, out var old))
+			old.QueueFree();
+		AddDecoration(cell, _blocks[cell]);
+		RebuildMesh();
+	}
+
+	private void AddDecoration(Vector3I cell, PlacedBlock block)
+	{
+		if (BlockVisuals.CreateDecoration(block.Definition, block.Paint) is not { } decoration)
+			return;
+		decoration.Transform = new Transform3D(block.Orientation, CellCenter(cell));
+		AddChild(decoration);
+		_decorations[cell] = decoration;
 	}
 
 	private bool AddInternal(Vector3I cell, PlacedBlock block, BlockState state)
@@ -125,12 +180,7 @@ public partial class BlockGrid : RigidBody3D
 		AddChild(shape);
 		_shapes[cell] = shape;
 
-		if (BlockVisuals.CreateDecoration(block.Definition) is { } decoration)
-		{
-			decoration.Transform = new Transform3D(block.Orientation, CellCenter(cell));
-			AddChild(decoration);
-			_decorations[cell] = decoration;
-		}
+		AddDecoration(cell, block);
 
 		ApplyMassDelta(cell, block.Definition.Mass);
 		return true;
@@ -176,6 +226,7 @@ public partial class BlockGrid : RigidBody3D
 		var normals = new List<Vector3>();
 		var colors = new List<Color>();
 		var uvs = new List<Vector2>();
+		var uv2s = new List<Vector2>();
 		var indices = new List<int>();
 		const float h = CellSize * 0.5f;
 
@@ -183,7 +234,9 @@ public partial class BlockGrid : RigidBody3D
 		{
 			Vector3 center = CellCenter(cell);
 			float health = _state[cell].Integrity / block.Definition.MaxIntegrity;
-			Color color = DamagedColor.Lerp(block.Definition.Color, 0.25f + 0.75f * health).SrgbToLinear();
+			// See armor.gdshader for the channel layout.
+			Color color = block.Paint.SrgbToLinear() with { A = block.Definition.BodyShade };
+			var uv2 = new Vector2(health, (cell.X * 73 + cell.Y * 19 + cell.Z * 7) % 101 / 101f);
 			foreach (var (dir, u, v) in Faces)
 			{
 				if (_blocks.ContainsKey(cell + dir))
@@ -204,10 +257,17 @@ public partial class BlockGrid : RigidBody3D
 				{
 					normals.Add(n);
 					colors.Add(color);
+					uv2s.Add(uv2);
 				}
 				// Godot treats clockwise triangles as front-facing.
 				indices.AddRange([b, b + 2, b + 1, b, b + 3, b + 2]);
 			}
+		}
+
+		if (indices.Count == 0)
+		{
+			_meshInstance.Mesh = null; // an empty design in the Forge
+			return;
 		}
 
 		var arrays = new Godot.Collections.Array();
@@ -216,6 +276,7 @@ public partial class BlockGrid : RigidBody3D
 		arrays[(int)Mesh.ArrayType.Normal] = normals.ToArray();
 		arrays[(int)Mesh.ArrayType.Color] = colors.ToArray();
 		arrays[(int)Mesh.ArrayType.TexUV] = uvs.ToArray();
+		arrays[(int)Mesh.ArrayType.TexUV2] = uv2s.ToArray();
 		arrays[(int)Mesh.ArrayType.Index] = indices.ToArray();
 
 		var mesh = new ArrayMesh();

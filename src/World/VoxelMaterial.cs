@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using Godot;
 
-namespace Driftworks.World;
+namespace Rebirth.World;
 
 /// <param name="OreItemId">Inventory item produced when this material is mined.</param>
 /// <param name="YieldPerCubicMetre">Kilograms of ore per fully solid cubic metre mined.</param>
-public sealed record VoxelMaterial(string Name, Color Color, string OreItemId, float YieldPerCubicMetre);
+/// <param name="Glow">Emission strength (0..1); ore veins glow so they are easy to spot.</param>
+public sealed record VoxelMaterial(string Name, Color Color, string OreItemId, float YieldPerCubicMetre, float Glow);
 
 public static class VoxelMaterials
 {
@@ -18,11 +19,12 @@ public static class VoxelMaterials
 	/// <summary>Indexed by the material byte stored per voxel.</summary>
 	public static readonly IReadOnlyList<VoxelMaterial> All =
 	[
-		new("Stone", new Color(0.46f, 0.42f, 0.38f), "stone", 80f),
-		new("Iron", new Color(0.55f, 0.28f, 0.18f), "iron_ore", 150f),
-		new("Nickel", new Color(0.40f, 0.50f, 0.38f), "nickel_ore", 150f),
-		new("Silicon", new Color(0.78f, 0.76f, 0.70f), "silicon_ore", 150f),
-		new("Regolith", new Color(0.66f, 0.40f, 0.26f), "stone", 60f),
+		new("Stone", new Color(0.10f, 0.095f, 0.115f), "stone", 80f, 0f),
+		new("Iron", new Color(1.00f, 0.35f, 0.15f), "iron_ore", 150f, 1f),
+		new("Nickel", new Color(0.30f, 1.00f, 0.60f), "nickel_ore", 150f, 1f),
+		new("Silicon", new Color(0.70f, 0.80f, 1.00f), "silicon_ore", 150f, 1f),
+		// Dead-planet crust: ashen purple. Healing planets will shift this colour.
+		new("Regolith", new Color(0.20f, 0.16f, 0.23f), "stone", 60f, 0f),
 	];
 }
 

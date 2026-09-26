@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 
-namespace Driftworks.Building;
+namespace Rebirth.Building;
 
 // Block integrity, collision damage, and splitting into separate grids when connectivity breaks.
 public partial class BlockGrid
@@ -11,7 +11,6 @@ public partial class BlockGrid
 	/// <summary>Integrity lost per N·s of impulse above the threshold.</summary>
 	public const float DamagePerImpulse = 0.004f;
 
-	private static readonly Color DamagedColor = new(0.12f, 0.09f, 0.07f);
 	private static readonly Vector3I[] Neighbours =
 		[Vector3I.Right, Vector3I.Left, Vector3I.Up, Vector3I.Down, Vector3I.Back, Vector3I.Forward];
 
@@ -90,7 +89,7 @@ public partial class BlockGrid
 
 		foreach (var cell in destroyed)
 		{
-			Color color = _blocks[cell].Definition.Color;
+			Color color = _blocks[cell].Paint;
 			RemoveInternal(cell);
 			BlockVisuals.SpawnDebris(GetParent(), GlobalTransform * CellCenter(cell), color);
 		}
@@ -154,6 +153,9 @@ public partial class BlockGrid
 			piece.AngularVelocity = AngularVelocity;
 		}
 	}
+
+	/// <summary>Number of separately connected parts (a design in the Forge may have several).</summary>
+	public int PieceCount => ConnectedComponents().Count;
 
 	private List<List<Vector3I>> ConnectedComponents()
 	{

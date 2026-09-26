@@ -1,8 +1,9 @@
-using Driftworks.Items;
+using Rebirth.Core;
+using Rebirth.Items;
 using Godot;
 using Godot.Collections;
 
-namespace Driftworks.Building;
+namespace Rebirth.Building;
 
 /// <summary>
 /// Block placement/removal from the player's view. Aiming at a grid snaps the ghost to the
@@ -26,9 +27,8 @@ public partial class BuildTool : Node3D
 	public BlockGrid? AimedGrid { get; private set; }
 	public Vector3I AimedCell { get; private set; }
 
-	private MeshInstance3D _ghost = null!;
-	private Node3D? _ghostDecoration;
-	private StandardMaterial3D _ghostMaterial = null!;
+	private Node3D? _ghost;
+	private readonly StandardMaterial3D _ghostMaterial = BlockVisuals.CreateGhostMaterial();
 	private readonly BoxShape3D _probe = new() { Size = Vector3.One * BlockGrid.CellSize * 0.9f };
 
 	// Block rotation relative to the target grid (or to the camera when starting a new grid).
@@ -40,25 +40,10 @@ public partial class BuildTool : Node3D
 	private Transform3D _placeTransform;
 	private bool _placeValid;
 
-	public override void _Ready()
-	{
-		_ghostMaterial = new StandardMaterial3D
-		{
-			Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
-			ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
-		};
-		_ghost = new MeshInstance3D
-		{
-			Mesh = new BoxMesh { Size = Vector3.One * BlockGrid.CellSize * 1.002f, Material = _ghostMaterial },
-			TopLevel = true,
-			Visible = false,
-			CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-		};
-		AddChild(_ghost);
-	}
-
 	public override void _UnhandledInput(InputEvent e)
 	{
+		if (GameState.WorldInputBlocked)
+			return;
 		if (Selected is null || Input.MouseMode != Input.MouseModeEnum.Captured)
 			return;
 		if (e.IsActionPressed("primary_action"))
@@ -74,13 +59,12 @@ public partial class BuildTool : Node3D
 	public override void _PhysicsProcess(double delta)
 	{
 		UpdateTarget();
-		bool wasVisible = _ghost.Visible;
-		_ghost.Visible = Selected is not null;
-		if (!_ghost.Visible)
+		if (_ghost is null)
 			return;
-
+		bool wasVisible = _ghost.Visible;
+		_ghost.Visible = true;
 		_ghost.GlobalTransform = _placeTransform;
-		_ghostMaterial.AlbedoColor = _placeValid && CanAfford(Selected!) ? new Color(0.3f, 1f, 0.4f, 0.35f) : new Color(1f, 0.25f, 0.2f, 0.35f);
+		_ghostMaterial.AlbedoColor = _placeValid && CanAfford(Selected!) ? BlockVisuals.GhostValid : BlockVisuals.GhostInvalid;
 		if (!wasVisible)
 			_ghost.ResetPhysicsInterpolation();
 	}
@@ -88,16 +72,14 @@ public partial class BuildTool : Node3D
 	public void Select(BlockDefinition? block)
 	{
 		Selected = block;
-		_ghostDecoration?.QueueFree();
-		_ghostDecoration = block is null ? null : BlockVisuals.CreateDecoration(block);
-		if (_ghostDecoration is null)
+		_ghost?.QueueFree();
+		_ghost = null;
+		if (block is null)
 			return;
-		_ghost.AddChild(_ghostDecoration);
-		foreach (var node in _ghostDecoration.FindChildren("*", nameof(MeshInstance3D), recursive: true, owned: false))
-			((MeshInstance3D)node).MaterialOverride = _ghostMaterial;
-		// Show a short static flame so the exhaust side of a thruster is obvious while placing.
-		if (_ghostDecoration.GetNodeOrNull<Node3D>(BlockVisuals.FlameName) is { } flame)
-			flame.Scale = new Vector3(1, 1, 0.8f);
+		_ghost = BlockVisuals.CreateGhost(block, block.Paint, _ghostMaterial);
+		_ghost.TopLevel = true;
+		_ghost.Visible = false;
+		AddChild(_ghost);
 	}
 
 	public bool CanAfford(BlockDefinition block) => CostSource is null || CostSource.Has(block.Cost);
@@ -114,17 +96,8 @@ public partial class BuildTool : Node3D
 	}
 
 	/// <summary>Rotates the block 90° around the grid axis closest to <paramref name="worldAxis"/>.</summary>
-	private void Rotate(Vector3 worldAxis)
-	{
-		Basis gridBasis = _placeGrid?.GlobalBasis ?? Camera.GlobalBasis;
-		Vector3 axis = BlockGrid.DominantAxis(gridBasis.Inverse() * worldAxis);
-		_orientation = Snap(new Basis(axis, Mathf.Pi / 2f) * _orientation);
-	}
-
-	private static Basis Snap(Basis b) => new(
-		new Vector3(Mathf.Round(b.X.X), Mathf.Round(b.X.Y), Mathf.Round(b.X.Z)),
-		new Vector3(Mathf.Round(b.Y.X), Mathf.Round(b.Y.Y), Mathf.Round(b.Y.Z)),
-		new Vector3(Mathf.Round(b.Z.X), Mathf.Round(b.Z.Y), Mathf.Round(b.Z.Z)));
+	private void Rotate(Vector3 worldAxis) =>
+		_orientation = BlockGrid.RotateOrientation(_orientation, _placeGrid?.GlobalBasis ?? Camera.GlobalBasis, worldAxis);
 
 	private void Place()
 	{

@@ -3,6 +3,6 @@
     <TargetFramework>net8.0</TargetFramework>
     <EnableDynamicLoading>true</EnableDynamicLoading>
     <Nullable>enable</Nullable>
-    <RootNamespace>Driftworks</RootNamespace>
+    <RootNamespace>Rebirth</RootNamespace>
   </PropertyGroup>
 </Project>

@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using Godot;
 
-namespace Driftworks.World;
+namespace Rebirth.World;
 
 /// <summary>A density field on an integer lattice; solid where density &gt; 0.</summary>
 public interface IVoxelSource
@@ -107,8 +107,11 @@ public static class SurfaceNets
 
 			cellVertex[slot] = vertices.Count;
 			vertices.Add(new Vector3(gx, gy, gz) + sum / crossings + pointOffset);
-			normals.Add(-gradient.Normalized());
-			colors.Add(VoxelMaterials.All[material].Color);
+			// A perfectly symmetric cell has no gradient; normalising zero would give NaN, which bloom smears across the screen.
+			normals.Add(gradient.LengthSquared() > 1e-12f ? -gradient.Normalized() : Vector3.Up);
+			var voxel = VoxelMaterials.All[material];
+			// Linear colour; the shader must not pow() it (pow is undefined for some inputs and the NaNs bloom).
+			colors.Add(voxel.Color.SrgbToLinear() with { A = voxel.Glow });
 		}
 
 		for (int z = 0; z < n; z++)
@@ -165,11 +168,6 @@ public static class SurfaceNets
 		return new ConcavePolygonShape3D { Data = faces };
 	}
 
-	/// <summary>Vertex-coloured, rough material shared by all voxel terrain.</summary>
-	public static StandardMaterial3D CreateTerrainMaterial() => new()
-	{
-		VertexColorUseAsAlbedo = true,
-		VertexColorIsSrgb = true,
-		Roughness = 0.95f,
-	};
+	/// <summary>Neon terrain material shared by all voxel terrain (see terrain.gdshader).</summary>
+	public static ShaderMaterial CreateTerrainMaterial() => new() { Shader = GD.Load<Shader>("res://shaders/terrain.gdshader") };
 }

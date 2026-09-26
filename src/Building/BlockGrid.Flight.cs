@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using Godot;
 
-namespace Driftworks.Building;
+namespace Rebirth.Building;
 
 /// <summary>Pilot input, expressed in the controlling cockpit's frame (-Z forward, +Y up).</summary>
 public struct ShipControls
@@ -46,6 +46,19 @@ public partial class BlockGrid
 		if (a.Y >= a.Z)
 			return new Vector3I(0, Mathf.Sign(v.Y), 0);
 		return new Vector3I(0, 0, Mathf.Sign(v.Z));
+	}
+
+	/// <summary>
+	/// Turns a block orientation 90° around the grid axis closest to <paramref name="worldAxis"/>,
+	/// snapping the result so repeated turns never drift off the 24 axis-aligned rotations.
+	/// </summary>
+	public static Basis RotateOrientation(Basis orientation, Basis gridBasis, Vector3 worldAxis)
+	{
+		Vector3 axis = DominantAxis(gridBasis.Inverse() * worldAxis);
+		Basis b = new Basis(axis, Mathf.Pi / 2f) * orientation;
+		return new Basis(Snap(b.X), Snap(b.Y), Snap(b.Z));
+
+		static Vector3 Snap(Vector3 v) => new(Mathf.Round(v.X), Mathf.Round(v.Y), Mathf.Round(v.Z));
 	}
 
 	private void RebuildFlightCapabilities()

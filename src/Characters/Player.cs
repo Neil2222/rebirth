@@ -1,9 +1,11 @@
 using System.Linq;
-using Driftworks.Building;
-using Driftworks.Items;
+using Rebirth.Building;
+using Rebirth.Core;
+using Rebirth.Items;
+using Rebirth.Persistence;
 using Godot;
 
-namespace Driftworks.Characters;
+namespace Rebirth.Characters;
 
 /// <summary>
 /// Zero-g astronaut with a 6DOF jetpack. Rotation is driven directly by input
@@ -96,8 +98,14 @@ public partial class Player : RigidBody3D
 		Input.MouseMode = Input.MouseModeEnum.Captured;
 	}
 
+	// Movement input, silenced while a full-screen tool such as the Forge is open.
+	private static float Axis(string negative, string positive) => GameState.WorldInputBlocked ? 0f : Input.GetAxis(negative, positive);
+	private static bool Held(string action) => !GameState.WorldInputBlocked && Input.IsActionPressed(action);
+
 	public override void _UnhandledInput(InputEvent e)
 	{
+		if (GameState.WorldInputBlocked)
+			return;
 		if (e is InputEventMouseMotion motion && Input.MouseMode == Input.MouseModeEnum.Captured)
 			_pendingMouse += motion.Relative;
 		else if (e is InputEventMouseButton { Pressed: true } && Input.MouseMode != Input.MouseModeEnum.Captured)
@@ -244,6 +252,41 @@ public partial class Player : RigidBody3D
 		Camera.ResetPhysicsInterpolation();
 	}
 
+	public PlayerSave ToSave()
+	{
+		// While piloting, the body is parked somewhere else; save where getting out would put us.
+		Transform3D transform = PilotedGrid is { } grid
+			? FindExit(grid.GlobalTransform * new Transform3D(grid.ControlFrame, BlockGrid.CellCenter(_cockpitCell)))
+			: GlobalTransform;
+		var (position, rotation) = SaveMath.ToArrays(transform);
+		return new PlayerSave
+		{
+			Position = position,
+			Rotation = rotation,
+			Velocity = SaveMath.ToArray(PilotedGrid?.LinearVelocity ?? LinearVelocity),
+			Jetpack = JetpackOn,
+			Dampeners = DampenersOn,
+			Creative = Creative,
+			Light = HelmetLight.Visible,
+			Inventory = Inventory.Items.ToDictionary(kv => kv.Key, kv => kv.Value),
+		};
+	}
+
+	public void ApplySave(PlayerSave save)
+	{
+		GlobalTransform = SaveMath.Transform(save.Position, save.Rotation);
+		LinearVelocity = SaveMath.Vector(save.Velocity);
+		JetpackOn = save.Jetpack;
+		DampenersOn = save.Dampeners;
+		Creative = save.Creative;
+		BuildTool.CostSource = Creative ? null : Inventory;
+		HelmetLight.Visible = save.Light;
+		Inventory.Clear();
+		foreach (var (item, amount) in save.Inventory)
+			Inventory.Add(item, amount);
+		ResetPhysicsInterpolation();
+	}
+
 	/// <summary>First free spot next to the cockpit: above, behind, the sides, in front, below.</summary>
 	private Transform3D FindExit(Transform3D seat)
 	{
@@ -271,13 +314,13 @@ public partial class Player : RigidBody3D
 		grid.Controls = new ShipControls
 		{
 			Move = new Vector3(
-				Input.GetAxis("move_left", "move_right"),
-				Input.GetAxis("move_down", "move_up"),
-				Input.GetAxis("move_forward", "move_back")),
+				Axis("move_left", "move_right"),
+				Axis("move_down", "move_up"),
+				Axis("move_forward", "move_back")),
 			Rotate = new Vector3(
 				Mathf.Clamp(-mouse.Y * ShipMouseRate, -ShipMaxTurnRate, ShipMaxTurnRate),
 				Mathf.Clamp(-mouse.X * ShipMouseRate, -ShipMaxTurnRate, ShipMaxTurnRate),
-				-Input.GetAxis("roll_left", "roll_right") * RollSpeed),
+				-Axis("roll_left", "roll_right") * RollSpeed),
 			Dampeners = DampenersOn,
 		};
 	}
@@ -313,7 +356,7 @@ public partial class Player : RigidBody3D
 		Grounded = false;
 
 		// Rotation: post-multiply so every axis is relative to the player's current orientation.
-		float roll = Input.GetAxis("roll_left", "roll_right");
+		float roll = Axis("roll_left", "roll_right");
 		if (_pendingMouse != Vector2.Zero || roll != 0f)
 		{
 			basis *= new Basis(Vector3.Up, -_pendingMouse.X * MouseSensitivity);
@@ -329,9 +372,9 @@ public partial class Player : RigidBody3D
 		// Thrust per local axis; dampeners counter drift on any axis without input. Gravity is
 		// integrated after this callback, so dampen the velocity it is about to produce: that hovers.
 		var input = new Vector3(
-			Input.GetAxis("move_left", "move_right"),
-			Input.GetAxis("move_down", "move_up"),
-			Input.GetAxis("move_forward", "move_back"));
+			Axis("move_left", "move_right"),
+			Axis("move_down", "move_up"),
+			Axis("move_forward", "move_back"));
 		Vector3 localVelocity = basis.Inverse() * (state.LinearVelocity + state.TotalGravity * dt);
 		float maxAccel = ThrustForce / Mass;
 		Vector3 accel = Vector3.Zero;
@@ -374,14 +417,14 @@ public partial class Player : RigidBody3D
 
 		Vector3 forward = (-basis.Z).Slide(up).Normalized();
 		Vector3 right = basis.X.Slide(up).Normalized();
-		Vector3 wish = right * Input.GetAxis("move_left", "move_right") - forward * Input.GetAxis("move_forward", "move_back");
-		float speed = Input.IsActionPressed("sprint") ? SprintSpeed : WalkSpeed;
+		Vector3 wish = right * Axis("move_left", "move_right") - forward * Axis("move_forward", "move_back");
+		float speed = Held("sprint") ? SprintSpeed : WalkSpeed;
 		wish = wish.LimitLength(1f) * speed;
 
 		Vector3 vertical = up * state.LinearVelocity.Dot(up);
 		Vector3 horizontal = state.LinearVelocity - vertical;
 		horizontal = horizontal.MoveToward(wish, (Grounded ? GroundAcceleration : AirAcceleration) * dt);
-		if (Grounded && Input.IsActionPressed("move_up") && vertical.Dot(up) <= 0.1f)
+		if (Grounded && Held("move_up") && vertical.Dot(up) <= 0.1f)
 			vertical = up * JumpSpeed;
 		state.LinearVelocity = horizontal + vertical;
 	}

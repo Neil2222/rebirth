@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="Driftworks"
+config/name="Rebirth"
 run/main_scene="res://scenes/Main.tscn"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 
@@ -25,7 +25,7 @@ window/size/viewport_height=900
 
 [dotnet]
 
-project/assembly_name="Driftworks"
+project/assembly_name="Rebirth"
 
 [physics]
 
