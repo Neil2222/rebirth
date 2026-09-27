@@ -1,0 +1,35 @@
+name: Bug report
+description: Something doesn't work or looks wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we see it too?
+      description: The steps that lead to it, as far as you know.
+      placeholder: |
+        1. New game, skip the intro
+        2. Open the Nexus and select Dune
+        3. ...
+  - type: textarea
+    id: screenshot
+    attributes:
+      label: Screenshot or clip
+      description: Drag images or videos in here. They help a lot.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release (e.g. v0.1.0) or commit you played.
+  - type: dropdown
+    id: graphics
+    attributes:
+      label: Graphics preset
+      options: [High, Medium, Low, Custom, Don't know]

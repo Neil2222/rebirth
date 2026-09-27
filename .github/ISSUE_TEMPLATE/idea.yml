@@ -1,0 +1,27 @@
+name: Idea
+description: A feature, a change, or something that would make the game more fun
+labels: [idea]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: The idea
+      description: What would you like to see?
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why would it be fun or useful?
+      description: What does it add to the loop of building, growing and healing?
+  - type: textarea
+    id: how
+    attributes:
+      label: Rough idea of how it could work
+      description: Optional. Blocks, menus, numbers, sketches: anything goes.
+  - type: checkboxes
+    id: pillars
+    attributes:
+      label: Fits the game
+      options:
+        - label: Cosy, with no time pressure and nothing lost for good (see DESIGN.md)

@@ -120,6 +120,12 @@ prototype:
 
 See [`DESIGN.md`](DESIGN.md) for the roadmap and what comes next.
 
+## Contributing
+
+Ideas, bug reports and pull requests are welcome: see [`CONTRIBUTING.md`](CONTRIBUTING.md). Working with an
+AI coding assistant? Point it at [`AGENTS.md`](AGENTS.md) first: it has the code map, conventions, how to
+test by driving the real game, and the pitfalls we already hit.
+
 ## License
 
 [MIT](LICENSE): use it, change it, build on it.

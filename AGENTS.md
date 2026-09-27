@@ -1,0 +1,127 @@
+# Working on Rebirth (guide for AI assistants and humans)
+
+This file is for coding agents (Claude, Codex, Cursor, Copilot, ...) and for people who work with them.
+Read it before changing anything. `README.md` says what the game is; `DESIGN.md` (Dutch) holds the story,
+pillars, style rules and roadmap. `CONTRIBUTING.md` covers the pull-request flow.
+
+## The game in one breath
+
+Cosy retro-futuristic planet-building and automation, LittleBigPlanet toy blocks meets Factorio-style growth.
+Build by hand in third person, then run everything from the Nexus: worker bots build sites, haul routes carry
+goods, planets heal (air, water, soil), villages grow, and their Resonance charges the Breach Lance that breaks
+the Box around the star cluster. No combat and no time pressure: threats are friendly and solved with puzzles
+or conversation.
+
+## Toolchain
+
+- **Godot 4.7 .NET edition** and the **.NET 8 SDK**. All game code is C# (`src/`); shaders are in `shaders/`.
+- `dotnet build` compiles everything and is the quickest correctness check. CI runs exactly that on every PR.
+- Run the game with `godot --path .` (or F5 in the editor). **Godot does not recompile C# when started from
+  the command line**, so always `dotnet build` first or you will run stale code.
+- The only scene is `scenes/Main.tscn`. Everything else (world, UI, menus) is built in code; don't add scenes
+  or edit them in the editor unless there is a strong reason.
+- Windows export: the "Windows Desktop" preset in `export_presets.cfg`. It needs `Rebirth.sln` (keep it) and
+  Godot's .NET export templates.
+
+## Map of the code
+
+| Where | What |
+|---|---|
+| `src/Main.cs` | Builds a Box (sky, planets, asteroids), starts or loads a game, owns every overlay (menus, Forge, Nexus, panels), saving, travel between Boxes. |
+| `src/Building/BlockGrid*.cs` | A grid of blocks, split into partials: core, `Power`, `Flight`, `Damage`, `Logistics` (tubes, pods, drills, refineries), `Fabrication`, `Terraform`, `Quarantine`. |
+| `src/Building/BlockDefinition.cs` | Every block type (`BlockCatalog`), `BlockState`, and the `Palette`. |
+| `src/Building/BlockVisuals.cs`, `BlockMesher.cs` | Block looks: the rounded-cube mesh and per-type decorations. |
+| `src/Nexus/Colony.cs`, `Bot.cs` | Bots, building jobs, haul routes, uplinks, rates, problems, Resonance, the Lance charge. |
+| `src/Nexus/NexusScreen.cs` and friends | The Nexus overview, production statistics, Box map. |
+| `src/Life/` | Villages, people and their requests. |
+| `src/Threats/` | Viruses (quarantine), Curator swarms, the circuit puzzle. |
+| `src/Core/` | `Campaign` (Boxes, Starlight, upgrades), `Keybinds`, `GraphicsSettings`, `GameState`. |
+| `src/Persistence/` | Blueprints, built-in presets, save slots (`user://saves/slotN/`). |
+| `src/UI/` | HUD, menus, tutorial, goal guide, icons, hover cards, `UiTheme`. |
+| `src/World/` | Voxel asteroids and mini planets, Box wall, the Spirit Bomb. |
+
+## Conventions
+
+- **Style of the code:** tabs, file-scoped namespaces, nullable on. Comments explain *why*, not *what*. Keep
+  classes focused; follow the existing patterns (partials of `BlockGrid`, catalogs, `Presets`) rather than
+  inventing new ones.
+- **Style of the game:** warm pastel colours, rounded toy blocks. Light only comes from real lamps and flames.
+  No neon or Tron glow (tried and rejected). Planets and asteroids are smooth and round. Use `Palette` and
+  `UiTheme`, not random colours.
+- **UI text is English**; `DESIGN.md` and chat with the owner are Dutch.
+- **Key names in UI text** go through `Keybinds.Fill("Press {use} ...")` so they follow the player's own keys.
+  Never hard-code a key letter.
+- **UI that updates live must not rebuild its controls every frame.** Update values in place and rebuild only
+  when the set of things changes, or hover cards and clicks break (see `InventoryPanel.Fill`).
+- **Saves must stay loadable.** New save fields get sensible defaults, so older saves still work.
+- **When items are made or used**, report it to `ProductionStats.Produced/Consumed` so the statistics stay right.
+- **Adding a block:** define it in `BlockCatalog` and add it to `All`; give it a decoration in `BlockVisuals`, a
+  place in `PartGuide` (category and description) and a hotbar slot in `Toolbar`.
+- **Adding an item:** define it in `ItemCatalog`, with its colour and `Describe` text.
+- **Update `DESIGN.md`** (feature notes and roadmap table) when you add or change a feature.
+
+## Testing: drive the real game
+
+There is no unit-test suite. Changes are verified by running the actual game with a small C# script that
+presses buttons, moves the player, waits, prints results and takes screenshots. The pattern:
+
+1. Put a `SmokeDriver.cs` next to `project.godot` (these files are git-ignored; never commit them):
+
+   ```csharp
+   using System.Linq;
+   using System.Threading.Tasks;
+   using Godot;
+   using Rebirth;
+
+   public partial class SmokeDriver : Node
+   {
+   	private SceneTree Tree => GetTree();
+   	private Main Main => (Main)Tree.CurrentScene;
+
+   	public override async void _Ready()
+   	{
+   		await Frames(30);
+   		Click(Main.Menu, "New game - skip the intro");
+   		await Frames(5);
+   		Click(Main.Slots, "Start here");
+   		await Frames(60);
+   		// ... exercise the feature, GD.Print what you observe ...
+   		GetViewport().GetTexture().GetImage().SavePng("/tmp/rebirth_shot.png");
+   		Tree.Quit();
+   	}
+
+   	private static void Click(Node root, string text) =>
+   		root.FindChildren("*", "Button", true, false).Cast<Button>()
+   			.First(b => b.Text.StartsWith(text) && b.IsVisibleInTree()).EmitSignal(BaseButton.SignalName.Pressed);
+
+   	private async Task Frames(int n)
+   	{
+   		for (int i = 0; i < n; i++)
+   			await ToSignal(Tree, SceneTree.SignalName.PhysicsFrame);
+   	}
+   }
+   ```
+
+2. Add a tiny bootstrap scene `smoke_test.tscn` with `smoke_test.gd`, which loads `res://SmokeDriver.cs`, adds
+   it under the root and changes the scene to `res://scenes/Main.tscn`.
+3. `dotnet build`, then run `godot --path . res://smoke_test.tscn` with the **user data redirected** so the
+   test never touches real saves. On Windows, set `APPDATA` to a temporary folder; elsewhere `XDG_DATA_HOME`.
+4. Read the printed results, look at the screenshots, and delete the scaffolding before committing.
+
+Tips:
+- Simulate keys with `Input.ParseInputEvent(new InputEventAction { Action = "open_nexus", Pressed = true })`
+  (then a release), waiting a few process frames in between.
+- `Main` exposes the important parts (`Colony`, `People`, `Threats`, `Nexus`, `Forge`, `Menu`, `Slots`, ...),
+  so tests can set up situations directly (add ingots, set planet vitals, spawn a threat).
+
+## Gotchas we hit
+
+- **Shaders:** guard against NaN. Protect `fwidth` and normalisation from zero, and convert colours sRGB→linear
+  in C# instead of calling `pow` on vertex colours.
+- **Quaternions** from bases must be normalised before `Slerp`.
+- **Nodes you move by hand every frame** (cameras, MultiMesh instances) should have physics interpolation off.
+- **The tutorial must `Begin` before the first save**, because saving records its current step.
+- **Inventories have a capacity** (Home storage is 15 t): adding more silently drops the rest. Keep that in
+  mind when a test "adds" resources.
+- **Heavy work in `_Process`** (list rebuilds, LINQ over all grids) shows up quickly. Throttle it to a few times
+  per second.
