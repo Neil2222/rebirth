@@ -307,6 +307,7 @@ public partial class Colony : Node
 			_scanTimer = 0.5f;
 			AdoptBots();
 			NameUplinks();
+			UpdateGenerators();
 		}
 		_sampleTimer -= dt;
 		if (_sampleTimer <= 0f)
@@ -331,6 +332,20 @@ public partial class Colony : Node
 		foreach (var job in Jobs.ToArray())
 			UpdateJob(job);
 		Heal(dt);
+	}
+
+	/// <summary>Tells generators what they stand on: turbines need a planet's air, geothermal taps a planet.</summary>
+	private void UpdateGenerators()
+	{
+		float heat = Core.Campaign.Active.CurrentBox.Kind == Core.BoxKind.Ember ? 1.5f : 1f;
+		foreach (var grid in Grids)
+		{
+			if (!grid.IsStatic || grid.IsBot || !grid.Blocks.Any(b => b.Value.Definition.GeneratorOutput > 0f))
+				continue;
+			var planet = BodyOf(grid) is MiniPlanet p && p.GlobalPosition.DistanceTo(grid.GlobalPosition) < p.OuterRadius + 25f ? p : null;
+			grid.WindLevel = planet?.Air ?? 0f;
+			grid.HeatLevel = planet is null ? 0f : heat;
+		}
 	}
 
 	/// <summary>Hands what terraformers made to the planet they stand on, and gathers Resonance.</summary>
@@ -470,7 +485,7 @@ public partial class Colony : Node
 		if (Blocked(grid.GlobalPosition))
 			problems.Add("A Curator swarm is watching: bots stay away");
 		if (grid.PowerDemand > 0.01f && grid.PowerSatisfaction < 0.9f)
-			problems.Add($"Low power ({grid.PowerSatisfaction:P0}): add solar panels or a battery");
+			problems.Add($"Low power ({grid.PowerSatisfaction:P0}): add solar panels or a power plant, or cable it in with a Power Pylon");
 		if (grid.Inventory.Capacity > 0f && grid.Inventory.FreeSpace < grid.Inventory.Capacity * 0.05f)
 			problems.Add("Storage is full");
 		foreach (var (cell, block) in grid.Blocks)

@@ -892,7 +892,10 @@ public partial class NexusScreen : CanvasLayer
 				sb.Append("Makes: " + string.Join(", ", made.OrderBy(kv => kv.Key).Select(kv => $"{ItemCatalog.DisplayName(kv.Key)} {kv.Value:0}/min")) + "\n");
 			if (received.Count > 0)
 				sb.Append("Bots bring: " + string.Join(", ", received.OrderBy(kv => kv.Key).Select(kv => $"{ItemCatalog.DisplayName(kv.Key)} {kv.Value:0}/min")) + "\n");
-			sb.Append($"Power: {_grid.PowerDelivered:0.00} / {_grid.PowerDemand:0.00} MW  (solar {_grid.SolarProduction:0.00})\n");
+			sb.Append($"Power: {_grid.PowerDelivered:0.00} / {_grid.PowerDemand:0.00} MW  (solar {_grid.SolarProduction:0.00}"
+				+ (_grid.GeneratorProduction > 0.005f ? $", plants {_grid.GeneratorProduction:0.00}" : "") + ")\n");
+			if (_grid.Network.Stations > 1)
+				sb.Append($"Cabled to {_grid.Network.Stations - 1} other station{(_grid.Network.Stations > 2 ? "s" : "")}: network makes {_grid.Network.Generation:0.00} MW, uses {_grid.Network.Demand:0.00} MW, batteries {_grid.Network.Stored:0.0} / {_grid.Network.Capacity:0.0} MWh\n");
 			foreach (var (cell, block) in _grid.Blocks.Where(b => b.Value.Definition.Kind is BlockKind.AutoDrill or BlockKind.Refinery))
 				sb.Append($"{block.Definition.DisplayName}: {_grid.MachineStatus(cell)}\n");
 			foreach (var (cell, _) in _grid.Blocks.Where(b => b.Value.Definition.Kind == BlockKind.Fabricator))

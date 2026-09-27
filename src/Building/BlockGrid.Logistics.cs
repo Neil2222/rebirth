@@ -268,6 +268,11 @@ public partial class BlockGrid
 				if (space >= 1f)
 					yield return (TerraformInput(block.Definition.Kind)!, space);
 				break;
+			case BlockKind.StoneBurner:
+				float fuelRoom = input.FreeSpace - IncomingTotal(cell);
+				if (fuelRoom >= 1f)
+					yield return ("stone", fuelRoom);
+				break;
 			case BlockKind.Fabricator:
 				if (FabricatorQueue(cell) is not { Count: > 0 } queue || queue[0].Paid)
 					break;
@@ -426,6 +431,20 @@ public partial class BlockGrid
 					rings.RotateObjectLocal(Vector3.Up, (0.2f + LanceCharge * 3f) * delta);
 				if (lance.GetNodeOrNull<Node3D>(BlockVisuals.LanceGlowName) is { } tip)
 					tip.Scale = Vector3.One * (0.5f + LanceCharge * 1.2f + 0.08f * Mathf.Sin((float)Time.GetTicksMsec() / 200f));
+				continue;
+			}
+			if (block.Definition.Kind == BlockKind.WindTurbine && _decorations.TryGetValue(cell, out var turbine))
+			{
+				if (turbine.GetNodeOrNull<Node3D>(BlockVisuals.RotorName) is { } rotor)
+					rotor.RotateObjectLocal(Vector3.Forward, WindLevel * 2.5f * delta);
+				continue;
+			}
+			if (block.Definition.Kind == BlockKind.StoneBurner && _decorations.TryGetValue(cell, out var burner))
+			{
+				// The fire breathes while it burns and sinks to embers when it has no stone.
+				if (burner.GetNodeOrNull<Node3D>(BlockVisuals.FlameName) is { } fire)
+					fire.Scale = Vector3.One * (MachineStatus(cell).StartsWith("Burning") ? 1f + 0.12f * Mathf.Sin((float)Time.GetTicksMsec() / 130f)
+						: MachineStatus(cell).StartsWith("Ready") ? 0.6f : 0.05f);
 				continue;
 			}
 			if (block.Definition.Kind != BlockKind.AutoDrill || !MachineStatus(cell).StartsWith("Drilling"))

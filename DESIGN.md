@@ -66,6 +66,23 @@ gebouwen, en je eigen robotlichaam.
   daarna is groei een kwestie van kiezen: planeet, ontwerp, bots erop.
 - Later: routes tussen willekeurige sites, prioriteiten, specialisaties per bot-ontwerp.
 
+### Stroomnet
+- Binnen één station bereikt stroom elk blok zonder bedrading. **Power Pylons** knopen stations aan
+  elkaar: pylonen binnen 90 m van elkaar krijgen een doorhangende kabel, en een pylon reikt ook naar
+  stations zonder pylon (zo kun je oude sites aansluiten). Alles wat verbonden is deelt opwekking en
+  accu's als één net: iedereen krijgt hetzelfde deel van wat hij vraagt.
+- Kabels: kortste eerst, één per paar nog-niet-verbonden stations (spanning tree), zodat het geen
+  spaghetti wordt. Alleen verankerde stations doen mee, geen schepen of bots.
+- **Centrales** (tab "Power plants", hotbar-pagina 4, en presets die bots kunnen bouwen):
+  - *Solar Park*: 12 zonnepanelen, 2 accu's, 1 pylon.
+  - *Stone Burner* (preset Stone Plant: drill + opslag + 2 burners + accu + pylon): 0,8 MW dag en nacht,
+    eet 2 kg steen/s naar belasting. De vlam is een echte lichtbron. Maakt steen nuttig.
+  - *Wind Turbine* (preset Wind Farm): 0,6 MW × de lucht van de planeet; niets op een dode wereld,
+    dus genezen loont.
+  - *Geothermal Tap* (preset Geothermal Plant): 1,5 MW, alleen op een planeet, ×1,5 in een Ember Box.
+- Nexus toont per station "Cabled to N other stations" met net-opwekking, -verbruik en accu's; het
+  knelpunt "Low power" wijst op centrales en pylonen.
+
 ### De Nexus (regisseursoverzicht)
 - **Nu (N of Esc-menu):** camera hoog boven het stelsel, labels bij planeten, sites en bots. Menu's
   voor alles: bots printen bij Home, planeet kiezen (klik voor een eigen plek), ontwerp kiezen en
@@ -231,6 +248,7 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | F2 | Box-kaart en reizen, meenemen (laadruimte, botbaai), Starlight-upgrades, gegenereerde Boxes (Dim, Frost, Ember) | klaar |
 | G1 | Vriendelijke dreiging: virus + quarantaine + circuitpuzzel, Curator-zwerm (praten, cadeau, puzzel), Firewall | klaar |
 | H1 | Forge-uitbreiding: blokvormen (helling, hoek, half, rond ...), eigen machinesilhouetten, stations verplaatsen | klaar |
+| H1b | Stroomnet: Power Pylons met kabels, Stone Burner, Wind Turbine, Geothermal Tap, centrale-presets | klaar |
 | H2 | Glas, lampen, antennes, decoratie, misschien scharnieren/rotors; later eigen vormen | |
 | G2 | Meer dreigingstypes per Box-soort, zwermgesprekken die een verhaal vertellen | |
 

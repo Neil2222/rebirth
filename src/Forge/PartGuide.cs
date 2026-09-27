@@ -23,6 +23,7 @@ public static class PartGuide
 		new("Brain", All, [BlockCatalog.Cockpit, BlockCatalog.BotCore]),
 		new("Movement", Movers, [BlockCatalog.Thruster, BlockCatalog.Gyroscope]),
 		new("Power", All, [BlockCatalog.Battery, BlockCatalog.SolarPanel]),
+		new("Power plants", [DesignKind.Station], [BlockCatalog.PowerPylon, BlockCatalog.StoneBurner, BlockCatalog.WindTurbine, BlockCatalog.GeothermalTap]),
 		new("Storage & tubes", [DesignKind.Ship, DesignKind.Station, DesignKind.Bot], [BlockCatalog.CargoContainer, BlockCatalog.Tube]),
 		new("Production", [DesignKind.Station, DesignKind.Ship], [BlockCatalog.AutoDrill, BlockCatalog.Refinery, BlockCatalog.Fabricator]),
 		new("Nexus", [DesignKind.Station], [BlockCatalog.Uplink, BlockCatalog.Firewall]),
@@ -68,6 +69,10 @@ public static class PartGuide
 		BlockKind.SeedGarden => "Grows soil once air and water are at 30%.",
 		BlockKind.Incubator => "Wakes families from DNA once the planet is habitable.",
 		BlockKind.BreachLance => "Gathers Resonance into a ball of light that breaks the Box open.",
+		BlockKind.PowerPylon => $"Joins this station's power with every station that has a pylon within {BlockGrid.PylonReach:0} m. Build a power plant once and cable it to your sites.",
+		BlockKind.StoneBurner => "Burns stone into power, day and night. The network brings it stone from storage.",
+		BlockKind.WindTurbine => "Makes power from a planet's wind: nothing on a dead world, full power once the air is back.",
+		BlockKind.GeothermalTap => "Draws a planet's inner heat: lots of power, but only standing on a planet. Stronger in an Ember Box.",
 		_ => "",
 	};
 
@@ -87,7 +92,8 @@ public static class PartGuide
 	{
 		var kinds = design.Blocks.Select(b => b.Value.Definition.Kind).ToList();
 		bool Has(BlockKind k) => kinds.Contains(k);
-		bool power = Has(BlockKind.Battery) || Has(BlockKind.SolarPanel);
+		bool power = Has(BlockKind.Battery) || Has(BlockKind.SolarPanel) || Has(BlockKind.PowerPylon)
+			|| Has(BlockKind.StoneBurner) || Has(BlockKind.WindTurbine) || Has(BlockKind.GeothermalTap);
 		var list = new List<(bool, string)>();
 		switch (kind)
 		{
@@ -103,7 +109,7 @@ public static class PartGuide
 				list.Add((Has(BlockKind.Thruster), "Optional: thrusters make it fly faster"));
 				break;
 			case DesignKind.Station:
-				list.Add((power, "Power: solar panels facing up, or a battery"));
+				list.Add((power, "Power: solar panels facing up, a power plant, or a pylon to cable it in"));
 				if (Has(BlockKind.AutoDrill) || Has(BlockKind.Refinery))
 				{
 					list.Add((Has(BlockKind.CargoContainer), "Storage, touching the machines (or joined by tubes)"));

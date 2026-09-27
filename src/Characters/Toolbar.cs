@@ -28,6 +28,10 @@ public static class Toolbar
 			new ToolbarItem("Hand Drill", IsDrill: true),
 			.. Blocks(BlockCatalog.AirProcessor, BlockCatalog.Hydrator, BlockCatalog.SeedGarden, BlockCatalog.Incubator, BlockCatalog.BreachLance),
 		],
+		[
+			new ToolbarItem("Hand Drill", IsDrill: true),
+			.. Blocks(BlockCatalog.PowerPylon, BlockCatalog.StoneBurner, BlockCatalog.WindTurbine, BlockCatalog.GeothermalTap),
+		],
 	];
 
 	private static IEnumerable<ToolbarItem> Blocks(params BlockDefinition[] blocks) =>

@@ -30,7 +30,8 @@ or conversation.
 | `src/Main.cs` | Builds a Box (sky, planets, asteroids), starts or loads a game, owns every overlay (menus, Forge, Nexus, panels), saving, travel between Boxes. |
 | `src/Building/BlockGrid*.cs` | A grid of blocks, split into partials: core, `Power`, `Flight`, `Damage`, `Logistics` (tubes, pods, drills, refineries), `Fabrication`, `Terraform`, `Quarantine`. |
 | `src/Building/BlockDefinition.cs` | Every block type (`BlockCatalog`), `BlockState`, and the `Palette`. |
-| `src/Building/BlockVisuals.cs`, `BlockMesher.cs` | Block looks: the rounded-cube mesh and per-type decorations. |
+| `src/Building/BlockVisuals.cs`, `BlockMesher.cs` | Block looks: the shape mesh (`BlockShapes`) and per-type decorations or full models. |
+| `src/Building/PowerNet.cs` | Cables stations with Power Pylons into shared power networks and draws the cables. |
 | `src/Nexus/Colony.cs`, `Bot.cs` | Bots, building jobs, haul routes, uplinks, rates, problems, Resonance, the Lance charge. |
 | `src/Nexus/NexusScreen.cs` and friends | The Nexus overview, production statistics, Box map. |
 | `src/Life/` | Villages, people and their requests. |

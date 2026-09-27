@@ -5,7 +5,7 @@ using Rebirth.Items;
 
 namespace Rebirth.Building;
 
-public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink, AirProcessor, Hydrator, SeedGarden, Incubator, BreachLance, Firewall }
+public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink, AirProcessor, Hydrator, SeedGarden, Incubator, BreachLance, Firewall, PowerPylon, StoneBurner, WindTurbine, GeothermalTap }
 
 /// <param name="Paint">Default paint colour; each block type has its own so they are easy to tell apart.</param>
 /// <param name="MaxIntegrity">Damage the block absorbs before it is destroyed.</param>
@@ -19,6 +19,8 @@ public sealed record BlockDefinition(string Id, string DisplayName, BlockKind Ki
 	public float PowerDraw { get; init; }
 	/// <summary>Megawatts produced when the block's local +Y faces the sun.</summary>
 	public float SolarOutput { get; init; }
+	/// <summary>Megawatts a generator makes at full tilt (burner with fuel, turbine in full air, tap on a planet).</summary>
+	public float GeneratorOutput { get; init; }
 	/// <summary>Megawatt-hours a battery stores.</summary>
 	public float BatteryCapacity { get; init; }
 	/// <summary>Megawatts a battery can deliver or absorb.</summary>
@@ -32,7 +34,7 @@ public sealed record BlockDefinition(string Id, string DisplayName, BlockKind Ki
 
 	/// <summary>Carries parcels: part of a grid's logistics network when touching other such blocks.</summary>
 	public bool Logistics => Kind is BlockKind.Tube or BlockKind.CargoContainer or BlockKind.Refinery or BlockKind.Fabricator or BlockKind.AutoDrill
-		or BlockKind.AirProcessor or BlockKind.Hydrator or BlockKind.SeedGarden;
+		or BlockKind.AirProcessor or BlockKind.Hydrator or BlockKind.SeedGarden or BlockKind.StoneBurner;
 
 	/// <summary>Heals the planet it stands on (air, water, soil) from what the network brings it.</summary>
 	public bool Terraformer => Kind is BlockKind.AirProcessor or BlockKind.Hydrator or BlockKind.SeedGarden;
@@ -238,6 +240,41 @@ public static class BlockCatalog
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 300f, ["nickel_ingot"] = 60f, ["silicon_wafer"] = 200f },
 	};
 
+	/// <summary>
+	/// Joins this station's power with every station that has a pylon within <see cref="BlockGrid.PylonReach"/>:
+	/// one shared network, drawn as cables between the pylons.
+	/// </summary>
+	public static readonly BlockDefinition PowerPylon = new("power_pylon", "Power Pylon", BlockKind.PowerPylon, Palette.Cream, 500f, 80f)
+	{
+		Shape = BlockShape.Custom,
+		Cost = new Dictionary<string, float> { ["iron_ingot"] = 80f, ["nickel_ingot"] = 10f },
+	};
+
+	/// <summary>Burns stone the network brings it; a steady flame, day and night.</summary>
+	public static readonly BlockDefinition StoneBurner = new("stone_burner", "Stone Burner", BlockKind.StoneBurner, Palette.Orange, 2200f, 120f)
+	{
+		Shape = BlockShape.Custom,
+		GeneratorOutput = 0.8f,
+		InputCapacity = 300f,
+		Cost = new Dictionary<string, float> { ["iron_ingot"] = 200f, ["nickel_ingot"] = 30f },
+	};
+
+	/// <summary>Spins in a planet's air: nothing on a dead world, full power once the air is back.</summary>
+	public static readonly BlockDefinition WindTurbine = new("wind_turbine", "Wind Turbine", BlockKind.WindTurbine, Palette.Cream, 900f, 80f)
+	{
+		Shape = BlockShape.Custom,
+		GeneratorOutput = 0.6f,
+		Cost = new Dictionary<string, float> { ["iron_ingot"] = 150f, ["nickel_ingot"] = 30f, ["silicon_wafer"] = 10f },
+	};
+
+	/// <summary>Taps a planet's warm heart: lots of power, but only standing on a planet (more in an Ember Box).</summary>
+	public static readonly BlockDefinition GeothermalTap = new("geothermal_tap", "Geothermal Tap", BlockKind.GeothermalTap, Palette.Coral, 4000f, 200f)
+	{
+		Shape = BlockShape.Custom,
+		GeneratorOutput = 1.5f,
+		Cost = new Dictionary<string, float> { ["iron_ingot"] = 700f, ["nickel_ingot"] = 150f, ["silicon_wafer"] = 60f },
+	};
+
 	/// <summary>Shapes the frame blocks come in, besides the cube, in picker order.</summary>
 	public static readonly BlockShape[] FrameShapes =
 		[BlockShape.Slope, BlockShape.Corner, BlockShape.InnerCorner, BlockShape.Half, BlockShape.Rounded, BlockShape.Cylinder];
@@ -263,7 +300,7 @@ public static class BlockCatalog
 
 	private static readonly BlockDefinition[] Base =
 		[LightArmor, HeavyArmor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink,
-		AirProcessor, Hydrator, SeedGarden, Incubator, BreachLance, Firewall];
+		AirProcessor, Hydrator, SeedGarden, Incubator, BreachLance, Firewall, PowerPylon, StoneBurner, WindTurbine, GeothermalTap];
 
 	public static readonly IReadOnlyList<BlockDefinition> All =
 		[.. Base, .. new[] { LightArmor, HeavyArmor }.SelectMany(b => FrameShapes.Select(s => Variant(b, s)))];

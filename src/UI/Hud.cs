@@ -357,6 +357,10 @@ public partial class Hud : CanvasLayer
 		{
 			BlockKind.Fabricator => grid.FabricatorStatus(cell),
 			BlockKind.Tube => $"{grid.ParcelCount} parcels moving",
+			BlockKind.PowerPylon => grid.Network.Stations > 1
+				? $"Cabled to {grid.Network.Stations - 1} other station{(grid.Network.Stations > 2 ? "s" : "")}: {grid.Network.Generation:0.00} MW made, {grid.Network.Demand:0.00} MW used"
+				: $"No other pylon within {BlockGrid.PylonReach:0} m",
+			BlockKind.WindTurbine or BlockKind.GeothermalTap => grid.MachineStatus(cell),
 			_ when state.Input is not null || state.Output is not null || def.Kind == BlockKind.Incubator => grid.MachineStatus(cell),
 			_ => "",
 		};

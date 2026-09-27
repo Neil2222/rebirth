@@ -15,7 +15,7 @@ public static class Presets
 	private static readonly Basis PushDown = new(Vector3.Right, -Mathf.Pi / 2f);
 	private static readonly Basis PushUp = new(Vector3.Right, Mathf.Pi / 2f);
 
-	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), AirMaker(), WaterWorks(), Garden(), SettlementSeed(), BreachLanceSite(), UplinkPost(), FirewallPost(), WorkerBot()];
+	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), AirMaker(), WaterWorks(), Garden(), SettlementSeed(), BreachLanceSite(), UplinkPost(), FirewallPost(), SolarPark(), StonePlant(), WindFarm(), GeothermalPlant(), PowerPylon(), WorkerBot()];
 
 	/// <summary>
 	/// Default robot body: legs, torso with a battery heart and gyro shoulders, a visor head,
@@ -127,6 +127,67 @@ public static class Presets
 		bp.Add(new Vector3I(1, 1, 0), BlockCatalog.CargoContainer, Basis.Identity);
 		foreach (var cell in new[] { new Vector3I(0, 2, 0), new Vector3I(1, 2, 0), new Vector3I(0, 2, 1), new Vector3I(1, 2, 1) })
 			bp.Add(cell, BlockCatalog.SolarPanel, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>
+	/// Twelve solar panels and two batteries around a Power Pylon: set it down within reach of your sites and
+	/// they share its power (a pylon also reaches stations without one).
+	/// </summary>
+	public static Blueprint SolarPark()
+	{
+		var bp = new Blueprint { Name = "Solar Park", Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.PowerPylon, Basis.Identity);
+		bp.Add(new Vector3I(0, 0, 1), BlockCatalog.Battery, Basis.Identity);
+		bp.Add(new Vector3I(0, 0, -1), BlockCatalog.Battery, Basis.Identity);
+		for (int x = -2; x <= 2; x++)
+			for (int z = -1; z <= 1; z++)
+				if (x != 0)
+					bp.Add(new Vector3I(x, 0, z), BlockCatalog.SolarPanel, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>A drill feeding two Stone Burners through storage: power day and night from plain rock.</summary>
+	public static Blueprint StonePlant()
+	{
+		var bp = new Blueprint { Name = "Stone Plant", Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.AutoDrill, PushDown);
+		bp.Add(new Vector3I(0, 1, 0), BlockCatalog.CargoContainer, Basis.Identity);
+		bp.Add(new Vector3I(1, 1, 0), BlockCatalog.StoneBurner, Basis.Identity);
+		bp.Add(new Vector3I(-1, 1, 0), BlockCatalog.StoneBurner, Basis.Identity);
+		bp.Add(new Vector3I(0, 1, 1), BlockCatalog.Battery, Basis.Identity);
+		bp.Add(new Vector3I(0, 1, -1), BlockCatalog.PowerPylon, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>Three turbines and a pylon: nothing on a dead world, strong once a planet has its air back.</summary>
+	public static Blueprint WindFarm()
+	{
+		var bp = new Blueprint { Name = "Wind Farm", Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.PowerPylon, Basis.Identity);
+		foreach (int x in new[] { -3, 3, 6 })
+			bp.Add(new Vector3I(x, 0, 0), BlockCatalog.WindTurbine, Basis.Identity);
+		for (int x = -2; x <= 5; x++)
+			if (x != 0 && x != 3)
+				bp.Add(new Vector3I(x, 0, 0), BlockCatalog.LightArmor, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>A Geothermal Tap with a battery and a pylon: lots of steady power, on planets only.</summary>
+	public static Blueprint GeothermalPlant()
+	{
+		var bp = new Blueprint { Name = "Geothermal Plant", Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.GeothermalTap, Basis.Identity);
+		bp.Add(new Vector3I(1, 0, 0), BlockCatalog.Battery, Basis.Identity);
+		bp.Add(new Vector3I(-1, 0, 0), BlockCatalog.PowerPylon, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>A lone pylon: a stepping stone to carry power further than one cable reaches.</summary>
+	public static Blueprint PowerPylon()
+	{
+		var bp = new Blueprint { Name = "Power Pylon", Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.PowerPylon, Basis.Identity);
 		return bp;
 	}
 

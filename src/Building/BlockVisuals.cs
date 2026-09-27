@@ -12,6 +12,7 @@ public static class BlockVisuals
 {
 	public const string FlameName = "Flame";
 	public const string DrillBitName = "Bit";
+	public const string RotorName = "Rotor";
 	public const string LanceRingsName = "Rings";
 	public const string LanceGlowName = "Glow";
 	private const float H = BlockGrid.CellSize * 0.5f;
@@ -35,6 +36,10 @@ public static class BlockVisuals
 		BlockKind.Incubator => Incubator(paint),
 		BlockKind.BreachLance => BreachLance(paint),
 		BlockKind.Firewall => Firewall(paint),
+		BlockKind.PowerPylon => PowerPylon(paint),
+		BlockKind.StoneBurner => StoneBurner(paint),
+		BlockKind.WindTurbine => WindTurbine(paint),
+		BlockKind.GeothermalTap => GeothermalTap(paint),
 		_ => null,
 	};
 
@@ -320,6 +325,102 @@ public static class BlockVisuals
 		bit.AddChild(Part(new BoxMesh { Size = new Vector3(1.3f, 0.08f, 0.12f), Material = Plastic(Palette.Orange) }, new Vector3(0, 0.3f, 0)));
 		root.AddChild(bit);
 		root.AddChild(Part(new SphereMesh { Radius = 0.1f, Height = 0.2f, Material = Lamp(new Color(1f, 0.75f, 0.3f)) }, new Vector3(0, 0.88f, 0.4f)));
+		return root;
+	}
+
+	/// <summary>
+	/// A slim lattice mast with a cross-arm and brass insulators; cables hang from the top (see
+	/// <see cref="BlockGrid.PylonTop"/>, 3.1 m above the cell).
+	/// </summary>
+	private static Node3D PowerPylon(Color paint)
+	{
+		var root = new Node3D();
+		root.AddChild(Plate(paint));
+		var steel = Plastic(paint.Darkened(0.1f));
+		float bottom = -H + 0.3f, top = H + 3.1f, height = top - bottom;
+		foreach (var (x, z) in new[] { (1f, 1f), (-1f, 1f), (1f, -1f), (-1f, -1f) })
+		{
+			// Four legs leaning in from the plate towards the top.
+			var from = new Vector3(x * 0.8f, bottom, z * 0.8f);
+			var to = new Vector3(x * 0.15f, top - 0.3f, z * 0.15f);
+			var leg = new CylinderMesh { TopRadius = 0.06f, BottomRadius = 0.09f, Height = from.DistanceTo(to), Material = steel };
+			root.AddChild(Part(leg, (from + to) * 0.5f, BasisAlong((to - from).Normalized())));
+		}
+		for (int i = 1; i <= 3; i++)
+		{
+			float t = i / 4f;
+			float y = bottom + height * t;
+			float half = Mathf.Lerp(0.8f, 0.15f, t);
+			foreach (var (size, offset) in new[] { (new Vector3(half * 2f, 0.07f, 0.07f), new Vector3(0, y, half)), (new Vector3(half * 2f, 0.07f, 0.07f), new Vector3(0, y, -half)),
+				(new Vector3(0.07f, 0.07f, half * 2f), new Vector3(half, y, 0)), (new Vector3(0.07f, 0.07f, half * 2f), new Vector3(-half, y, 0)) })
+				root.AddChild(Part(new BoxMesh { Size = size, Material = steel }, offset));
+		}
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(1.8f, 0.14f, 0.14f), Material = steel }, new Vector3(0, top - 0.35f, 0)));
+		var brass = Brass();
+		foreach (float x in new[] { -0.8f, 0.8f })
+			root.AddChild(Part(new CylinderMesh { TopRadius = 0.07f, BottomRadius = 0.12f, Height = 0.3f, Material = brass }, new Vector3(x, top - 0.15f, 0)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.16f, Height = 0.32f, Material = brass }, new Vector3(0, top, 0)));
+		return root;
+	}
+
+	/// <summary>Turns a Y-aligned primitive to point along <paramref name="dir"/>.</summary>
+	private static Basis BasisAlong(Vector3 dir)
+	{
+		var axis = Vector3.Up.Cross(dir);
+		return axis.LengthSquared() < 1e-6f ? Basis.Identity : new Basis(axis.Normalized(), Vector3.Up.AngleTo(dir));
+	}
+
+	/// <summary>A round stove with a glowing fire door and a stubby chimney: stone in, warmth and power out.</summary>
+	private static Node3D StoneBurner(Color paint)
+	{
+		var root = new Node3D();
+		root.AddChild(Plate(paint));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.95f, BottomRadius = 1.1f, Height = 1.6f, Material = Plastic(paint) }, new Vector3(0, -0.15f, 0)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.95f, Height = 1.0f, IsHemisphere = true, Material = Plastic(paint) }, new Vector3(0, 0.65f, 0)));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 1.0f, OuterRadius = 1.14f, Material = Chrome() }, new Vector3(0, -0.6f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.22f, BottomRadius = 0.28f, Height = 1.1f, Material = Plastic(Palette.Slate) }, new Vector3(0.35f, 1.4f, 0.3f)));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.2f, OuterRadius = 0.3f, Material = Chrome() }, new Vector3(0.35f, 1.95f, 0.3f)));
+		// Fire door on the front (-Z): a dark frame around a warm glow that breathes with the fire.
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(0.9f, 0.7f, 0.12f), Material = Plastic(Palette.Slate) }, new Vector3(0, -0.2f, -1.02f)));
+		var fire = new Node3D { Name = FlameName, Position = new Vector3(0, -0.2f, -1.08f) };
+		fire.AddChild(Part(new BoxMesh { Size = new Vector3(0.7f, 0.5f, 0.04f), Material = Lamp(new Color(1f, 0.55f, 0.2f), 2.2f) }, Vector3.Zero));
+		fire.AddChild(new OmniLight3D { LightColor = new Color(1f, 0.6f, 0.3f), LightEnergy = 1.2f, OmniRange = 6f, Position = new Vector3(0, 0, -0.4f) });
+		root.AddChild(fire);
+		return root;
+	}
+
+	/// <summary>A tall slim mast with a nacelle and three soft blades that turn with the wind.</summary>
+	private static Node3D WindTurbine(Color paint)
+	{
+		var root = new Node3D();
+		root.AddChild(Plate(paint));
+		float hub = H + 4.2f;
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.12f, BottomRadius = 0.3f, Height = hub + H - 0.3f, Material = Plastic(Palette.Cream) }, new Vector3(0, (hub - H + 0.3f) * 0.5f, 0)));
+		root.AddChild(Part(new CapsuleMesh { Radius = 0.28f, Height = 1.3f, Material = Plastic(paint) }, new Vector3(0, hub, 0.2f), ToZ));
+		var rotor = new Node3D { Name = RotorName, Position = new Vector3(0, hub, -0.5f) };
+		rotor.AddChild(Part(new SphereMesh { Radius = 0.22f, Height = 0.44f, Material = Plastic(Palette.Coral) }, Vector3.Zero));
+		for (int i = 0; i < 3; i++)
+		{
+			var blade = new Node3D { Rotation = new Vector3(0, 0, i * Mathf.Tau / 3f) };
+			blade.AddChild(Part(new BoxMesh { Size = new Vector3(0.28f, 2.4f, 0.06f), Material = Plastic(Palette.Cream) }, new Vector3(0, 1.35f, 0), new Basis(Vector3.Up, 0.25f)));
+			rotor.AddChild(blade);
+		}
+		root.AddChild(rotor);
+		return root;
+	}
+
+	/// <summary>A squat dome over a warm vent, with chunky pipes curling down into the ground.</summary>
+	private static Node3D GeothermalTap(Color paint)
+	{
+		var root = new Node3D();
+		root.AddChild(Plate(paint));
+		float floor = -H + 0.3f;
+		root.AddChild(Part(new SphereMesh { Radius = 1.05f, Height = 1.05f * 1.6f, IsHemisphere = true, Material = Plastic(paint) }, new Vector3(0, floor, 0)));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 1.0f, OuterRadius = 1.15f, Material = Chrome() }, new Vector3(0, floor + 0.05f, 0)));
+		foreach (var (x, z) in new[] { (0.85f, 0.85f), (-0.85f, 0.85f), (0.85f, -0.85f), (-0.85f, -0.85f) })
+			root.AddChild(Part(new TorusMesh { InnerRadius = 0.2f, OuterRadius = 0.36f, Material = Brass() }, new Vector3(x, floor + 0.05f, z), new Basis(new Vector3(-z, 0, x).Normalized(), Mathf.Pi / 2f)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.3f, BottomRadius = 0.4f, Height = 0.5f, Material = Plastic(Palette.Slate) }, new Vector3(0, floor + 1.75f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.26f, BottomRadius = 0.26f, Height = 0.05f, Material = Lamp(new Color(1f, 0.45f, 0.2f), 2f) }, new Vector3(0, floor + 2.0f, 0)));
 		return root;
 	}
 
