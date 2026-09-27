@@ -36,12 +36,15 @@ public partial class Main : Node3D
 	public SlotPanel Slots { get; private set; } = null!;
 	public InventoryPanel Inventory { get; private set; } = null!;
 	public ControlsPanel Controls { get; private set; } = null!;
+	public GraphicsPanel Graphics { get; private set; } = null!;
 	public People People { get; private set; } = null!;
 	public TalkPanel Talk { get; private set; } = null!;
 
 	private Hud _hud = null!;
 	private ProgressSave _progress = new();
 	private int _box = 1;
+	private Godot.Environment? _environment;
+	private DirectionalLight3D? _sun;
 	private BoxWall _wall = null!;
 	public SpiritBomb SpiritBomb { get; private set; } = null!;
 
@@ -125,6 +128,10 @@ public partial class Main : Node3D
 		Inventory = new InventoryPanel { Name = "Inventory" };
 		AddChild(Inventory);
 		Inventory.Closed += OnOverlayClosed;
+		Graphics = new GraphicsPanel { Name = "Graphics" };
+		AddChild(Graphics);
+		Graphics.Closed += OnOverlayClosed;
+		Graphics.Changed += ApplyGraphics;
 		Controls = new ControlsPanel { Name = "Controls" };
 		AddChild(Controls);
 		Controls.Closed += OnOverlayClosed;
@@ -169,6 +176,7 @@ public partial class Main : Node3D
 		if (save is null && !firstBoot && GameState.PendingTransfer is null)
 			SaveGame(null);   // a new game takes up its slot straight away
 		_nextAutosave = Now + AutosaveSeconds;
+		ApplyGraphics();
 
 		if (firstBoot)
 			OpenTitle();
@@ -368,6 +376,7 @@ public partial class Main : Node3D
 			new GameMenu.Entry("Load game", () => OpenSlots(SlotMode.Load, OpenTitle), Enabled: AnySave),
 			new GameMenu.Entry("New game - with tutorial", () => OpenSlots(SlotMode.NewGame, OpenTitle, StartMode.Tutorial)),
 			new GameMenu.Entry("New game - skip the intro", () => OpenSlots(SlotMode.NewGame, OpenTitle, StartMode.SkipIntro)),
+			new GameMenu.Entry("Graphics", () => Graphics.Open(OpenTitle)),
 			new GameMenu.Entry("Controls", () => Controls.Open(OpenTitle)),
 			new GameMenu.Entry("Quit", () => GetTree().Quit()),
 		]);
@@ -386,6 +395,7 @@ public partial class Main : Node3D
 			new GameMenu.Entry("Load game...", () => OpenSlots(SlotMode.Load, OpenPauseMenu), Enabled: AnySave),
 			new GameMenu.Entry("New game - with tutorial...", () => OpenSlots(SlotMode.NewGame, OpenPauseMenu, StartMode.Tutorial)),
 			new GameMenu.Entry("New game - skip the intro...", () => OpenSlots(SlotMode.NewGame, OpenPauseMenu, StartMode.SkipIntro)),
+			new GameMenu.Entry("Graphics", () => Graphics.Open(OpenPauseMenu)),
 			new GameMenu.Entry("Controls", () => Controls.Open(OpenPauseMenu)),
 			new GameMenu.Entry("Save and quit", () =>
 			{
@@ -584,6 +594,8 @@ public partial class Main : Node3D
 		Forge.Open();
 	}
 
+	private void ApplyGraphics() => GraphicsSettings.Current.Apply(GetViewport(), _environment, _sun);
+
 	private void OnOverlayClosed()
 	{
 		GameState.WorldInputBlocked = false;
@@ -695,6 +707,7 @@ public partial class Main : Node3D
 			AdjustmentEnabled = true,
 			AdjustmentSaturation = 1.08f,
 		};
+		_environment = env;
 		AddChild(new WorldEnvironment { Environment = env });
 
 		var sun = new DirectionalLight3D
@@ -705,6 +718,7 @@ public partial class Main : Node3D
 			ShadowBlur = 2.5f,
 			DirectionalShadowMaxDistance = 400f,
 		};
+		_sun = sun;
 		AddChild(sun);
 		sun.LookAt(new Vector3(-1, -0.4f, -0.6f), Vector3.Up);
 		// The light shines along its -Z, so +Z points back at the sun.

@@ -160,6 +160,12 @@ te fel en te donker.)
   Tab = inventory, scrollwiel = hotbarpagina.
 - **Tutorial** wijst elke stap aan met een zwevend label in de wereld ("Drill here", "Unload here").
 
+- **Graphics-menu** (titel- en Esc-menu): presets Low / Medium / High, render-schaal (FSR), schaduwen,
+  SSAO, glow, MSAA, VSync, framelimiet, fullscreen. Opgeslagen in user://graphics.json. Low haalt
+  draw calls van ~3100 naar ~870 en driehoeken van 2,5 mln naar 0,6 mln.
+- Later (grafische ronde): blokdetails per grid samenvoegen, planeet-LOD, shader-opwarming tegen de
+  eenmalige hapering bij het eerste openen van de Nexus.
+
 ## Opslaan
 - **6 opslagslots.** Een slot is een heel spel: campagne (Boxes, Starlight, upgrades) plus de wereld van elke
   bezochte Box (`user://saves/slotN/`). Autosave, F5 en "Opslaan en stoppen" schrijven naar het slot waarin je
