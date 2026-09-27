@@ -60,6 +60,11 @@ gebouwen, en je eigen robotlichaam.
 - Spullen reizen als gekleurde pods door glazen buizen, via de kortste route; machines die iets nodig hebben gaan vóór opslag.
 - Auto-drill boort de grond voor zijn voorkant af; raffinaderij heeft een ertsbuffer en een staafbuffer; de fabricator trekt ontbrekende staven zelf uit opslag.
 - Blueprints worden geprint door een fabricator; één ontwerp, vijftig drones.
+- **Er verdwijnt niets.** Een pod die bij aankomst niet past, wacht aan het eind van de buis tot er plek is.
+  De auto-drill (buffer 800 kg) bijt pas als een hele hap erin past. Een bot met lading lost bij Home, of
+  bij het dichtstbijzijnde station met ruimte als Home vol is; is alles vol, dan wacht hij ("Holding
+  cargo") in plaats van eindeloos heen en weer te vliegen. Kruimels onder 1 kg houden een bouwplaats of
+  fabricator niet meer tegen.
 - **Bots** zijn ontwerpen met een Bot Core (ontwerptype Bot). Ze vliegen zelf: materialen van Home
   naar een bouwplaats, blok voor blok bouwen, en ingots van sites naar Home slepen (haulroutes).
 - **Zelf bouwen is goedkoop, bots laten bouwen kost 2,5× zoveel.** Je doet het één keer zelf (tutorial);
@@ -148,8 +153,9 @@ Geen FPS, geen tijdsdruk. Getroffen machines gaan in **quarantaine** (stil, niet
 ### Meerdere Boxes en Starlight (F2)
 - **Box-kaart** in de Nexus ("Boxes & upgrades"): elke bereikte Box blijft bestaan (eigen wereld-save) en je
   kunt heen en weer reizen. Een Box staat stil als je weg bent.
-- **Meenemen bij reizen:** alle blueprints; ingots uit Home tot de **laadruimte** (2 t, upgradebaar); je bots
-  tot de **botbaai** (2, upgradebaar). In een nieuwe Box: verse Home met drill, daarna alles via de Nexus.
+- **Meenemen bij reizen:** alle blueprints; ingots uit Home tot de **laadruimte** (2 t, upgradebaar), maar
+  nooit meer dan er in de Home van de bestemming past (de rest blijft achter); je bots tot de **botbaai**
+  (2, upgradebaar), en wat ze aan boord hebben gaat eerst naar Home. In een nieuwe Box: verse Home met drill, daarna alles via de Nexus.
 - **Starlight:** bevrijde Boxes (waar je uitgebroken bent) stralen punten uit naar een gedeelde poel:
   de helft van hun Resonance-tempo bij vertrek, plus 150 per doorbraak. Daarmee koop je blijvende upgrades:
   botbaai, laadruimte, botsnelheid, goedkoper bouwen met bots, snellere raffinaderij, welkomstbots.

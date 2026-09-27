@@ -128,7 +128,8 @@ Tips:
 - **Quaternions** from bases must be normalised before `Slerp`.
 - **Nodes you move by hand every frame** (cameras, MultiMesh instances) should have physics interpolation off.
 - **The tutorial must `Begin` before the first save**, because saving records its current step.
-- **Inventories have a capacity** (Home storage is 15 t): adding more silently drops the rest. Keep that in
-  mind when a test "adds" resources.
+- **Inventories have a capacity** (Home storage is 15 t): `Inventory.Add` returns what fitted and drops the
+  rest. Game code must handle that return value (wait, send elsewhere, or refuse the action) so items never
+  vanish; tests that "add" resources should expect the clamp.
 - **Heavy work in `_Process`** (list rebuilds, LINQ over all grids) shows up quickly. Throttle it to a few times
   per second.

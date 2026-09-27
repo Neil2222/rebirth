@@ -9,8 +9,8 @@ namespace Rebirth.Nexus;
 /// <summary>What the colony asks an idle bot to do next.</summary>
 internal abstract record BotOrder
 {
-	/// <summary>Drop off whatever is aboard at home.</summary>
-	public sealed record Unload(BlockGrid Home) : BotOrder;
+	/// <summary>Drop off whatever is aboard at home (or another station when home is full).</summary>
+	public sealed record Unload(BlockGrid Target) : BotOrder;
 	/// <summary>Carry <paramref name="Load"/> from home to a building site (and help build if nobody is).</summary>
 	public sealed record Supply(ConstructionJob Job, Dictionary<string, float> Load) : BotOrder;
 	/// <summary>Build from stock already waiting at the site.</summary>
@@ -34,15 +34,17 @@ public sealed class Bot
 	private readonly Dictionary<string, float> _transit = new();   // supply load counted in the job's InTransit
 	private HaulRoute? _route;
 
+	private readonly float _thrustBonus;
+
 	public Bot(BlockGrid grid)
 	{
 		Grid = grid;
-		float thrust = grid.Blocks.Sum(b => b.Value.Definition.Thrust);
-		Speed = Mathf.Clamp(Colony.BaseBotSpeed + thrust / Mathf.Max(grid.Mass, 1f) * 0.1f, Colony.BaseBotSpeed, Colony.MaxBotSpeed);
+		_thrustBonus = grid.Blocks.Sum(b => b.Value.Definition.Thrust) / Mathf.Max(grid.Mass, 1f) * 0.1f;
 	}
 
 	public BlockGrid Grid { get; }
-	public float Speed { get; }
+	/// <summary>Worked out each time, so a Starlight speed upgrade applies to bots already flying.</summary>
+	public float Speed => Mathf.Clamp(Colony.BaseBotSpeed + _thrustBonus, Colony.BaseBotSpeed, Colony.MaxBotSpeed);
 	public float Capacity => Grid.Inventory.Capacity;
 	public string Status { get; private set; } = "Reporting for work";
 	public ConstructionJob? Job { get; private set; }
@@ -64,6 +66,7 @@ public sealed class Bot
 	{
 		_steps.Clear();
 		_path = null;
+		_waypoint = 0;   // the next flight plans a fresh path and must start at its beginning
 		_wait = -1f;
 		if (Job is { } job)
 		{
@@ -84,10 +87,10 @@ public sealed class Bot
 		switch (colony.NextOrder(this))
 		{
 			case BotOrder.Unload unload:
-				Status = $"Bringing cargo to {Colony.HomeLabel}";
-				FlyTo(Colony.DockSpot(unload.Home));
+				Status = $"Bringing cargo to {unload.Target.Label}";
+				FlyTo(Colony.DockSpot(unload.Target));
 				WaitFor(Colony.LoadSeconds);
-				Do(_ => UnloadInto(unload.Home));
+				Do(_ => UnloadInto(unload.Target));
 				break;
 
 			case BotOrder.Supply supply:
@@ -150,7 +153,7 @@ public sealed class Bot
 				}
 				else
 				{
-					Status = "Idle";
+					Status = Grid.Inventory.Total > 0.5f ? "Holding cargo: every storage is full" : "Idle";
 					WaitFor(1f);   // look for work again in a moment
 				}
 				break;
@@ -230,20 +233,22 @@ public sealed class Bot
 		if (!colony.Jobs.Contains(job) || !job.CanAffordNext())
 			return;
 		var entry = job.Order[job.Built];
-		foreach (var (item, amount) in ConstructionJob.CostOf(entry))
-		{
-			float used = Mathf.Min(amount, job.Stock.Get(item));
-			job.Stock.TryRemove(item, used);
-			ProductionStats.Consumed(item, used);
-		}
 		if (job.Grid is null)
 		{
 			job.Grid = BlockGrid.Create(colony.World, job.Site, isStatic: true);
 			job.Grid.Label = job.Name;
 		}
 		var definition = BlockCatalog.Get(entry.Id);
-		job.Grid.TryAdd(entry.CellVector(), definition, entry.Orientation(), charge: 0.5f, paint: entry.PaintColor(definition));
 		job.Built++;
+		// Only pay for a block that actually went in (the cell may be taken by something built there since).
+		if (!job.Grid.TryAdd(entry.CellVector(), definition, entry.Orientation(), charge: 0.5f, paint: entry.PaintColor(definition)))
+			return;
+		foreach (var (item, amount) in ConstructionJob.CostOf(entry))
+		{
+			float used = Mathf.Min(amount, job.Stock.Get(item));
+			job.Stock.TryRemove(item, used);
+			ProductionStats.Consumed(item, used);
+		}
 		Sparkle(colony.World, job.Site * BlockGrid.CellCenter(entry.CellVector()), entry.PaintColor(definition));
 	}
 

@@ -127,7 +127,7 @@ public partial class StatsPanel : CanvasLayer
 		var stock = Colony.Stock();
 		var demand = Colony.Demand();
 		var items = ProductionStats.Items.Union(stock.Keys).Union(demand.Keys)
-			.Where(i => ItemCatalog.Get(i) is not null)
+			.Where(ItemCatalog.Exists)
 			.OrderBy(i => ItemCatalog.Get(i).Category == ItemCategory.Ingot ? 0 : 1).ThenBy(i => i).ToList();
 		// Rows stay while the item list is the same, so hovering an icon keeps its info card.
 		string key = string.Join(";", items);

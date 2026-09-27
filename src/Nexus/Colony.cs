@@ -156,10 +156,11 @@ public partial class Colony : Node
 
 	public void CancelJob(ConstructionJob job)
 	{
+		// A Nexus row can outlive its job for a moment: cancelling twice must not refund twice.
+		if (!Jobs.Contains(job))
+			return;
 		// Whatever was delivered but not yet used goes back home.
-		if (Home is { } home)
-			foreach (var (item, amount) in job.Stock.Items.ToArray())
-				home.Inventory.Add(item, amount);
+		ReturnStock(job.Stock, job.Site.Origin);
 		job.Hologram?.QueueFree();
 		Jobs.Remove(job);
 		foreach (var bot in Bots.Where(b => b.Job == job))
@@ -413,7 +414,8 @@ public partial class Colony : Node
 	{
 		foreach (var station in Grids.Where(g => g.IsStatic && !g.IsBot && g.Label is not null && g.HasBlock(BlockKind.Hydrator) && g.Inventory.Capacity > 0f).ToList())
 		{
-			if (Routes.Any(r => r.To == station.Label && r.Cargo == HaulCargo.Ice && r.Enabled))
+			// Any ice route counts, also one the player switched off: they meant it.
+			if (Routes.Any(r => r.To == station.Label && r.Cargo == HaulCargo.Ice))
 				continue;
 			var source = Grids.Where(g => g != station && g.IsStatic && !g.IsBot && g.Label is not null && g.Inventory.Get("ice") >= 50f)
 				.OrderBy(g => g.GlobalPosition.DistanceTo(station.GlobalPosition)).FirstOrDefault();
@@ -513,10 +515,9 @@ public partial class Colony : Node
 			if (done.Inventory.Capacity > 0f && Routes.All(r => r.From != job.Name))
 				Routes.Add(new HaulRoute { From = job.Name, To = HomeLabel });
 		}
-		// Leftover stock (rounding, cancelled claims) goes back home with the next hauler.
-		if (Home is { } home)
-			foreach (var (item, amount) in job.Stock.Items.ToArray())
-				home.Inventory.Add(item, amount);
+		// Leftover stock (rounding, cancelled claims) goes into the new station's own storage, which its
+		// route hauls home, or straight home when it has none.
+		ReturnStock(job.Stock, job.Site.Origin, job.Grid);
 		Announce($"{job.Name} is built and running");
 	}
 
@@ -527,9 +528,11 @@ public partial class Colony : Node
 		if (home is null)
 			return null;
 
-		// Anything still aboard (after a load or a cancelled job) goes home first.
+		// Anything still aboard (after a load or a cancelled job) goes home first, or to another
+		// station when home is full. With room nowhere the bot parks and holds on to it: sending it
+		// back to a full home would keep it busy forever and it would never build or haul again.
 		if (bot.Grid.Inventory.Total > 0.5f)
-			return new BotOrder.Unload(home);
+			return UnloadTarget(home, bot.Grid.GlobalPosition) is { } target ? new BotOrder.Unload(target) : null;
 
 		// 1. Construction: bring what the next blocks need, as far as home has it.
 		foreach (var job in Jobs)
@@ -562,6 +565,43 @@ public partial class Colony : Node
 		if (route.Source is not null)
 			return new BotOrder.Haul(route.Route, route.Source!);
 		return null;
+	}
+
+	/// <summary>Home if it has room, else the nearest other station with free storage; null when all are full.</summary>
+	private BlockGrid? UnloadTarget(BlockGrid home, Vector3 from)
+	{
+		if (home.Inventory.FreeSpace >= 1f)
+			return home;
+		return Grids.Where(g => g.IsStatic && !g.IsBot && g.Label is not null && g != home && Jobs.All(j => j.Grid != g)
+				&& g.Inventory.FreeSpace >= 1f && !Blocked(g.GlobalPosition))
+			.OrderBy(g => g.GlobalPosition.DistanceTo(from))
+			.FirstOrDefault();
+	}
+
+	/// <summary>
+	/// Puts materials a site no longer needs into <paramref name="first"/> (when given), then Home, then
+	/// the nearest stations with room, so nothing vanishes when Home is full.
+	/// </summary>
+	private void ReturnStock(Inventory stock, Vector3 from, BlockGrid? first = null)
+	{
+		var stores = new List<BlockGrid>();
+		if (first is not null && first.Inventory.Capacity > 0f)
+			stores.Add(first);
+		if (Home is { } home && home != first)
+			stores.Add(home);
+		stores.AddRange(Grids.Where(g => g.IsStatic && !g.IsBot && g.Label is not null && !stores.Contains(g) && g.Inventory.Capacity > 0f)
+			.OrderBy(g => g.GlobalPosition.DistanceTo(from)));
+		foreach (var item in stock.Items.Keys.ToArray())
+			foreach (var store in stores)
+			{
+				stock.TransferTo(store.Inventory, item, stock.Get(item));
+				if (stock.Get(item) <= 0f)
+					break;
+			}
+		float lost = stock.Total;
+		stock.Clear();
+		if (lost >= 1f)
+			Announce($"No storage had room for {lost:0} kg of returned materials");
 	}
 
 	/// <summary>What is still wanted: materials building sites haven't received and fabricators are waiting for.</summary>
@@ -829,7 +869,8 @@ public sealed class ConstructionJob
 		foreach (var item in need.Keys.ToArray())
 		{
 			need[item] -= Stock.Get(item) + InTransit.GetValueOrDefault(item);
-			if (need[item] < 0.5f)
+			// Crumbs under a kilo aren't worth a trip (see NextLoad); CanAffordNext lets them go.
+			if (need[item] < 1f)
 				need.Remove(item);
 		}
 		return need;
@@ -857,7 +898,11 @@ public sealed class ConstructionJob
 		return load;
 	}
 
-	public bool CanAffordNext() => Built < Order.Count && Stock.Has(CostOf(Order[Built]));
+	/// <summary>
+	/// Enough stock for the next block. Up to a kilo per item may be missing: <see cref="Needed"/> and
+	/// <see cref="NextLoad"/> don't bother carrying crumbs, so the site would otherwise wait for them forever.
+	/// </summary>
+	public bool CanAffordNext() => Built < Order.Count && Stock.Has(CostOf(Order[Built]), slack: 1f);
 
 	private static List<BlueprintBlock> BuildOrder(Blueprint design)
 	{

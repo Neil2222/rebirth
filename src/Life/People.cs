@@ -238,7 +238,7 @@ public partial class People : Node
 		{
 			RequestKind.Deliver => $"{Mathf.Min(depot.Inventory.Get(request.Item), request.Amount):0} / {request.Amount:0} kg {ItemCatalog.DisplayName(request.Item)} in the {depot.Label} depot",
 			RequestKind.Build => $"Build a station with a {BlockCatalog.All.First(b => b.Kind == request.Block).DisplayName} within {VillageReach:0} m",
-			_ => "Answer from the Nexus or at the incubator [F]",
+			_ => Core.Keybinds.Fill("Answer from the Nexus or at the incubator [{use}]"),
 		};
 	}
 
@@ -263,7 +263,7 @@ public partial class People : Node
 		// Slots spiral out from the incubator; ones that would land on a station are skipped for good.
 		while (settlement.HousesBuilt < wanted && settlement.NextSlot < MaxHouses * 3)
 		{
-			if (Village.TryPlaceHouse(settlement.Village, planet, anchor.GlobalPosition, settlement.NextSlot, stations, settlement.Name.GetHashCode()))
+			if (Village.TryPlaceHouse(settlement.Village, planet, anchor.GlobalPosition, settlement.NextSlot, stations, Core.StableHash.Of(settlement.Name)))
 				settlement.HousesBuilt++;
 			settlement.NextSlot++;
 		}

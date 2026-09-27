@@ -136,7 +136,7 @@ public partial class NexusScreen : CanvasLayer
 		top.AddChild(_top);
 		AddButton(top, "Production", () => Stats.Open());
 		AddButton(top, "Boxes & upgrades", () => BoxMap.Open());
-		AddButton(top, "Close  [N]", Close);
+		AddButton(top, $"Close  [{Keybinds.Label("open_nexus")}]", Close);
 
 		// Left: places.
 		var left = new PanelContainer { CustomMinimumSize = new Vector2(290, 0) };

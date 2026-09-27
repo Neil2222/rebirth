@@ -25,6 +25,8 @@ public static class ItemCatalog
 
 	public static ItemDefinition Get(string id) => Items[id];
 
+	public static bool Exists(string id) => Items.ContainsKey(id);
+
 	public static string DisplayName(string id) => Items.TryGetValue(id, out var item) ? item.DisplayName : id;
 
 	/// <summary>What an item is good for and where it comes from, for info cards.</summary>

@@ -10,13 +10,16 @@ namespace Rebirth.Building;
 public sealed class Parcel
 {
 	public required string Item { get; init; }
-	public required float Amount { get; init; }
+	/// <summary>Kilograms aboard; shrinks when only part of it fits at the destination.</summary>
+	public required float Amount { get; set; }
 	/// <summary>Cells from source to destination, both included.</summary>
 	public required List<Vector3I> Path { get; init; }
 	/// <summary>Delivered into shared storage rather than a machine's input.</summary>
 	public required bool ToStorage { get; init; }
 	/// <summary>Distance travelled, in cells along <see cref="Path"/>.</summary>
 	public float Progress { get; set; }
+	/// <summary>Reached the end of its path; it waits there while the destination has no room.</summary>
+	public bool Arrived { get; set; }
 
 	public Vector3I Destination => Path[^1];
 }
@@ -37,6 +40,8 @@ public partial class BlockGrid
 	public const float DrillBite = 1.0f;           // radius (m) of rock removed per bite
 	public const float DrillReach = 14f;           // metres in front of the drill face
 	public const float DrillSpread = 2.5f;         // radius (m) of the patch under the face it works
+	/// <summary>Most ore one bite can yield (a full sphere of the richest rock): the drill waits until its buffer has this much room.</summary>
+	public static readonly float DrillBiteMaxYield = 4f / 3f * Mathf.Pi * DrillBite * DrillBite * DrillBite * VoxelMaterials.All.Max(m => m.YieldPerCubicMetre);
 	private const float DispatchInterval = 0.25f;
 
 	/// <summary>Order in which refineries ask for ore.</summary>
@@ -182,32 +187,38 @@ public partial class BlockGrid
 		for (int i = _parcels.Count - 1; i >= 0; i--)
 		{
 			var parcel = _parcels[i];
-			parcel.Progress += dt * ParcelSpeed;
+			parcel.Progress = Mathf.Min(parcel.Progress + dt * ParcelSpeed, parcel.Path.Count - 1);
 			if (parcel.Progress < parcel.Path.Count - 1)
 				continue;
-			_parcels.RemoveAt(i);
-			Deliver(parcel);
+			if (Deliver(parcel))
+				_parcels.RemoveAt(i);
 		}
 	}
 
-	private void Deliver(Parcel parcel)
+	/// <summary>
+	/// Hands a parcel over at the end of its path. Returns false while part of it has nowhere to go: it
+	/// then waits at the end of the tube and tries again next tick, instead of vanishing.
+	/// </summary>
+	private bool Deliver(Parcel parcel)
 	{
-		if (parcel.ToStorage)
+		if (!parcel.Arrived)
 		{
-			_incomingStorage = Mathf.Max(0f, _incomingStorage - parcel.Amount);
-			Inventory.Add(parcel.Item, parcel.Amount);
-			return;
+			parcel.Arrived = true;
+			if (parcel.ToStorage)
+				_incomingStorage = Mathf.Max(0f, _incomingStorage - parcel.Amount);
+			else
+			{
+				var key = (parcel.Destination, parcel.Item);
+				_incoming[key] = Mathf.Max(0f, Incoming(parcel.Destination, parcel.Item) - parcel.Amount);
+				if (_incoming[key] <= 0f)
+					_incoming.Remove(key);
+			}
 		}
-		var key = (parcel.Destination, parcel.Item);
-		_incoming[key] = Mathf.Max(0f, Incoming(parcel.Destination, parcel.Item) - parcel.Amount);
-		if (_incoming[key] <= 0f)
-			_incoming.Remove(key);
 		// The destination may have been removed or filled up meanwhile; storage catches the rest.
-		float accepted = _state.TryGetValue(parcel.Destination, out var state) && state.Input is { } input
-			? input.Add(parcel.Item, parcel.Amount)
-			: 0f;
-		if (accepted < parcel.Amount)
-			Inventory.Add(parcel.Item, parcel.Amount - accepted);
+		if (!parcel.ToStorage && _state.TryGetValue(parcel.Destination, out var state) && state.Input is { } input)
+			parcel.Amount -= input.Add(parcel.Item, parcel.Amount);
+		parcel.Amount -= Inventory.Add(parcel.Item, parcel.Amount);
+		return parcel.Amount <= 1e-3f;
 	}
 
 	/// <summary>Machines with finished goods send one parcel each: to a machine that wants it, else storage.</summary>
@@ -364,11 +375,6 @@ public partial class BlockGrid
 			if (block.Definition.Kind != BlockKind.AutoDrill || Napping(cell))
 				continue;
 			var output = _state[cell].Output!;
-			if (output.FreeSpace <= 0f)
-			{
-				_machineStatus[cell] = "Output full";
-				continue;
-			}
 
 			// Between bites the drill just keeps turning (and drawing power) while it has something to chew.
 			float timer = _drillTimers.GetValueOrDefault(cell) - dt * PowerSatisfaction;
@@ -378,6 +384,12 @@ public partial class BlockGrid
 			{
 				if (busy)
 					draw += block.Definition.PowerDraw;
+				continue;
+			}
+			// A bite that doesn't fit would carve the rock away and lose what it held: wait for room.
+			if (output.FreeSpace < DrillBiteMaxYield)
+			{
+				_machineStatus[cell] = "Output full";
 				continue;
 			}
 			_drillTimers[cell] = DrillInterval;

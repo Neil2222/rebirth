@@ -109,7 +109,7 @@ public static class Icons
 		else if (ItemCatalog.Get(item).Category == ItemCategory.Ingot)
 			Ingot(canvas, c, r, color);
 		else
-			Lump(canvas, c, r, color, item.GetHashCode(), speckled: item != "stone");
+			Lump(canvas, c, r, color, Core.StableHash.Of(item), speckled: item != "stone");
 	}
 
 	private static void Outline(CanvasItem canvas, Vector2[] points, float width = 2f)

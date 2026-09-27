@@ -43,6 +43,8 @@ public partial class BlockGrid
 	private readonly List<Vector3I> _pylons = new();
 	private float _refineryDraw;
 	private float _gyroDraw;
+	/// <summary>Firewalls stand guard on stations too, so unlike gyroscopes they draw power when frozen.</summary>
+	private float _firewallDraw;
 
 	// This tick's own figures, balanced alone or together with the rest of the network.
 	private float _solarNow, _generationNow, _demandNow, _batteryOutputNow;
@@ -73,6 +75,7 @@ public partial class BlockGrid
 		_pylons.Clear();
 		_refineryDraw = 0f;
 		_gyroDraw = 0f;
+		_firewallDraw = 0f;
 		float cargo = 0f;
 		foreach (var (cell, block) in _blocks)
 		{
@@ -87,9 +90,11 @@ public partial class BlockGrid
 				_pylons.Add(cell);
 			if (def.Kind == BlockKind.Refinery)
 				_refineryDraw += def.PowerDraw;
-			// Always-on consumers: gyroscopes and firewalls.
-			if (def.Kind is BlockKind.Gyroscope or BlockKind.Firewall)
+			// Always-on consumers: gyroscopes (only while flying) and firewalls.
+			if (def.Kind == BlockKind.Gyroscope)
 				_gyroDraw += def.PowerDraw;
+			if (def.Kind == BlockKind.Firewall)
+				_firewallDraw += def.PowerDraw;
 			cargo += def.CargoCapacity;
 		}
 		Inventory.Capacity = cargo;
@@ -134,7 +139,7 @@ public partial class BlockGrid
 			_machineStatus[cell] = status;
 		}
 
-		float demand = _activeRefineryDraw + _fabricatorDraw + _drillDraw + _terraformDraw;
+		float demand = _activeRefineryDraw + _fabricatorDraw + _drillDraw + _terraformDraw + _firewallDraw;
 		if (!Freeze)
 		{
 			demand += _gyroDraw;
@@ -233,5 +238,5 @@ public partial class BlockGrid
 		}
 	}
 
-	private bool HasConsumers() => _thrusters.Count > 0 || _gyroDraw > 0f || _refineryDraw > 0f || _drillDraw > 0f || _terraformDraw > 0f || _fabricatorQueues.Values.Any(q => q.Count > 0);
+	private bool HasConsumers() => _thrusters.Count > 0 || _gyroDraw > 0f || _firewallDraw > 0f || _refineryDraw > 0f || _drillDraw > 0f || _terraformDraw > 0f || _fabricatorQueues.Values.Any(q => q.Count > 0);
 }
