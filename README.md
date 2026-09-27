@@ -19,6 +19,9 @@ friendly, and you deal with them through puzzles and conversation.
 
 ![The Breach Lance: everyone lends their light](docs/screenshots/spirit_bomb.jpg)
 
+📖 **The [wiki](https://github.com/Neil2222/rebirth/wiki) is the player's guide and reference:**
+it covers every system, block, design and upgrade, and has the roadmap.
+
 ## What you can do
 
 - **Build** with rounded toy blocks in third person, or design ships, stations, bots and your own robot body
