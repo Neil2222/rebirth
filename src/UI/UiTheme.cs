@@ -44,23 +44,24 @@ public static class UiTheme
 		theme.SetColor("caret_color", "LineEdit", Accent);
 
 		theme.SetStylebox("panel", "ItemList", Box(new Color(1f, 0.98f, 0.94f), PanelEdge, 2, 10));
-		theme.SetColor("font_color", "ItemList", Text);
-		theme.SetColor("font_selected_color", "ItemList", Text);
-		theme.SetColor("font_hovered_color", "ItemList", Text);
+		// Every text state set: Godot's defaults are white, unreadable on the cream rows.
+		foreach (string state in new[] { "font_color", "font_selected_color", "font_hovered_color", "font_hovered_selected_color" })
+			theme.SetColor(state, "ItemList", Text);
 		theme.SetStylebox("selected", "ItemList", Box(ButtonPressed, Accent, 0, 8));
 		theme.SetStylebox("selected_focus", "ItemList", Box(ButtonPressed, Accent, 0, 8));
 		theme.SetStylebox("hovered", "ItemList", Box(ButtonHover, ButtonHover, 0, 8));
+		theme.SetStylebox("hovered_selected", "ItemList", Box(ButtonPressed, Accent, 0, 8));
+		theme.SetStylebox("hovered_selected_focus", "ItemList", Box(ButtonPressed, Accent, 0, 8));
 
 		theme.SetStylebox("normal", "OptionButton", Box(ButtonFace, PanelEdge, 2, 10));
 		theme.SetStylebox("hover", "OptionButton", Box(ButtonHover, Accent, 2, 10));
 		theme.SetStylebox("pressed", "OptionButton", Box(ButtonPressed, Accent, 2, 10));
-		theme.SetColor("font_color", "OptionButton", Text);
-		theme.SetColor("font_hover_color", "OptionButton", Text);
+		foreach (string state in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color" })
+			theme.SetColor(state, "OptionButton", Text);
 
 		theme.SetColor("font_color", "Label", Text);
-		theme.SetColor("font_color", "CheckButton", Text);
-		theme.SetColor("font_hover_color", "CheckButton", Text);
-		theme.SetColor("font_pressed_color", "CheckButton", Text);
+		foreach (string state in new[] { "font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color" })
+			theme.SetColor(state, "CheckButton", Text);
 		return theme;
 	}
 
