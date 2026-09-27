@@ -152,16 +152,22 @@ public partial class InventoryPanel : CanvasLayer
 			child.QueueFree();
 		foreach (var (item, amount) in from.Items.Where(kv => kv.Value >= 0.5f).OrderBy(kv => ItemCatalog.Get(kv.Key).Category).ThenBy(kv => kv.Key))
 		{
+			var cell = new VBoxContainer();
+			cell.AddThemeConstantOverride("separation", 0);
 			var slot = ItemSlot.Create(item, amount, 72f);
 			slot.MouseFilter = Control.MouseFilterEnum.Stop;
-			slot.TooltipText = $"{ItemCatalog.DisplayName(item)}  {amount:0} kg" + (to is null ? "" : "\nClick to move");
+			slot.TooltipText = ItemCatalog.DisplayName(item);
+			cell.AddChild(slot);
+			var name = new Label { Text = ItemCatalog.DisplayName(item), HorizontalAlignment = HorizontalAlignment.Center, CustomMinimumSize = new Vector2(72, 0), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+			name.AddThemeFontSizeOverride("font_size", 12);
+			cell.AddChild(name);
 			if (to is not null)
 				slot.GuiInput += e =>
 				{
 					if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
 						from.TransferTo(to, item, from.Get(item));
 				};
-			grid.AddChild(slot);
+			grid.AddChild(cell);
 		}
 	}
 

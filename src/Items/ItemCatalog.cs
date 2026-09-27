@@ -27,6 +27,20 @@ public static class ItemCatalog
 
 	public static string DisplayName(string id) => Items.TryGetValue(id, out var item) ? item.DisplayName : id;
 
+	/// <summary>What an item is good for and where it comes from, for info cards.</summary>
+	public static string Describe(string id) => id switch
+	{
+		"stone" => "Common rock from every drill. Refineries squeeze a little iron, nickel and silicon out of it; Air Processors and Gardens turn it into air and soil.",
+		"iron_ore" => "Found in orange veins. A refinery turns it into Iron Ingots (70%).",
+		"nickel_ore" => "Found in green veins. A refinery turns it into Nickel Ingots (40%).",
+		"silicon_ore" => "Found in pale lilac veins. A refinery turns it into Silicon Wafers (70%).",
+		"ice" => "Dug from icy planets like Frost. Hydrators melt it into a planet's seas.",
+		"iron_ingot" => "The main building material: frames, machines and bots.",
+		"nickel_ingot" => "Needed for thrusters, batteries and most machines.",
+		"silicon_wafer" => "Electronics: solar panels, control cores, the Uplink.",
+		_ => "",
+	};
+
 	/// <summary>
 	/// Refinery output per kg of ore. Stone is mostly slag but still yields a little of everything,
 	/// like gravel does in Space Engineers.

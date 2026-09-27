@@ -45,6 +45,30 @@ public partial class ItemSlot : Control
 		MouseFilter = MouseFilterEnum.Pass,
 	};
 
+	/// <summary>A proper info card instead of a bare tooltip: name, amount, type, and what it is for.</summary>
+	public override GodotObject _MakeCustomTooltip(string forText) => ItemCard(_item, _amount);
+
+	public static Control ItemCard(string item, float amount)
+	{
+		var panel = new PanelContainer();
+		panel.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(1f, 0.97f, 0.9f), UiTheme.PanelEdge, 2, 10));
+		var box = new VBoxContainer();
+		panel.AddChild(box);
+		var title = new Label { Text = ItemCatalog.DisplayName(item) };
+		title.AddThemeColorOverride("font_color", UiTheme.Accent);
+		title.AddThemeFontSizeOverride("font_size", 17);
+		box.AddChild(title);
+		var kind = new Label { Text = (ItemCatalog.Get(item).Category == ItemCategory.Ingot ? "Refined material" : "Raw material") + (amount >= 0.5f ? $"  ·  {amount:0} kg" : "") };
+		kind.AddThemeColorOverride("font_color", UiTheme.Dim);
+		kind.AddThemeFontSizeOverride("font_size", 13);
+		box.AddChild(kind);
+		var text = new Label { Text = ItemCatalog.Describe(item), AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(280, 0) };
+		text.AddThemeColorOverride("font_color", UiTheme.Text);
+		text.AddThemeFontSizeOverride("font_size", 14);
+		box.AddChild(text);
+		return panel;
+	}
+
 	public override void _Draw()
 	{
 		var size = Size;

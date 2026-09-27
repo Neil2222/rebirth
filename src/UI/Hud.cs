@@ -41,6 +41,7 @@ public partial class Hud : CanvasLayer
 	private int _hotbarPage = -1;
 	private Label _pageLabel = null!;
 	private Label _selectedName = null!;
+	private Label _selectedInfo = null!;
 	private HBoxContainer _costRow = null!;
 	private string _costShown = "";
 	private Control _bottom = null!;
@@ -169,6 +170,10 @@ public partial class Hud : CanvasLayer
 		_costRow = new HBoxContainer();
 		_costRow.AddThemeConstantOverride("separation", 3);
 		selected.AddChild(_costRow);
+		_selectedInfo = OutlinedLabel(13);
+		_selectedInfo.HorizontalAlignment = HorizontalAlignment.Center;
+		_selectedInfo.Modulate = new Color(1, 1, 1, 0.85f);
+		bottom.AddChild(_selectedInfo);
 		var bar = new HBoxContainer { Alignment = BoxContainer.AlignmentMode.Center };
 		bar.AddThemeConstantOverride("separation", 10);
 		bottom.AddChild(bar);
@@ -222,8 +227,8 @@ public partial class Hud : CanvasLayer
 		bool piloting = Player.PilotedGrid is not null;
 		_shipCard.Visible = piloting;
 		_speed.GetParent<Control>().Visible = !piloting;
-		_bottom.GetChild<Control>(1).Visible = !piloting;
-		_bottom.GetChild<Control>(2).Visible = !piloting;
+		for (int i = 1; i < _bottom.GetChildCount(); i++)
+			_bottom.GetChild<Control>(i).Visible = !piloting;
 		if (Player.PilotedGrid is { } ship)
 			_shipText.Text = ShipText(ship);
 		else
@@ -299,6 +304,7 @@ public partial class Hud : CanvasLayer
 			{ Block: { } block } => block.DisplayName + Keybinds.Fill("   {primary_action} place · {secondary_action} remove · {rotate_block_yaw}/{rotate_block_pitch} turn"),
 			_ => equipped.Name,
 		};
+		_selectedInfo.Text = equipped?.Block is { } described ? Forge.PartGuide.Describe(described) : "";
 		string key = equipped?.Block is { } b && !Player.Creative ? b.Id + string.Join(",", b.Cost.Select(kv => Player.Inventory.Get(kv.Key) >= kv.Value)) : "";
 		if (key != _costShown)
 		{
@@ -453,9 +459,46 @@ public partial class HotbarSlot : Control
 		}
 	}
 
+	/// <summary>Info card for the block (or the drill) when the mouse is free and hovers the slot.</summary>
+	public override GodotObject? _MakeCustomTooltip(string forText)
+	{
+		if (_item is null)
+			return null;
+		var panel = new PanelContainer();
+		panel.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(1f, 0.97f, 0.9f), UiTheme.PanelEdge, 2, 10));
+		var box = new VBoxContainer();
+		panel.AddChild(box);
+		var title = new Label { Text = _item.Name };
+		title.AddThemeColorOverride("font_color", UiTheme.Accent);
+		title.AddThemeFontSizeOverride("font_size", 17);
+		box.AddChild(title);
+		var text = new Label
+		{
+			Text = _item.Block is { } block ? Forge.PartGuide.Describe(block) : "Drills rock into ore you carry. Unload it at a cargo container.",
+			AutowrapMode = TextServer.AutowrapMode.WordSmart,
+			CustomMinimumSize = new Vector2(280, 0),
+		};
+		text.AddThemeColorOverride("font_color", UiTheme.Text);
+		text.AddThemeFontSizeOverride("font_size", 14);
+		box.AddChild(text);
+		if (_item.Block is { Cost.Count: > 0 } costly)
+		{
+			var cost = new HBoxContainer();
+			cost.AddThemeConstantOverride("separation", 3);
+			foreach (var (item, amount) in costly.Cost)
+				cost.AddChild(ItemSlot.Create(item, amount, 40f));
+			box.AddChild(cost);
+		}
+		var key = new Label { Text = $"Key {Key}" };
+		key.AddThemeColorOverride("font_color", UiTheme.Dim);
+		key.AddThemeFontSizeOverride("font_size", 13);
+		box.AddChild(key);
+		return panel;
+	}
+
 	public override void _Ready()
 	{
-		MouseFilter = MouseFilterEnum.Ignore;
+		MouseFilter = MouseFilterEnum.Stop;
 		_picture = new TextureRect
 		{
 			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,
