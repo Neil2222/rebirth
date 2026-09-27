@@ -34,6 +34,7 @@ public partial class Main : Node3D
 	public GameMenu Menu { get; private set; } = null!;
 	public Tutorial Tutorial { get; private set; } = null!;
 	public SlotPanel Slots { get; private set; } = null!;
+	public InventoryPanel Inventory { get; private set; } = null!;
 	public People People { get; private set; } = null!;
 	public TalkPanel Talk { get; private set; } = null!;
 
@@ -120,6 +121,9 @@ public partial class Main : Node3D
 		Menu = new GameMenu { Name = "Menu" };
 		AddChild(Menu);
 		Menu.Closed += OnOverlayClosed;
+		Inventory = new InventoryPanel { Name = "Inventory" };
+		AddChild(Inventory);
+		Inventory.Closed += OnOverlayClosed;
 		Slots = new SlotPanel { Name = "Slots" };
 		AddChild(Slots);
 		Slots.Closed += OnOverlayClosed;
@@ -551,6 +555,12 @@ public partial class Main : Node3D
 			OpenPauseMenu();
 		else if (e.IsActionPressed("open_nexus"))
 			OpenNexus();
+		else if (e.IsActionPressed("open_inventory") && Player.PilotedGrid is null)
+		{
+			GameState.WorldInputBlocked = true;
+			_hud.Visible = false;
+			Inventory.Open(Player, Player.BuildTool.AimedGrid);
+		}
 		else if (e.IsActionPressed("open_forge") && Player.PilotedGrid is null)
 			OpenForge();
 		else

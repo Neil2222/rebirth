@@ -135,7 +135,8 @@ public partial class Colony : Node
 	/// <summary>Queues a build of <paramref name="design"/> on <paramref name="body"/> at <paramref name="site"/>.</summary>
 	public ConstructionJob OrderBuild(Blueprint design, VoxelBody body, Transform3D site)
 	{
-		if (!IsLinked(body))
+		// Dark bodies only take an Uplink: that is how the Nexus reaches them.
+		if (!IsLinked(body) && !design.Contains(BlockKind.Uplink))
 			throw new System.InvalidOperationException($"{body.Name} is not linked to the Nexus");
 		int number = 1;
 		string baseName = $"{body.Name} {design.Name}";

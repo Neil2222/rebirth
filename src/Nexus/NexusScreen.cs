@@ -72,6 +72,10 @@ public partial class NexusScreen : CanvasLayer
 	private string _routesShownFor = "";
 	private Label _news = null!;
 	private Label _buildHeading = null!;
+	private Button _uplinkButton = null!;
+	private HBoxContainer _stock = null!;
+	private string _stockShown = "";
+	private string _linkedShown = "";
 	private VBoxContainer _peopleBox = null!;
 	private VBoxContainer _lanceBox = null!;
 	private Label _lanceText = null!;
@@ -104,6 +108,9 @@ public partial class NexusScreen : CanvasLayer
 		title.AddThemeColorOverride("font_color", UiTheme.Accent);
 		title.AddThemeFontSizeOverride("font_size", 22);
 		top.AddChild(title);
+		_stock = new HBoxContainer();
+		_stock.AddThemeConstantOverride("separation", 3);
+		top.AddChild(_stock);
 		_top = new Label { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, VerticalAlignment = VerticalAlignment.Center };
 		top.AddChild(_top);
 		AddButton(top, "Boxes & upgrades", () => BoxMap.Open());
@@ -155,6 +162,9 @@ public partial class NexusScreen : CanvasLayer
 		_fireButton.Pressed += () => FireRequested?.Invoke();
 		_lanceBox.AddChild(_fireButton);
 		rightBox.AddChild(_lanceBox);
+		_uplinkButton = new Button { Text = "Send bots to set up an Uplink" };
+		_uplinkButton.Pressed += OrderUplink;
+		rightBox.AddChild(_uplinkButton);
 		_peopleBox = new VBoxContainer();
 		_peopleBox.AddThemeConstantOverride("separation", 4);
 		rightBox.AddChild(_peopleBox);
@@ -258,6 +268,7 @@ public partial class NexusScreen : CanvasLayer
 
 		BuildPlaces();
 		CreateLabels();
+		_linkedShown = "";
 		_message.Text = "";
 		_jobsShown = -1;
 		Visible = true;
@@ -396,6 +407,52 @@ public partial class NexusScreen : CanvasLayer
 		material.SetShaderParameter("base_point", site * new Vector3(0, bounds.Position.Y, 0));
 		material.SetShaderParameter("up_dir", site.Basis.Y);
 		material.SetShaderParameter("height", bounds.Size.Y);
+	}
+
+	/// <summary>A planet lighting up (or a new site) redraws the list, veils and labels, keeping the selection.</summary>
+	private void RefreshWhenLinksChange()
+	{
+		string key = string.Join(",", Colony.Bodies.Where(Colony.IsLinked).Select(b => b.Name)) + "|" + string.Join(",", Colony.Sites.Select(s => s.Label));
+		if (key == _linkedShown)
+			return;
+		bool first = _linkedShown.Length == 0;
+		_linkedShown = key;
+		if (first)
+			return;
+		var (body, grid, near) = (_body, _grid, _spotNear);
+		BuildPlaces();
+		CreateLabels();
+		Select(body, grid, near);
+		int index = _placeTargets.IndexOf((Node3D?)body ?? grid!);
+		if (index >= 0)
+			_places.Select(index);
+	}
+
+	/// <summary>Home's ingots as item pictures in the top bar.</summary>
+	private void UpdateStock()
+	{
+		var items = Colony.Home?.Inventory.Items.Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot && kv.Value >= 1f).OrderBy(kv => kv.Key).ToList()
+			?? new List<KeyValuePair<string, float>>();
+		string key = string.Join(";", items.Select(kv => $"{kv.Key}:{Icons.Short(kv.Value)}"));
+		if (key == _stockShown)
+			return;
+		_stockShown = key;
+		foreach (var child in _stock.GetChildren())
+			child.QueueFree();
+		foreach (var (item, amount) in items)
+			_stock.AddChild(ItemSlot.Create(item, amount, 40f));
+	}
+
+	/// <summary>Dark planet: bots carry an Uplink Post there, after which the Nexus can see and build on it.</summary>
+	private void OrderUplink()
+	{
+		if (_body is null || Colony.Home is null)
+			return;
+		var post = Presets.UplinkPost();
+		var job = Colony.OrderBuild(post, _body, Colony.SuggestSite(_body, post, _spotNear));
+		Say(Colony.Bots.Count == 0
+			? $"{job.Name} is planned - print a bot at home first."
+			: $"Bots are on their way to set up {job.Name}. {_body.Name} lights up once it stands.");
 	}
 
 	/// <summary>The Lance's charge, and the button that fires it once full.</summary>
@@ -588,7 +645,10 @@ public partial class NexusScreen : CanvasLayer
 		_bots.Text = Colony.Bots.Count == 0
 			? "No bots yet. Select Home to print one."
 			: string.Join("\n", Colony.Bots.Select(b => $"{b.Grid.Label}: {b.Status}"));
+		RefreshWhenLinksChange();
 		UpdateDetails();
+		UpdateStock();
+		_uplinkButton.Visible = _body is not null && !Colony.IsLinked(_body) && Colony.Jobs.All(j => j.BodyName != _body.Name);
 		UpdateLance();
 		UpdatePeople();
 		UpdateRoutes();
@@ -611,15 +671,14 @@ public partial class NexusScreen : CanvasLayer
 	{
 		if (Colony.Home is not { } home)
 			return "No home base";
-		string stock = string.Join("   ", home.Inventory.Items.Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot && kv.Value >= 1f)
-			.OrderBy(kv => kv.Key).Select(kv => $"{ItemCatalog.DisplayName(kv.Key)} {kv.Value:0}"));
 		int idle = Colony.Bots.Count(b => b.Status is "Idle");
 		var (made, received) = Colony.RatesPerMinute(home);
 		float income = made.Concat(received).Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot).Sum(kv => kv.Value);
-		return $"{Core.Campaign.Active.CurrentBox.Name}      Home: {(stock.Length > 0 ? stock : "no ingots")}      Income: +{income:0} kg/min      Bots: {Colony.Bots.Count} ({idle} idle)      Sites: {Colony.Sites.Count()}" +
-			(People.Settlements.Count > 0 ? $"      People: {People.Settlements.Sum(s => s.Population)}" : "") +
-			$"      Resonance: {Colony.Resonance:0}{(Colony.ResonancePerMinute > 0.01f ? $" (+{Colony.ResonancePerMinute:0.0}/min)" : "")}" +
-			(Colony.HasLance ? $"      Lance: {Colony.LanceFraction:P0}" : "");
+		return $"  +{income:0} kg/min      Bots {Colony.Bots.Count} ({idle} idle)      Sites {Colony.Sites.Count()}" +
+			(People.Settlements.Count > 0 ? $"      People {People.Settlements.Sum(s => s.Population)}" : "") +
+			$"      Resonance {Colony.Resonance:0}{(Colony.ResonancePerMinute > 0.01f ? $" (+{Colony.ResonancePerMinute:0.0}/min)" : "")}" +
+			(Colony.HasLance ? $"      Lance {Colony.LanceFraction:P0}" : "") +
+			$"      {Core.Campaign.Active.CurrentBox.Name}";
 	}
 
 	private void UpdateDetails()
@@ -633,7 +692,8 @@ public partial class NexusScreen : CanvasLayer
 				sb.Append($"{_body.GlobalPosition.DistanceTo(home.GlobalPosition):0} m from home.\n");
 			if (!Colony.IsLinked(_body))
 			{
-				sb.Append($"\nDark: out of the Nexus's reach, so bots can't build here.\nFly there yourself and place an Uplink (toolbar page 2). An uplink reaches {Colony.UplinkRange:0} m.\n");
+				var cost = Colony.AutoBuildCost(Presets.UplinkPost());
+				sb.Append($"\nDark: out of the Nexus's reach. Send bots to set up an Uplink ({string.Join(", ", cost.Select(kv => $"{kv.Value:0} {ItemCatalog.DisplayName(kv.Key)}"))}), or fly there and place one yourself (cheaper).\n");
 				_details.Text = sb.ToString();
 				return;
 			}

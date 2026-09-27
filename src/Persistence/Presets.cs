@@ -15,7 +15,7 @@ public static class Presets
 	private static readonly Basis PushDown = new(Vector3.Right, -Mathf.Pi / 2f);
 	private static readonly Basis PushUp = new(Vector3.Right, Mathf.Pi / 2f);
 
-	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), AirMaker(), WaterWorks(), Garden(), SettlementSeed(), BreachLanceSite(), WorkerBot()];
+	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), AirMaker(), WaterWorks(), Garden(), SettlementSeed(), BreachLanceSite(), UplinkPost(), WorkerBot()];
 
 	/// <summary>
 	/// Default robot body: legs, torso with a battery heart and gyro shoulders, a visor head,
@@ -187,6 +187,15 @@ public static class Presets
 		bp.Add(new Vector3I(0, 1, 0), BlockCatalog.BreachLance, Basis.Identity);
 		bp.Add(new Vector3I(-1, 1, -1), BlockCatalog.Battery, Basis.Identity);
 		bp.Add(new Vector3I(1, 1, 1), BlockCatalog.Battery, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>An Uplink on a small base: what bots set down to light up a dark planet for the Nexus.</summary>
+	public static Blueprint UplinkPost()
+	{
+		var bp = new Blueprint { Name = "Uplink Post", Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.LightArmor, Basis.Identity);
+		bp.Add(new Vector3I(0, 1, 0), BlockCatalog.Uplink, Basis.Identity);
 		return bp;
 	}
 }

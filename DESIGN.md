@@ -63,7 +63,8 @@ gebouwen, en je eigen robotlichaam.
   voor alles: bots printen bij Home, planeet kiezen (klik voor een eigen plek), ontwerp kiezen en
   bots sturen, bouwvoortgang, opslag en machines per site.
 - **Uplinks:** Home en elk station met een Uplink-blok reiken 170 m. Wat buiten bereik ligt is
-  **donker** (gesluierd, geen bouwmenu): daar moet je zelf heen en een Uplink neerzetten.
+  **donker** (gesluierd, geen bouwmenu). Vanuit de Nexus kun je bots een **Uplink Post** laten neerzetten
+  (duur, zoals alle botwerk), of je vliegt er zelf heen en plaatst er een (goedkoper).
 - **Bodemscan:** bij een gekozen bouwplek zie je wat er onder zit (steen, ijzer, nikkel, silicium).
 - **Stromen:** productie per minuut per station, "Income" van Home, gloeiende stroomlijnen met
   bewegende streepjes per route, en ⚠-knelpunten in gewone taal (te weinig stroom, opslag vol,
@@ -143,6 +144,13 @@ te fel en te donker.)
 - Third person rondvliegen, bouwen, inspecteren, je creaties bekijken.
 - Forge voor ontwerpen, Nexus voor overzicht. Het spel is volledig via menu's te spelen: titelmenu,
   Esc-menu (Nexus, Forge, opslaan, nieuw spel), Nexus.
+
+## HUD en UX
+- Weinig tekst: statusbadges linksboven, wat je draagt als **icoontjes** rechtsboven, een **hotbar** met
+  3D-plaatjes van de blokken onderaan (pagina's Build, Machines, Life), kosten als icoontjes (rood = tekort).
+- Een klein **infokaartje** bij wat je aankijkt: naam, status, inhoud (invoer → uitvoer) en de toets om te gebruiken.
+- **Inventory (I):** je zakken en de opslag waar je naar kijkt als raster; klik om te verplaatsen.
+- Items zijn getekende icoontjes (erts-klompje, staaf, wafer, ijskristal) in hun eigen kleur.
 
 ## Opslaan
 - **6 opslagslots.** Een slot is een heel spel: campagne (Boxes, Starlight, upgrades) plus de wereld van elke
