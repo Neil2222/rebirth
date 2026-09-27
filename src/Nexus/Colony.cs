@@ -243,6 +243,7 @@ public partial class Colony : Node
 		{
 			_sampleTimer = SampleInterval;
 			SampleRates();
+			RouteIce();
 		}
 		Bots.RemoveAll(bot =>
 		{
@@ -316,6 +317,25 @@ public partial class Colony : Node
 			grid.FreezeMode = RigidBody3D.FreezeModeEnum.Kinematic;
 			grid.Freeze = true;
 			Bots.Add(new Bot(grid));
+		}
+	}
+
+	/// <summary>
+	/// Hydrators need ice from elsewhere: every station with one gets an ice route from a site that has
+	/// ice in storage, so seas fill without the player wiring it up.
+	/// </summary>
+	private void RouteIce()
+	{
+		foreach (var station in Grids.Where(g => g.IsStatic && !g.IsBot && g.Label is not null && g.HasBlock(BlockKind.Hydrator) && g.Inventory.Capacity > 0f).ToList())
+		{
+			if (Routes.Any(r => r.To == station.Label && r.Cargo == HaulCargo.Ice && r.Enabled))
+				continue;
+			var source = Grids.Where(g => g != station && g.IsStatic && !g.IsBot && g.Label is not null && g.Inventory.Get("ice") >= 50f)
+				.OrderBy(g => g.GlobalPosition.DistanceTo(station.GlobalPosition)).FirstOrDefault();
+			if (source is null)
+				continue;
+			AddRoute(source.Label!, station.Label!, HaulCargo.Ice);
+			Announce($"Bots will haul ice from {source.Label} to {station.Label}");
 		}
 	}
 

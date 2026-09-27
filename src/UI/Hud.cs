@@ -19,6 +19,14 @@ public partial class Hud : CanvasLayer
 	/// <summary>Something nearby worth a word (a swarm to talk to); shown when there is no other message.</summary>
 	public System.Func<string?> Notice { get; set; } = () => null;
 
+	/// <summary>The next goal to show; null hides the card (e.g. while the tutorial is running).</summary>
+	public System.Func<Guide.Goal?> Goal { get; set; } = () => null;
+
+	private PanelContainer _goalCard = null!;
+	private Label _goalTitle = null!;
+	private Label _goalText = null!;
+	private float _goalTimer;
+
 	private static readonly string[] PageNames = ["Build", "Machines", "Life"];
 
 	private Label _speed = null!;
@@ -70,6 +78,20 @@ public partial class Hud : CanvasLayer
 			badges.AddChild(badge);
 			_badges[id] = badge;
 		}
+
+		// Under the badges: the next goal.
+		_goalCard = new PanelContainer { CustomMinimumSize = new Vector2(360, 0), MouseFilter = Control.MouseFilterEnum.Ignore };
+		_goalCard.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(1f, 0.97f, 0.9f, 0.88f), UiTheme.PanelEdge, 2, 12));
+		status.AddChild(_goalCard);
+		var goalBox = new VBoxContainer();
+		_goalCard.AddChild(goalBox);
+		_goalTitle = new Label();
+		_goalTitle.AddThemeColorOverride("font_color", UiTheme.Accent);
+		_goalTitle.AddThemeFontSizeOverride("font_size", 15);
+		goalBox.AddChild(_goalTitle);
+		_goalText = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(336, 0) };
+		_goalText.AddThemeFontSizeOverride("font_size", 13);
+		goalBox.AddChild(_goalText);
 
 		// Top right: pockets.
 		var pockets = new VBoxContainer { CustomMinimumSize = new Vector2(300, 0) };
@@ -211,6 +233,19 @@ public partial class Hud : CanvasLayer
 		}
 		UpdatePockets();
 		UpdateCard();
+		_goalTimer -= (float)delta;
+		if (_goalTimer <= 0f)
+		{
+			_goalTimer = 0.5f;
+			var goal = Goal();
+			_goalCard.Visible = goal is not null;
+			if (goal is not null)
+			{
+				_goalTitle.Text = "NEXT GOAL:  " + goal.Title;
+				string? progress = goal.Progress?.Invoke();
+				_goalText.Text = Keybinds.Fill(goal.How) + (progress is null ? "" : "\n" + progress);
+			}
+		}
 		_keys.Text = Keybinds.Fill("{open_nexus}  Nexus    {open_forge}  Forge    {open_inventory}  Inventory    {release_mouse}  Menu");
 		_message.Text = Player.Message ?? (Player.Drill.InventoryFull && Player.Drill.Equipped ? Keybinds.Fill("Pockets full: unload at a cargo container [{use}]") : Notice() ?? "");
 	}

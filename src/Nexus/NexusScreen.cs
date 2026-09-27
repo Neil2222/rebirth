@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using Godot;
 using Rebirth.Building;
+using Rebirth.Core;
 using Rebirth.Items;
 using Rebirth.Life;
 using Rebirth.Persistence;
@@ -35,6 +36,7 @@ public partial class NexusScreen : CanvasLayer
 	public Action<Threats.Swarm> SwarmRequested { get; set; } = _ => { };
 	/// <summary>A puzzle or swarm panel on top: the Nexus leaves the keys alone.</summary>
 	public Func<bool> Covered { get; set; } = () => false;
+	public Guide Guide { get; set; } = null!;
 
 	private Camera3D _camera = null!;
 	private Camera3D? _previousCamera;
@@ -86,6 +88,9 @@ public partial class NexusScreen : CanvasLayer
 	private VBoxContainer _peopleBox = null!;
 	private VBoxContainer _threatBox = null!;
 	private string _threatsShown = "";
+	private Label _goalTitle = null!;
+	private Label _goalText = null!;
+	private float _goalTimer;
 	private VBoxContainer _lanceBox = null!;
 	private Label _lanceText = null!;
 	private Button _fireButton = null!;
@@ -133,6 +138,21 @@ public partial class NexusScreen : CanvasLayer
 		var leftBox = new VBoxContainer();
 		leftBox.AddThemeConstantOverride("separation", 8);
 		left.AddChild(leftBox);
+		var goalCard = new PanelContainer();
+		goalCard.AddThemeStyleboxOverride("panel", UiTheme.Box(new Color(1f, 0.9f, 0.72f), UiTheme.Accent, 2, 10));
+		leftBox.AddChild(goalCard);
+		var goalBox = new VBoxContainer();
+		goalCard.AddChild(goalBox);
+		_goalTitle = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
+		_goalTitle.AddThemeColorOverride("font_color", UiTheme.Accent);
+		_goalTitle.AddThemeFontSizeOverride("font_size", 15);
+		goalBox.AddChild(_goalTitle);
+		_goalText = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(250, 0) };
+		_goalText.AddThemeFontSizeOverride("font_size", 13);
+		goalBox.AddChild(_goalText);
+		var showMe = new Button { Text = "Show me" };
+		showMe.Pressed += ShowGoal;
+		goalBox.AddChild(showMe);
 		leftBox.AddChild(UiTheme.Heading("PLACES"));
 		_places = new ItemList { SizeFlagsVertical = Control.SizeFlags.ExpandFill };
 		_places.ItemSelected += index => SelectPlace((int)index);
@@ -440,6 +460,56 @@ public partial class NexusScreen : CanvasLayer
 			_places.Select(index);
 	}
 
+	private void UpdateGoal(float dt)
+	{
+		_goalTimer -= dt;
+		if (_goalTimer > 0f)
+			return;
+		_goalTimer = 0.5f;
+		var goal = Guide.Current();
+		_goalTitle.GetParent().GetParent<Control>().Visible = goal is not null;
+		if (goal is null)
+			return;
+		_goalTitle.Text = "NEXT GOAL:  " + goal.Title;
+		string? progress = goal.Progress?.Invoke();
+		_goalText.Text = Keybinds.Fill(goal.How) + (progress is null ? "" : "\n" + progress);
+	}
+
+	/// <summary>Selects the place the goal is about and picks the design to build there.</summary>
+	private void ShowGoal()
+	{
+		if (Guide.Current() is not { Show: { } show } goal)
+			return;
+		var (target, design) = show();
+		switch (target)
+		{
+			case VoxelBody body:
+				Select(body, null);
+				break;
+			case BlockGrid grid:
+				Select(null, grid);
+				break;
+			default:
+				return;
+		}
+		int index = _placeTargets.IndexOf(target);
+		_places.DeselectAll();
+		if (index >= 0)
+			_places.Select(index);
+		if (design is not null && _stationDesigns.FindIndex(d => d.Name == design) is var d and >= 0)
+		{
+			_designPicker.Select(d);
+			RefreshSpot();
+		}
+		Say(target switch
+		{
+			VoxelBody b when !Colony.IsLinked(b) => $"{b.Name} is selected. Press \"Send bots to set up an Uplink\" on the right.",
+			VoxelBody b when design is not null => $"{b.Name} is selected with \"{design}\". Press \"Send bots to build\" on the right.",
+			BlockGrid { Label: Colony.HomeLabel } => "Home is selected. \"Print bot\" is on the right.",
+			_ => $"{goal.Title}: see the panel on the right.",
+		});
+	}
+
 	/// <summary>Viruses in the selected station's machines and a swarm over it, each with a button to deal with it.</summary>
 	private void UpdateThreats()
 	{
@@ -688,6 +758,7 @@ public partial class NexusScreen : CanvasLayer
 			? "No bots yet. Select Home to print one."
 			: string.Join("\n", Colony.Bots.Select(b => $"{b.Grid.Label}: {b.Status}"));
 		RefreshWhenLinksChange();
+		UpdateGoal((float)delta);
 		UpdateDetails();
 		UpdateThreats();
 		UpdateStock();

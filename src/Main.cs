@@ -95,6 +95,8 @@ public partial class Main : Node3D
 		Colony.SettlementsToSave = () => People.Settlements;
 		Talk = new TalkPanel { Name = "Talk", People = People };
 		var boxMap = new BoxMapPanel { Name = "BoxMap" };
+		var guide = new Guide { Colony = Colony, People = People };
+		_hud.Goal = () => Tutorial.StepIndex >= 0 ? null : guide.Current();
 		Threats = new Threats.Threats { Name = "Threats", Colony = Colony };
 		AddChild(Threats);
 		Colony.Blocked = Threats.Blocked;
@@ -107,6 +109,7 @@ public partial class Main : Node3D
 			PurgeRequested = OpenPurge,
 			SwarmRequested = OpenSwarm,
 			Covered = () => Puzzle.IsOpen || SwarmTalk.IsOpen,
+			Guide = guide,
 		};
 		AddChild(Nexus);
 		// Above the Nexus, so they get Esc first.

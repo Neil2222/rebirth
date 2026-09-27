@@ -171,6 +171,11 @@ te fel en te donker.)
 - Later (grafische ronde): blokdetails per grid samenvoegen, planeet-LOD, shader-opwarming tegen de
   eenmalige hapering bij het eerste openen van de Nexus.
 
+- **Doel-gids** (na de tutorial): altijd één "Next goal" in de HUD en bovenaan de Nexus, afgeleid uit de
+  wereld: planeet oplichten → mijn → meer bots → lucht → ijs → zeeën → helen tot 30% → bodem → mensen →
+  Lance → doorbreken. "Show me" in de Nexus selecteert de plek en zet het juiste ontwerp klaar; wachtende
+  bouwplaatsen tonen waarop ze wachten. Ijsroutes naar Water Works legt de Nexus zelf aan.
+
 ## Opslaan
 - **6 opslagslots.** Een slot is een heel spel: campagne (Boxes, Starlight, upgrades) plus de wereld van elke
   bezochte Box (`user://saves/slotN/`). Autosave, F5 en "Opslaan en stoppen" schrijven naar het slot waarin je
