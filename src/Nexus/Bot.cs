@@ -231,7 +231,11 @@ public sealed class Bot
 			return;
 		var entry = job.Order[job.Built];
 		foreach (var (item, amount) in ConstructionJob.CostOf(entry))
-			job.Stock.TryRemove(item, Mathf.Min(amount, job.Stock.Get(item)));
+		{
+			float used = Mathf.Min(amount, job.Stock.Get(item));
+			job.Stock.TryRemove(item, used);
+			ProductionStats.Consumed(item, used);
+		}
 		if (job.Grid is null)
 		{
 			job.Grid = BlockGrid.Create(colony.World, job.Site, isStatic: true);

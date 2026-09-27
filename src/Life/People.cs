@@ -144,6 +144,7 @@ public partial class People : Node
 		{
 			case RequestKind.Deliver when depot.Inventory.Get(request.Item) >= request.Amount:
 				depot.Inventory.TryRemove(request.Item, request.Amount);
+				ProductionStats.Consumed(request.Item, request.Amount);
 				Fulfil(settlement, 10f, $"{request.Person}: \"It arrived! Thank you so much.\"");
 				break;
 			case RequestKind.Build when CountNear(settlement, request.Block) > request.Baseline:
@@ -210,7 +211,7 @@ public partial class People : Node
 		Colony.AddResonance(15f + bond);
 		if (request.GiftAmount > 0f && Colony.Home is { } home)
 		{
-			home.Inventory.Add(request.GiftItem, request.GiftAmount);
+			ProductionStats.Produced(request.GiftItem, home.Inventory.Add(request.GiftItem, request.GiftAmount));
 			Colony.Announce($"{settlement.Name} sent a gift home: {request.GiftAmount:0} kg {ItemCatalog.DisplayName(request.GiftItem)}");
 		}
 		if (thanks is not null)

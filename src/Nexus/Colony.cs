@@ -230,6 +230,7 @@ public partial class Colony : Node
 	public override void _PhysicsProcess(double delta)
 	{
 		float dt = (float)delta;
+		ProductionStats.Tick(dt);
 		_scanTimer -= dt;
 		_clock += dt;
 		if (_scanTimer <= 0f)
@@ -477,6 +478,36 @@ public partial class Colony : Node
 		if (route.Source is not null)
 			return new BotOrder.Haul(route.Route, route.Source!);
 		return null;
+	}
+
+	/// <summary>What is still wanted: materials building sites haven't received and fabricators are waiting for.</summary>
+	public Dictionary<string, float> Demand()
+	{
+		var demand = new Dictionary<string, float>();
+		void Add(string item, float kg)
+		{
+			if (kg > 0.5f)
+				demand[item] = demand.GetValueOrDefault(item) + kg;
+		}
+		foreach (var job in Jobs)
+			foreach (var (item, kg) in job.Needed())
+				Add(item, kg);
+		foreach (var grid in Grids)
+			foreach (var (cell, queue) in grid.FabricatorQueues)
+				if (!queue[0].Paid)
+					foreach (var (item, kg) in queue[0].Design.TotalCost())
+						Add(item, kg - (grid.StateOf(cell).Input?.Get(item) ?? 0f));
+		return demand;
+	}
+
+	/// <summary>Everything in storage across all stations.</summary>
+	public Dictionary<string, float> Stock()
+	{
+		var stock = new Dictionary<string, float>();
+		foreach (var grid in Grids.Where(g => g.IsStatic && !g.IsBot))
+			foreach (var (item, kg) in grid.Inventory.Items)
+				stock[item] = stock.GetValueOrDefault(item) + kg;
+		return stock;
 	}
 
 	/// <summary>Kilograms of <paramref name="cargo"/> a route could pick up from <paramref name="source"/>.</summary>

@@ -111,7 +111,10 @@ public partial class BlockGrid
 					continue;
 				}
 				foreach (var (item, amount) in cost)
+				{
 					input.TryRemove(item, amount);
+					Items.ProductionStats.Consumed(item, amount);
+				}
 				job.Paid = true;
 			}
 

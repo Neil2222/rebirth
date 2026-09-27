@@ -37,6 +37,7 @@ public partial class NexusScreen : CanvasLayer
 	/// <summary>A puzzle or swarm panel on top: the Nexus leaves the keys alone.</summary>
 	public Func<bool> Covered { get; set; } = () => false;
 	public Guide Guide { get; set; } = null!;
+	public StatsPanel Stats { get; set; } = null!;
 
 	private Camera3D _camera = null!;
 	private Camera3D? _previousCamera;
@@ -127,6 +128,7 @@ public partial class NexusScreen : CanvasLayer
 		top.AddChild(_stock);
 		_top = new Label { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, VerticalAlignment = VerticalAlignment.Center };
 		top.AddChild(_top);
+		AddButton(top, "Production", () => Stats.Open());
 		AddButton(top, "Boxes & upgrades", () => BoxMap.Open());
 		AddButton(top, "Close  [N]", Close);
 
@@ -1048,7 +1050,7 @@ public partial class NexusScreen : CanvasLayer
 	{
 		if (!Visible)
 			return;
-		if (Talk.IsOpen || BoxMap.IsOpen || Covered())
+		if (Talk.IsOpen || BoxMap.IsOpen || Stats.IsOpen || Covered())
 			return;
 		if (e.IsActionPressed("open_nexus") || e.IsActionPressed("release_mouse"))
 		{

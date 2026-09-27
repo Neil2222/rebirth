@@ -66,6 +66,7 @@ public partial class Main : Node3D
 		Campaign.Active.Current = _box;
 
 		var homeRock = BuildBox(Campaign.Active.Reach(_box));
+		Items.ProductionStats.Reset();
 
 		Player = new Player { Name = "Player" };
 		AddChild(Player);
@@ -96,6 +97,7 @@ public partial class Main : Node3D
 		Talk = new TalkPanel { Name = "Talk", People = People };
 		var boxMap = new BoxMapPanel { Name = "BoxMap" };
 		var guide = new Guide { Colony = Colony, People = People };
+		var stats = new StatsPanel { Name = "Stats", Colony = Colony };
 		_hud.Goal = () => Tutorial.StepIndex >= 0 ? null : guide.Current();
 		Threats = new Threats.Threats { Name = "Threats", Colony = Colony };
 		AddChild(Threats);
@@ -110,6 +112,7 @@ public partial class Main : Node3D
 			SwarmRequested = OpenSwarm,
 			Covered = () => Puzzle.IsOpen || SwarmTalk.IsOpen,
 			Guide = guide,
+			Stats = stats,
 		};
 		AddChild(Nexus);
 		// Above the Nexus, so they get Esc first.
@@ -127,6 +130,7 @@ public partial class Main : Node3D
 			? Keybinds.Fill("A swarm of the Curator hums overhead.  [{use}]  talk to it")
 			: null;
 		AddChild(boxMap);
+		AddChild(stats);
 		boxMap.TravelRequested += target =>
 		{
 			Nexus.Close();

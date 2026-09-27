@@ -82,6 +82,7 @@ public partial class BlockGrid
 			}
 			float amount = Mathf.Min(have, recipe.PerSecond * PowerSatisfaction * dt);
 			input.TryRemove(recipe.Item, amount);
+			Items.ProductionStats.Consumed(recipe.Item, amount);
 			_made[recipe.Vital] = _made.GetValueOrDefault(recipe.Vital) + amount;
 			draw += block.Definition.PowerDraw;
 			_machineStatus[cell] = recipe.Vital switch

@@ -91,7 +91,7 @@ public partial class HandDrill : Node3D
 		for (int m = 0; m < mined.Length; m++)
 		{
 			var material = VoxelMaterials.All[m];
-			Inventory.Add(material.OreItemId, mined[m] * material.YieldPerCubicMetre);
+			ProductionStats.Produced(material.OreItemId, Inventory.Add(material.OreItemId, mined[m] * material.YieldPerCubicMetre));
 		}
 
 		_dust.GlobalPosition = point;

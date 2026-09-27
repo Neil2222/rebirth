@@ -105,7 +105,10 @@ public partial class BuildTool : Node3D
 			return;
 		if (CostSource is not null)
 			foreach (var (item, amount) in Selected.Cost)
+			{
 				CostSource.TryRemove(item, amount);
+				ProductionStats.Consumed(item, amount);
+			}
 		if (_placeGrid is null)
 			BlockGrid.Create(GridParent, _placeTransform * new Transform3D(_orientation.Inverse(), Vector3.Zero), isStatic: true)
 				.TryAdd(Vector3I.Zero, Selected, _orientation);

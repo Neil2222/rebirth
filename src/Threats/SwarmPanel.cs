@@ -139,7 +139,10 @@ public partial class SwarmPanel : CanvasLayer
 		if (_swarm is null || Colony.Home is not { } home || !home.Inventory.Has(Gift))
 			return;
 		foreach (var (item, amount) in Gift)
+		{
 			home.Inventory.TryRemove(item, amount);
+			ProductionStats.Consumed(item, amount);
+		}
 		Threats.Resolve(_swarm, 15f, $"The swarm over {_swarm.Site} took your gift and left happily. +15 Resonance");
 		Finish("The swarm swirls around the ingots, fascinated, and carries them off into the dark, humming a little tune.");
 	}

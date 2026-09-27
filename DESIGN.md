@@ -176,6 +176,11 @@ te fel en te donker.)
   Lance → doorbreken. "Show me" in de Nexus selecteert de plek en zet het juiste ontwerp klaar; wachtende
   bouwplaatsen tonen waarop ze wachten. Ijsroutes naar Water Works legt de Nexus zelf aan.
 
+- **Productie-statistieken** (Nexus → Production), à la Factorio: per grondstof gemaakt/min en gebruikt/min
+  over 1 min, 10 min of 1 uur, netto, voorraad over alle opslag, gevraagd (bouwplaatsen en fabricators),
+  grafiekje gemaakt-vs-gebruikt, en een oordeel: tekort, raakt op over ~X min, stapelt op, in balans.
+  (Nog niet opgeslagen: begint opnieuw als een wereld laadt.)
+
 ## Opslaan
 - **6 opslagslots.** Een slot is een heel spel: campagne (Boxes, Starlight, upgrades) plus de wereld van elke
   bezochte Box (`user://saves/slotN/`). Autosave, F5 en "Opslaan en stoppen" schrijven naar het slot waarin je

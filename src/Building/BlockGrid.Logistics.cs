@@ -338,9 +338,11 @@ public partial class BlockGrid
 				continue;
 			}
 			state.Input.TryRemove(ore, amount);
+			ProductionStats.Consumed(ore, amount);
 			foreach (var (product, ratio) in ItemCatalog.Refining[ore])
 			{
 				state.Output.Add(product, amount * ratio);
+				ProductionStats.Produced(product, amount * ratio);
 				Produced[product] = Produced.GetValueOrDefault(product) + amount * ratio;
 			}
 			draw += block.Definition.PowerDraw;
@@ -392,7 +394,7 @@ public partial class BlockGrid
 					continue;
 				float[] mined = rock.Carve(hit["position"].AsVector3() + front * 0.4f, DrillBite);
 				for (int m = 0; m < mined.Length; m++)
-					output.Add(VoxelMaterials.All[m].OreItemId, mined[m] * VoxelMaterials.All[m].YieldPerCubicMetre);
+					ProductionStats.Produced(VoxelMaterials.All[m].OreItemId, output.Add(VoxelMaterials.All[m].OreItemId, mined[m] * VoxelMaterials.All[m].YieldPerCubicMetre));
 				bitten = true;
 			}
 			if (!bitten)
