@@ -20,6 +20,8 @@ namespace Rebirth.Nexus;
 public partial class NexusScreen : CanvasLayer
 {
 	public event Action? Closed;
+	/// <summary>The player pressed "Fire the Breach Lance".</summary>
+	public event Action? FireRequested;
 	public bool IsOpen => Visible;
 
 	public Colony Colony { get; set; } = null!;
@@ -69,6 +71,9 @@ public partial class NexusScreen : CanvasLayer
 	private string _routesShownFor = "";
 	private Label _news = null!;
 	private VBoxContainer _peopleBox = null!;
+	private VBoxContainer _lanceBox = null!;
+	private Label _lanceText = null!;
+	private Button _fireButton = null!;
 	private string _peopleShown = "";
 	private Label _bots = null!;
 	private VBoxContainer _jobs = null!;
@@ -138,6 +143,15 @@ public partial class NexusScreen : CanvasLayer
 		_details = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
 		_details.AddThemeFontSizeOverride("font_size", 14);
 		rightBox.AddChild(_details);
+		_lanceBox = new VBoxContainer();
+		_lanceBox.AddChild(UiTheme.Heading("BREACH LANCE"));
+		_lanceText = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
+		_lanceText.AddThemeFontSizeOverride("font_size", 14);
+		_lanceBox.AddChild(_lanceText);
+		_fireButton = new Button { Text = "Fire the Breach Lance" };
+		_fireButton.Pressed += () => FireRequested?.Invoke();
+		_lanceBox.AddChild(_fireButton);
+		rightBox.AddChild(_lanceBox);
 		_peopleBox = new VBoxContainer();
 		_peopleBox.AddThemeConstantOverride("separation", 4);
 		rightBox.AddChild(_peopleBox);
@@ -380,6 +394,19 @@ public partial class NexusScreen : CanvasLayer
 		material.SetShaderParameter("height", bounds.Size.Y);
 	}
 
+	/// <summary>The Lance's charge, and the button that fires it once full.</summary>
+	private void UpdateLance()
+	{
+		_lanceBox.Visible = _grid is not null && IsInstanceValid(_grid) && _grid.HasBlock(BlockKind.BreachLance);
+		if (!_lanceBox.Visible)
+			return;
+		float fraction = Colony.LanceFraction;
+		_lanceText.Text = $"Ball of light  {Bar(fraction)}  {fraction:P0}\n" + (fraction >= 0.999f
+			? "Full. Everyone you woke is ready to lend their light."
+			: $"It drinks your Resonance ({Colony.LanceCharge:0} / {Colony.LanceRequired:0}). Living planets and villages fill it.");
+		_fireButton.Disabled = fraction < 0.999f;
+	}
+
 	/// <summary>Villages on the selected planet (or at the selected station): people, bond, and their request.</summary>
 	private void UpdatePeople()
 	{
@@ -558,6 +585,7 @@ public partial class NexusScreen : CanvasLayer
 			? "No bots yet. Select Home to print one."
 			: string.Join("\n", Colony.Bots.Select(b => $"{b.Grid.Label}: {b.Status}"));
 		UpdateDetails();
+		UpdateLance();
 		UpdatePeople();
 		UpdateRoutes();
 		UpdateJobs();
@@ -586,7 +614,8 @@ public partial class NexusScreen : CanvasLayer
 		float income = made.Concat(received).Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot).Sum(kv => kv.Value);
 		return $"Home: {(stock.Length > 0 ? stock : "no ingots")}      Income: +{income:0} kg/min      Bots: {Colony.Bots.Count} ({idle} idle)      Sites: {Colony.Sites.Count()}" +
 			(People.Settlements.Count > 0 ? $"      People: {People.Settlements.Sum(s => s.Population)}" : "") +
-			$"      Resonance: {Colony.Resonance:0}{(Colony.ResonancePerMinute > 0.01f ? $" (+{Colony.ResonancePerMinute:0.0}/min)" : "")}";
+			$"      Resonance: {Colony.Resonance:0}{(Colony.ResonancePerMinute > 0.01f ? $" (+{Colony.ResonancePerMinute:0.0}/min)" : "")}" +
+			(Colony.HasLance ? $"      Lance: {Colony.LanceFraction:P0}" : "");
 	}
 
 	private void UpdateDetails()

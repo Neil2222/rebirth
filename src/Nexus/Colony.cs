@@ -57,6 +57,16 @@ public partial class Colony : Node
 
 	public void AddResonance(float amount) => Resonance += amount;
 
+	/// <summary>Resonance a Breach Lance needs before it can fire.</summary>
+	public const float LanceRequired = 1500f;
+	/// <summary>How fast a Lance draws stored Resonance into its ball (per second).</summary>
+	private const float LanceDrawPerSecond = 10f;
+
+	/// <summary>Resonance gathered in the Lance's ball of light.</summary>
+	public float LanceCharge { get; private set; }
+	public float LanceFraction => LanceCharge / LanceRequired;
+	public bool HasLance => Grids.Any(g => g.HasBlock(BlockKind.BreachLance));
+
 	/// <summary>Seeds take once a planet's air and seas are this far back.</summary>
 	public const float GardenThreshold = 0.3f;
 
@@ -264,6 +274,15 @@ public partial class Colony : Node
 				Announce(planet.Vitality >= 0.999f ? $"{planet.Name} is fully alive!" : $"{planet.Name} is {Mathf.FloorToInt(planet.Vitality * 4f) * 25}% back to life");
 		}
 		Resonance += ResonancePerMinute * dt / 60f;
+		// A Lance drinks the stored Resonance until its ball is full.
+		if (LanceCharge < LanceRequired && Resonance > 0f && HasLance)
+		{
+			float take = Mathf.Min(Mathf.Min(Resonance, LanceDrawPerSecond * dt), LanceRequired - LanceCharge);
+			Resonance -= take;
+			LanceCharge += take;
+			if (LanceCharge >= LanceRequired)
+				Announce("The Breach Lance is full. Fire it from the Nexus!");
+		}
 	}
 
 	/// <summary>Any free-flying grid with a Bot Core joins the workforce (printed bots, loaded bots).</summary>
@@ -552,6 +571,7 @@ public partial class Colony : Node
 	{
 		Settlements = SettlementsToSave?.Invoke() ?? new(),
 		Resonance = Resonance,
+		LanceCharge = LanceCharge,
 		Planets = Bodies.OfType<MiniPlanet>().Select(p => new PlanetSave { Name = p.Name, Air = p.Air, Water = p.Water, Soil = p.Soil }).ToList(),
 		Jobs = Jobs.Select(j => new JobSave
 		{
@@ -583,6 +603,7 @@ public partial class Colony : Node
 		}
 		Routes.AddRange(save.Routes);
 		Resonance = save.Resonance;
+		LanceCharge = save.LanceCharge;
 		foreach (var saved in save.Planets)
 		{
 			if (Bodies.OfType<MiniPlanet>().FirstOrDefault(p => p.Name == saved.Name) is not { } planet)
@@ -714,6 +735,7 @@ public sealed class ColonySave
 {
 	public List<Life.Settlement> Settlements { get; set; } = new();
 	public float Resonance { get; set; }
+	public float LanceCharge { get; set; }
 	public List<PlanetSave> Planets { get; set; } = new();
 	public List<JobSave> Jobs { get; set; } = new();
 	public List<HaulRoute> Routes { get; set; } = new();

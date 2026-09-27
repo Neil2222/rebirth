@@ -26,7 +26,7 @@ public static class Toolbar
 		],
 		[
 			new ToolbarItem("Hand Drill", IsDrill: true),
-			.. Blocks(BlockCatalog.AirProcessor, BlockCatalog.Hydrator, BlockCatalog.SeedGarden, BlockCatalog.Incubator),
+			.. Blocks(BlockCatalog.AirProcessor, BlockCatalog.Hydrator, BlockCatalog.SeedGarden, BlockCatalog.Incubator, BlockCatalog.BreachLance),
 		],
 	];
 

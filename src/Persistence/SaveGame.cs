@@ -11,6 +11,8 @@ public sealed class SaveGame
 	public const int CurrentVersion = 1;
 
 	public int Version { get; set; } = CurrentVersion;
+	/// <summary>Which Box (star cluster) this world is in.</summary>
+	public int Box { get; set; } = 1;
 	public DateTime SavedAt { get; set; } = DateTime.Now;
 	public PlayerSave Player { get; set; } = new();
 	public List<GridSave> Grids { get; set; } = new();

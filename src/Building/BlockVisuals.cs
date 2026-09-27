@@ -12,6 +12,8 @@ public static class BlockVisuals
 {
 	public const string FlameName = "Flame";
 	public const string DrillBitName = "Bit";
+	public const string LanceRingsName = "Rings";
+	public const string LanceGlowName = "Glow";
 	private const float H = BlockGrid.CellSize * 0.5f;
 
 	public static Node3D? CreateDecoration(BlockDefinition block, Color paint) => block.Kind switch
@@ -31,6 +33,7 @@ public static class BlockVisuals
 		BlockKind.Hydrator => Hydrator(),
 		BlockKind.SeedGarden => SeedGarden(),
 		BlockKind.Incubator => Incubator(),
+		BlockKind.BreachLance => BreachLance(),
 		_ => null,
 	};
 
@@ -370,6 +373,30 @@ public static class BlockVisuals
 		root.AddChild(Part(new SphereMesh { Radius = 0.28f, Height = 0.56f, Material = Lamp(new Color(1f, 0.72f, 0.5f), 1.4f) }, new Vector3(0, H + 0.85f, 0)));
 		foreach (float y in new[] { 0.3f, 1.4f })
 			root.AddChild(Part(new TorusMesh { InnerRadius = 0.52f, OuterRadius = 0.66f, Material = Chrome() }, new Vector3(0, H + y, 0)));
+		return root;
+	}
+
+	/// <summary>
+	/// A tall brass-and-cream spire with three chrome rings that spin faster as it charges, and a glowing
+	/// tip where the beam will leave. It points along the block's +Y.
+	/// </summary>
+	private static Node3D BreachLance()
+	{
+		var root = new Node3D();
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.35f, BottomRadius = 0.9f, Height = 6f, Material = Plastic(Palette.Cream) }, new Vector3(0, H + 3f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.5f, BottomRadius = 0.5f, Height = 0.3f, Material = Plastic(Palette.Mustard) }, new Vector3(0, H + 2f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.4f, BottomRadius = 0.4f, Height = 0.3f, Material = Plastic(Palette.Coral) }, new Vector3(0, H + 4.2f, 0)));
+		var rings = new Node3D { Name = LanceRingsName };
+		for (int i = 0; i < 3; i++)
+		{
+			var ring = Part(new TorusMesh { InnerRadius = 1.3f + i * 0.35f, OuterRadius = 1.45f + i * 0.35f, Material = Chrome() }, new Vector3(0, H + 1.5f + i * 1.6f, 0),
+				new Basis(Vector3.Right, 0.35f * (i - 1)));
+			rings.AddChild(ring);
+		}
+		root.AddChild(rings);
+		var glow = Part(new SphereMesh { Radius = 0.45f, Height = 0.9f, Material = Lamp(new Color(1f, 0.85f, 0.55f), 2.5f) }, new Vector3(0, H + 6.2f, 0));
+		glow.Name = LanceGlowName;
+		root.AddChild(glow);
 		return root;
 	}
 }

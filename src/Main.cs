@@ -37,25 +37,26 @@ public partial class Main : Node3D
 
 	private Hud _hud = null!;
 	private ProgressSave _progress = new();
+	private int _box = 1;
+	private BoxWall _wall = null!;
+	public SpiritBomb SpiritBomb { get; private set; } = null!;
+
+	/// <summary>Display names of the Boxes built so far.</summary>
+	public static string BoxName(int box) => box == 1 ? "The First Box" : "The Tide Box";
 	private double _nextAutosave;
 	private double _newWorldConfirmUntil;
 
 	public override void _Ready()
 	{
-		BuildEnvironment();
-		AddAsteroid(new Vector3(0, -20, -120), 35f, 1);
-		AddAsteroid(new Vector3(150, 40, -300), 55f, 2);
-		AddAsteroid(new Vector3(-90, 30, -60), 14f, 3);
-		AddAsteroid(new Vector3(-22, -4, -26), 8f, 4);
-		// The rock Home sits on: where you learn to drill.
-		var homeRock = new VoxelAsteroid { Name = "Home Rock", Position = new Vector3(-12, -30, 0), Radius = 16f, Seed = 11 };
-		AddChild(homeRock);
-		// Small walkable planets, each with its own sleepy look. Their gravity reaches three radii,
-		// which stays clear of the spawn.
-		AddPlanet("Dune", new Vector3(60, -140, -220), 55f, 7, VoxelMaterials.Dune, new Color(1f, 0.8f, 0.62f));
-		AddPlanet("Frost", new Vector3(-260, 30, -120), 40f, 8, VoxelMaterials.Frost, new Color(0.72f, 0.86f, 1f));
-		AddPlanet("Moss", new Vector3(220, 60, 120), 50f, 9, VoxelMaterials.Moss, new Color(0.78f, 0.95f, 0.72f));
-		BuildCrates(new Vector3(0, 0, -15));
+		var save = SaveSystem.PendingLoad;
+		SaveSystem.PendingLoad = null;
+		bool firstBoot = !_booted;
+		if (firstBoot && SaveSystem.LatestSlot() is { } latest)
+			save = SaveSystem.Read(latest);
+		_booted = true;
+		_box = save?.Box ?? GameState.NextBox;
+
+		var homeRock = BuildBox(_box);
 
 		Player = new Player { Name = "Player" };
 		AddChild(Player);
@@ -113,12 +114,10 @@ public partial class Main : Node3D
 		AddChild(Menu);
 		Menu.Closed += OnOverlayClosed;
 
-		var save = SaveSystem.PendingLoad;
-		SaveSystem.PendingLoad = null;
-		bool firstBoot = !_booted;
-		if (firstBoot && SaveSystem.LatestSlot() is { } latest)
-			save = SaveSystem.Read(latest);
-		_booted = true;
+		SpiritBomb = new SpiritBomb { Name = "SpiritBomb", Colony = Colony, People = People, Wall = _wall };
+		AddChild(SpiritBomb);
+		SpiritBomb.Breached += EnterNextBox;
+		Nexus.FireRequested += FireLance;
 
 		if (save is not null)
 		{
@@ -143,8 +142,49 @@ public partial class Main : Node3D
 	/// A fresh world: Home on its rock and the starter ship. The tutorial then has you add the drill and
 	/// print the first bots; skipping the intro starts with exactly that done.
 	/// </summary>
+	/// <summary>
+	/// Sky, sun, the Box wall and the bodies of a Box. The first is where the story starts; the second,
+	/// the Tide Box, is a cooler, watery cluster reached by breaking out of the first.
+	/// </summary>
+	private VoxelAsteroid BuildBox(int box)
+	{
+		bool tide = box >= 2;
+		BuildEnvironment(tide);
+		_wall = new BoxWall { Name = "BoxWall", LineColor = tide ? new Color(0.7f, 1f, 0.9f) : new Color(0.86f, 0.78f, 1f) };
+		AddChild(_wall);
+		// The rock Home sits on: where you learn to drill (and where you land in a new Box).
+		var homeRock = new VoxelAsteroid { Name = "Home Rock", Position = new Vector3(-12, -30, 0), Radius = 16f, Seed = tide ? 12 : 11 };
+		AddChild(homeRock);
+		if (!tide)
+		{
+			AddAsteroid(new Vector3(0, -20, -120), 35f, 1);
+			AddAsteroid(new Vector3(150, 40, -300), 55f, 2);
+			AddAsteroid(new Vector3(-90, 30, -60), 14f, 3);
+			AddAsteroid(new Vector3(-22, -4, -26), 8f, 4);
+			// Small walkable planets, each with its own sleepy look. Their gravity reaches three radii,
+			// which stays clear of the spawn.
+			AddPlanet("Dune", new Vector3(60, -140, -220), 55f, 7, VoxelMaterials.Dune, new Color(1f, 0.8f, 0.62f));
+			AddPlanet("Frost", new Vector3(-260, 30, -120), 40f, 8, VoxelMaterials.Frost, new Color(0.72f, 0.86f, 1f));
+			AddPlanet("Moss", new Vector3(220, 60, 120), 50f, 9, VoxelMaterials.Moss, new Color(0.78f, 0.95f, 0.72f));
+			BuildCrates(new Vector3(0, 0, -15));
+		}
+		else
+		{
+			AddAsteroid(new Vector3(40, 10, -110), 28f, 21);
+			AddAsteroid(new Vector3(-120, -40, -80), 20f, 22);
+			AddAsteroid(new Vector3(180, -60, 60), 42f, 23);
+			// A water world that is half-way there already, a coral-pink reef planet and a little lantern moon.
+			AddPlanet("Tide", new Vector3(-40, -170, -270), 70f, 31, VoxelMaterials.Frost, new Color(0.6f, 0.95f, 0.95f));
+			AddPlanet("Coral", new Vector3(260, 40, -80), 45f, 32, VoxelMaterials.Moss, new Color(1f, 0.72f, 0.72f));
+			AddPlanet("Lantern", new Vector3(-240, 90, 150), 38f, 33, VoxelMaterials.Dune, new Color(1f, 0.85f, 0.55f));
+		}
+		return homeRock;
+	}
+
 	private void StartNewGame(VoxelAsteroid homeRock, StartMode mode)
 	{
+		if (GetNodeOrNull<MiniPlanet>("Tide") is { } tide)
+			tide.Water = 0.55f;
 		SpawnBlueprint(Presets.StarterHauler(), new Transform3D(Basis.Identity, new Vector3(14, 0, -8)), isStatic: false, charge: 1f);
 		var outpost = Presets.Outpost();
 		var home = SpawnBlueprint(outpost, Colony.PlaceOnSurface(homeRock, Vector3.Up, outpost, clearance: 2f), isStatic: true, charge: 1f);
@@ -169,7 +209,9 @@ public partial class Main : Node3D
 		for (int i = 0; i < Tutorial.BotsToPrint; i++)
 			SpawnBlueprint(bot, new Transform3D(Basis.Identity, home.GlobalTransform * new Vector3(-6f + i * 4f, 8f, -6f)), isStatic: false, charge: 1f);
 		_progress = new ProgressSave { TutorialStep = -1, NexusUnlocked = true };
-		Player.ShowMessage("Home, a drill and two bots are ready. Press N for the Nexus");
+		Player.ShowMessage(_box > 1
+			? $"You broke through! Welcome to {BoxName(_box)}. Your designs came with you"
+			: "Home, a drill and two bots are ready. Press N for the Nexus");
 	}
 
 	// ---------------------------------------------------------------- menus
@@ -209,6 +251,30 @@ public partial class Main : Node3D
 	private void NewGame(StartMode mode)
 	{
 		GameState.NextStart = mode;
+		SaveSystem.PendingLoad = null;
+		ReloadWorld();
+	}
+
+	/// <summary>The Nexus's "Fire" button: close it and let the Spirit Bomb take over the screen.</summary>
+	private void FireLance()
+	{
+		Nexus.Close();
+		if (!SpiritBomb.Fire())
+			return;
+		GameState.WorldInputBlocked = true;
+		_hud.Visible = false;
+		Tutorial.Visible = false;
+	}
+
+	/// <summary>
+	/// After the breach: this Box is kept as an archive (the way back is for later), and a new world
+	/// is built in the next Box, starting from a fresh Home with your designs.
+	/// </summary>
+	private void EnterNextBox()
+	{
+		SaveTo($"box{_box}_archive", null);
+		GameState.NextBox = _box + 1;
+		GameState.NextStart = StartMode.SkipIntro;
 		SaveSystem.PendingLoad = null;
 		ReloadWorld();
 	}
@@ -339,7 +405,9 @@ public partial class Main : Node3D
 	{
 		_nextAutosave = Now + AutosaveSeconds;
 		_progress.TutorialStep = Tutorial.StepIndex;
-		SaveSystem.Write(SaveSystem.Capture(this, Player, Forge.CurrentBlueprint(), Colony.ToSave(), _progress), slot);
+		var save = SaveSystem.Capture(this, Player, Forge.CurrentBlueprint(), Colony.ToSave(), _progress);
+		save.Box = _box;
+		SaveSystem.Write(save, slot);
 		if (message is not null)
 			Player.ShowMessage(message);
 	}
@@ -374,9 +442,17 @@ public partial class Main : Node3D
 		GetTree().CallDeferred(SceneTree.MethodName.ReloadCurrentScene);
 	}
 
-	private void BuildEnvironment()
+	/// <param name="tide">The Tide Box: a cool aqua sky and a paler, bluer sun.</param>
+	private void BuildEnvironment(bool tide)
 	{
 		var skyMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/retro_sky.gdshader") };
+		if (tide)
+		{
+			skyMaterial.SetShaderParameter("plum", new Color(0.10f, 0.17f, 0.30f));
+			skyMaterial.SetShaderParameter("peach", new Color(0.75f, 0.95f, 0.9f));
+			skyMaterial.SetShaderParameter("teal", new Color(0.07f, 0.27f, 0.36f));
+			skyMaterial.SetShaderParameter("rose", new Color(0.45f, 0.75f, 0.85f));
+		}
 		var env = new Godot.Environment
 		{
 			BackgroundMode = Godot.Environment.BGMode.Sky,
@@ -404,7 +480,7 @@ public partial class Main : Node3D
 		var sun = new DirectionalLight3D
 		{
 			LightEnergy = 1.5f,
-			LightColor = new Color(1f, 0.9f, 0.76f),
+			LightColor = tide ? new Color(0.88f, 0.96f, 1f) : new Color(1f, 0.9f, 0.76f),
 			ShadowEnabled = true,
 			ShadowBlur = 2.5f,
 			DirectionalShadowMaxDistance = 400f,

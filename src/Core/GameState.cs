@@ -10,6 +10,9 @@ public static class GameState
 
 	/// <summary>How the next fresh world starts (set by the title and pause menus before reloading).</summary>
 	public static StartMode NextStart { get; set; } = StartMode.Tutorial;
+
+	/// <summary>Which Box a fresh world is built in (1 = the first cluster; 2 after the first breach).</summary>
+	public static int NextBox { get; set; } = 1;
 }
 
 /// <summary>A new game either teaches you to build your first drill and bots, or starts with them done.</summary>

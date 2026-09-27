@@ -410,10 +410,21 @@ public partial class BlockGrid
 
 	// ------------------------------------------------------------ visuals
 
+	/// <summary>Set by the colony: how full a Breach Lance here is (0..1), which drives its rings and tip.</summary>
+	public float LanceCharge { get; set; }
+
 	private void SpinDrillBits(float delta)
 	{
 		foreach (var (cell, block) in _blocks)
 		{
+			if (block.Definition.Kind == BlockKind.BreachLance && _decorations.TryGetValue(cell, out var lance))
+			{
+				if (lance.GetNodeOrNull<Node3D>(BlockVisuals.LanceRingsName) is { } rings)
+					rings.RotateObjectLocal(Vector3.Up, (0.2f + LanceCharge * 3f) * delta);
+				if (lance.GetNodeOrNull<Node3D>(BlockVisuals.LanceGlowName) is { } tip)
+					tip.Scale = Vector3.One * (0.5f + LanceCharge * 1.2f + 0.08f * Mathf.Sin((float)Time.GetTicksMsec() / 200f));
+				continue;
+			}
 			if (block.Definition.Kind != BlockKind.AutoDrill || !MachineStatus(cell).StartsWith("Drilling"))
 				continue;
 			if (_decorations.TryGetValue(cell, out var decoration) && decoration.GetNodeOrNull<Node3D>(BlockVisuals.DrillBitName) is { } bit)

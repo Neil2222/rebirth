@@ -15,7 +15,7 @@ public static class Presets
 	private static readonly Basis PushDown = new(Vector3.Right, -Mathf.Pi / 2f);
 	private static readonly Basis PushUp = new(Vector3.Right, Mathf.Pi / 2f);
 
-	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), AirMaker(), WaterWorks(), Garden(), SettlementSeed(), WorkerBot()];
+	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), AirMaker(), WaterWorks(), Garden(), SettlementSeed(), BreachLanceSite(), WorkerBot()];
 
 	/// <summary>
 	/// Default robot body: legs, torso with a battery heart and gyro shoulders, a visor head,
@@ -174,6 +174,19 @@ public static class Presets
 		bp.Add(new Vector3I(1, 0, 0), BlockCatalog.CargoContainer, Basis.Identity, Palette.Mustard);
 		foreach (var cell in new[] { new Vector3I(1, 1, 0), new Vector3I(-1, 0, 0), new Vector3I(0, 0, 1), new Vector3I(1, 0, 1) })
 			bp.Add(cell, BlockCatalog.SolarPanel, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>The Breach Lance on a sturdy base with batteries: build it where it can see the sky.</summary>
+	public static Blueprint BreachLanceSite()
+	{
+		var bp = new Blueprint { Name = "Breach Lance", Kind = DesignKind.Station };
+		for (int x = -1; x <= 1; x++)
+			for (int z = -1; z <= 1; z++)
+				bp.Add(new Vector3I(x, 0, z), BlockCatalog.HeavyArmor, Basis.Identity);
+		bp.Add(new Vector3I(0, 1, 0), BlockCatalog.BreachLance, Basis.Identity);
+		bp.Add(new Vector3I(-1, 1, -1), BlockCatalog.Battery, Basis.Identity);
+		bp.Add(new Vector3I(1, 1, 1), BlockCatalog.Battery, Basis.Identity);
 		return bp;
 	}
 }

@@ -99,6 +99,17 @@ Geen FPS, geen tijdsdruk. Getroffen machines gaan in **quarantaine** (stil, niet
 - **Zwerm van de Curator**: praten, iets geven, of te slim af zijn met een puzzel.
 - Later: **firewall**-gebouwen die dreiging geautomatiseerd afhandelen.
 
+### De Breach Lance (Spirit Bomb)
+- De Lance is een spits met ringen (preset "Breach Lance") die opgeslagen **Resonance** drinkt tot hij vol is
+  (1500). Erboven hangt een **bal van licht** die meegroeit.
+- Zolang hij laadt, drijven kleine **witte bolletjes** van elk dorp en elke levende planeet naar de bal.
+- **Afvuren (Nexus):** alle mensen geven tegelijk hun licht: een stroom bolletjes, de bal zwelt enorm op,
+  schiet naar de Box-wand en slaat hem open (flits, scherven), wit, en je komt uit in de volgende Box.
+- De Box-wand is een heel zacht raster aan de hemel, net zichtbaar.
+- **Nu:** één vaste tweede Box, **de Tide Box** (aqua lucht, waterplaneet Tide, Coral, Lantern). Je begint er
+  met een verse Home en al je ontwerpen; de eerste Box wordt gearchiveerd. Terugkeren en wat je meeneemt
+  beslissen we later.
+
 ### Elke Box is anders
 Box zonder ster (breng zelf licht), waterwereld, zwermnest, ... Technologie en archief gaan mee.
 
@@ -144,7 +155,8 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | D | Uplink, donkere planeten, bodemscan, stromen en knelpunten in de Nexus, routes tussen sites | klaar |
 | E1 | Planeten genezen: lucht, water, bodem, meekleurend terrein, zeeën, Resonance | klaar |
 | E2 | DNA-incubatie, nederzettingen, verzoeken van mensen (leveren, bouwen, praten, cadeaus), band | klaar |
-| F | Breach Lance, Box-grens, nieuwe Box genereren | |
+| F1 | Breach Lance als Spirit Bomb, Box-wand, doorbraak, vaste tweede Box (Tide Box) | klaar |
+| F2 | Terug naar oude Boxes, wat meegaat, gegenereerde Boxes met eigen karakter | |
 | G | Dreiging en minigames: circuitpuzzel, gesprekken, cadeaus | |
 
 ## Techniek
