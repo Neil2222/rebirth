@@ -381,11 +381,22 @@ public partial class Main : Node3D
 			Player.Inventory.TransferTo(home.Inventory, item, amount);
 		for (int i = 0; i < Tutorial.BotsToPrint; i++)
 			SpawnNearHome(Presets.WorkerBot(), home, i);
-		Player.ShowMessage("Home, a drill and two bots are ready. Press N for the Nexus");
+		Player.ShowMessage(Keybinds.Fill("Home, a drill and two bots are ready. Press {open_nexus} for the Nexus"));
 	}
 
 	private void SpawnNearHome(Blueprint bot, BlockGrid home, int slot) =>
 		SpawnBlueprint(bot, new Transform3D(Basis.Identity, home.GlobalTransform * new Vector3(-8f + slot % 5 * 4f, 8f + slot / 5 * 4f, -6f)), isStatic: false, charge: 1f);
+
+	/// <summary>Free storage at the Home of a Box you are about to enter: a fresh Outpost, or the saved one.</summary>
+	private static float ArrivalRoom(SaveGame? arrival)
+	{
+		static float Capacity(Blueprint design) => design.Blocks.Sum(b => BlockCatalog.Get(b.Id).CargoCapacity);
+		if (arrival is null)
+			return Capacity(Presets.Outpost());
+		if (arrival.Grids.FirstOrDefault(g => g.Label == Colony.HomeLabel) is not { } home)
+			return 0f;
+		return Mathf.Max(0f, Capacity(home.Blocks) - home.Inventory.Values.Sum());
+	}
 
 	/// <summary>Unpacks what came along on a journey: ingots into Home's storage, bots beside it.</summary>
 	private void Unpack(Transfer transfer)
@@ -528,12 +539,19 @@ public partial class Main : Node3D
 	{
 		var campaign = Campaign.Active;
 		var transfer = new Transfer();
+		var travellers = Colony.Bots.OrderBy(b => b.Grid.Inventory.Total).Take(campaign.BotsCarried).ToList();
 		if (Colony.Home is { } home)
 		{
-			// Ingots, shared out fairly by what Home holds, up to the hold's capacity.
+			// Bots travel as designs, without their hold: drop what they carry at Home first.
+			foreach (var bot in travellers)
+				foreach (var (item, amount) in bot.Grid.Inventory.Items.ToArray())
+					bot.Grid.Inventory.TransferTo(home.Inventory, item, amount);
+			// Ingots, shared out fairly by what Home holds, up to the hold's capacity and what the Home
+			// you arrive at can store. The rest stays behind here rather than being lost on arrival.
 			var ingots = home.Inventory.Items.Where(kv => Items.ItemCatalog.Get(kv.Key).Category == Items.ItemCategory.Ingot).ToList();
 			float total = ingots.Sum(kv => kv.Value);
-			float share = total > 0f ? Mathf.Min(1f, campaign.CargoCarried / total) : 0f;
+			float room = Mathf.Min(campaign.CargoCarried, ArrivalRoom(SaveSystem.ReadWorld(target)));
+			float share = total > 0f ? Mathf.Min(1f, room / total) : 0f;
 			foreach (var (item, amount) in ingots)
 			{
 				float take = amount * share;
@@ -541,7 +559,7 @@ public partial class Main : Node3D
 					transfer.Ingots[item] = take;
 			}
 		}
-		foreach (var bot in Colony.Bots.Take(campaign.BotsCarried).ToList())
+		foreach (var bot in travellers)
 		{
 			transfer.Bots.Add(Blueprint.FromGrid(bot.Grid, bot.Grid.Label ?? "Bot", kind: DesignKind.Bot));
 			bot.Grid.QueueFree();
@@ -671,7 +689,7 @@ public partial class Main : Node3D
 	private string Print(Blueprint blueprint)
 	{
 		if (!Player.Creative)
-			return "In survival, print designs at a Fabricator (toolbar page 2). F2 = creative";
+			return Keybinds.Fill("In survival, print designs at a Fabricator (toolbar page 2). {toggle_creative} = creative");
 		if (blueprint.Kind == DesignKind.Body)
 			return "Bodies are worn, not printed: use \"Use as my body\"";
 		if (FindPrintSpot(blueprint) is not { } spot)

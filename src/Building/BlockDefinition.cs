@@ -155,7 +155,8 @@ public static class BlockCatalog
 	{
 		Shape = BlockShape.Custom,
 		PowerDraw = 0.8f,
-		OutputCapacity = 400f,
+		// Room for a whole bite of rich ore (about 630 kg, see BlockGrid.DrillBiteMaxYield) plus what is still waiting to leave.
+		OutputCapacity = 800f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 250f, ["nickel_ingot"] = 40f },
 	};
 

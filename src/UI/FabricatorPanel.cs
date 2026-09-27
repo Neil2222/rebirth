@@ -94,7 +94,7 @@ public partial class FabricatorPanel : CanvasLayer
 		_message = new Label { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
 		_message.AddThemeColorOverride("font_color", UiTheme.Accent);
 		bottom.AddChild(_message);
-		AddButton(bottom, "Close  [F]", Close);
+		AddButton(bottom, $"Close  [{Core.Keybinds.Label("use")}]", Close);
 		outer.AddChild(bottom);
 	}
 
@@ -167,7 +167,7 @@ public partial class FabricatorPanel : CanvasLayer
 	{
 		if (Selected is not { } design || _grid is null)
 		{
-			_details.Text = "No designs yet. Make one in the Forge [B].";
+			_details.Text = Core.Keybinds.Fill("No designs yet. Make one in the Forge [{open_forge}].");
 			return;
 		}
 		float mass = design.TotalMass();

@@ -278,7 +278,7 @@ public partial class ForgeScreen : CanvasLayer
 		AddButton(bar, "Print (creative)", PrintDesign);
 		AddButton(bar, "Use as my body", WearDesign);
 		bar.AddChild(new Control { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill });
-		AddButton(bar, "Close  [B]", Close);
+		AddButton(bar, $"Close  [{Keybinds.Label("open_forge")}]", Close);
 
 		// Parts and tools, left.
 		var left = Panel(root, Control.LayoutPreset.LeftWide, new Vector2(250, 0));
@@ -708,7 +708,7 @@ public partial class ForgeScreen : CanvasLayer
 			CycleShape();
 		else if (key.Keycode == Key.F)
 			FocusCamera();
-		else if (key.Keycode is Key.B or Key.Escape)
+		else if (key.IsActionPressed("open_forge") || key.IsActionPressed("release_mouse"))
 			Close();
 		else
 			return;

@@ -136,7 +136,9 @@ public partial class Threats : Node
 	/// <param name="resonance">What sending it off peacefully is worth.</param>
 	public void Resolve(Swarm swarm, float resonance, string news)
 	{
-		Swarms.Remove(swarm);
+		// A puzzle can still be open when the swarm drifts off on its own: it only pays out once.
+		if (!Swarms.Remove(swarm))
+			return;
 		swarm.Leave();
 		if (resonance > 0f)
 			Colony.AddResonance(resonance);
@@ -196,7 +198,7 @@ public partial class Swarm : Node3D
 
 	public override void _Ready()
 	{
-		var rng = new RandomNumberGenerator { Seed = (ulong)(uint)Site.GetHashCode() };
+		var rng = new RandomNumberGenerator { Seed = (ulong)(uint)Core.StableHash.Of(Site) };
 		for (int i = 0; i < Count; i++)
 		{
 			_axes[i] = new Vector3(rng.Randfn(), rng.Randfn(), rng.Randfn()).Normalized();

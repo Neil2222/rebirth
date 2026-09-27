@@ -105,15 +105,17 @@ public partial class BlockGrid
 				// Ingots arrive by parcel from storage and refineries on the same network.
 				var cost = job.Design.TotalCost();
 				var input = _state[cell].Input!;
-				if (!input.Has(cost))
+				// Parcels are only sent for shortfalls of half a kilo or more, so accept that much missing.
+				if (!input.Has(cost, slack: 0.5f))
 				{
 					_fabricatorStatus[cell] = "Waiting for materials";
 					continue;
 				}
 				foreach (var (item, amount) in cost)
 				{
-					input.TryRemove(item, amount);
-					Items.ProductionStats.Consumed(item, amount);
+					float used = Mathf.Min(amount, input.Get(item));
+					input.TryRemove(item, used);
+					Items.ProductionStats.Consumed(item, used);
 				}
 				job.Paid = true;
 			}

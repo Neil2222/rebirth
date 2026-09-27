@@ -30,7 +30,8 @@ public sealed class Inventory
 
 	public void Clear() => _items.Clear();
 
-	public bool Has(IReadOnlyDictionary<string, float> items) => items.All(kv => Get(kv.Key) >= kv.Value);
+	/// <param name="slack">Kilograms per item that may be missing: deliveries skip crumbs this small, so waiting for them would wait forever.</param>
+	public bool Has(IReadOnlyDictionary<string, float> items, float slack = 0f) => items.All(kv => Get(kv.Key) >= kv.Value - slack);
 
 	public bool TryRemove(string id, float amount)
 	{

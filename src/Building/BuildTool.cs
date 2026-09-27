@@ -1,3 +1,4 @@
+using System.Linq;
 using Rebirth.Core;
 using Rebirth.Items;
 using Godot;
@@ -84,11 +85,17 @@ public partial class BuildTool : Node3D
 
 	public bool CanAfford(BlockDefinition block) => CostSource is null || CostSource.Has(block.Cost);
 
-	/// <summary>Removes the aimed block, refunding its cost in survival (whatever fits in the inventory).</summary>
+	/// <summary>Removes the aimed block, refunding its cost in survival; refuses when the refund wouldn't fit.</summary>
 	private void RemoveAimed()
 	{
 		if (AimedGrid is not { } grid || !grid.TryGet(AimedCell, out var block))
 			return;
+		float refund = block.Definition.Cost.Values.Sum();
+		if (CostSource is not null && CostSource.FreeSpace < refund)
+		{
+			(Body as Characters.Player)?.ShowMessage($"Your pockets are too full to take back the {refund:0} kg of ingots: empty them first");
+			return;
+		}
 		grid.Remove(AimedCell);
 		if (CostSource is not null)
 			foreach (var (item, amount) in block.Definition.Cost)
