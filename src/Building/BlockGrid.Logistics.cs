@@ -29,7 +29,9 @@ public partial class BlockGrid
 {
 	public const float ParcelSize = 50f;           // kg per parcel
 	public const float ParcelSpeed = 4f;           // cells per second
-	public const float RefineryOrePerSecond = 25f;
+	public const float RefineryOrePerSecond = 40f;
+	/// <summary>Share of storage kept free of ore, so refined goods always have somewhere to go.</summary>
+	public const float IngotReserve = 0.2f;
 	public const float DrillInterval = 2.0f;       // seconds between bites
 	public const float DrillBite = 1.0f;           // radius (m) of rock removed per bite
 	public const float DrillReach = 14f;           // metres in front of the drill face
@@ -132,6 +134,13 @@ public partial class BlockGrid
 		return null;
 	}
 
+	/// <summary>True when both cells are logistics blocks joined by a chain of touching logistics blocks.</summary>
+	public bool SameNetwork(Vector3I a, Vector3I b)
+	{
+		var networks = Networks();
+		return networks.TryGetValue(a, out int na) && networks.TryGetValue(b, out int nb) && na == nb;
+	}
+
 	private float Incoming(Vector3I cell, string item) => _incoming.GetValueOrDefault((cell, item));
 
 	private float IncomingTotal(Vector3I cell) => _incoming.Where(kv => kv.Key.Cell == cell).Sum(kv => kv.Value);
@@ -205,7 +214,7 @@ public partial class BlockGrid
 			var (item, have) = output.Items.First();
 			float amount = Mathf.Min(ParcelSize, have);
 
-			var route = RouteToConsumer(cell, item, amount) ?? RouteToStorage(cell, amount);
+			var route = RouteToConsumer(cell, item, amount) ?? RouteToStorage(cell, item, amount);
 			if (route is not { } found)
 				continue;   // nowhere to go: the machine backs up until something frees
 			output.TryRemove(item, amount);
@@ -273,9 +282,10 @@ public partial class BlockGrid
 		return best is null ? null : (best, false);
 	}
 
-	private (List<Vector3I> Path, bool ToStorage)? RouteToStorage(Vector3I from, float amount)
+	private (List<Vector3I> Path, bool ToStorage)? RouteToStorage(Vector3I from, string item, float amount)
 	{
-		if (Inventory.FreeSpace - _incomingStorage < amount)
+		float reserve = ItemCatalog.Get(item).Category == ItemCategory.Ore ? Inventory.Capacity * IngotReserve : 0f;
+		if (Inventory.FreeSpace - _incomingStorage - reserve < amount)
 			return null;
 		return NearestStorageRoute(from) is { } path ? (path, true) : null;
 	}

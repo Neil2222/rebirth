@@ -7,8 +7,11 @@ using Rebirth.Building;
 
 namespace Rebirth.Persistence;
 
-/// <summary>What a design is for: printed as a ship, printed as a station, or worn as a robot body.</summary>
-public enum DesignKind { Ship, Station, Body }
+/// <summary>
+/// What a design is for: printed as a ship, printed as a station, worn as a robot body, or printed as a
+/// worker bot (needs a Bot Core) that the Nexus sends out to build and haul.
+/// </summary>
+public enum DesignKind { Ship, Station, Body, Bot }
 
 /// <summary>
 /// A grid design: which block sits in which cell, how it is turned, and its paint. Saves reuse it
@@ -66,6 +69,8 @@ public sealed class Blueprint
 		JsonSerializer.Deserialize<Blueprint>(json, Json) ?? throw new JsonException("Empty blueprint");
 
 	public float TotalMass() => Blocks.Sum(b => BlockCatalog.Get(b.Id).Mass);
+
+	public bool Contains(BlockKind kind) => Blocks.Any(b => BlockCatalog.Get(b.Id).Kind == kind);
 
 	/// <summary>Space the design occupies, in metres, relative to cell (0,0,0)'s center.</summary>
 	public Aabb Bounds()

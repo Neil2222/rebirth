@@ -27,6 +27,14 @@ public partial class BlockGrid : RigidBody3D
 	public event Action<Vector3I>? BlockRemoved;
 
 	public int BlockCount => _blocks.Count;
+
+	/// <summary>Name shown in the Nexus ("Home", "Dune Drill Site", "Bot 3"); null for unnamed grids.</summary>
+	public string? Label { get; set; }
+
+	/// <summary>A worker bot flown by the Nexus (see Colony), not by physics or a pilot.</summary>
+	public bool IsBot { get; set; }
+
+	public bool HasBlock(BlockKind kind) => _blocks.Values.Any(b => b.Definition.Kind == kind);
 	public bool IsStatic => Freeze;
 
 	/// <summary>

@@ -72,6 +72,47 @@ public abstract partial class VoxelBody : StaticBody3D, IVoxelSource, IMinable, 
 
 	public string TerrainId => Name;
 
+	/// <summary>
+	/// Distance from the center to the surface along <paramref name="localDirection"/>, including dug-out
+	/// edits: the outermost point where the field turns solid, found by stepping inwards.
+	/// </summary>
+	public float SurfaceRadius(Vector3 localDirection)
+	{
+		Vector3 dir = localDirection.Normalized();
+		float previous = SampleDensity(dir * MaxSurfaceRadius);
+		for (float r = MaxSurfaceRadius - 0.25f; r > 0f; r -= 0.25f)
+		{
+			float d = SampleDensity(dir * r);
+			if (d > 0f)
+				return r + 0.25f * d / (d - previous);   // interpolate the crossing
+			previous = d;
+		}
+		return 0f;
+	}
+
+	/// <summary>World-space surface point straight "above" the center in <paramref name="worldDirection"/>.</summary>
+	public Vector3 SurfacePoint(Vector3 worldDirection)
+	{
+		Vector3 local = GlobalBasis.Inverse() * worldDirection;
+		return GlobalTransform * (local.Normalized() * SurfaceRadius(local));
+	}
+
+	/// <summary>Trilinear density at a local position.</summary>
+	private float SampleDensity(Vector3 local)
+	{
+		Vector3 p = local + Vector3.One * _half;
+		Vector3I i = (Vector3I)p.Floor();
+		Vector3 f = p - (Vector3)i;
+		float Lerp3(int dx, int dy) =>
+			Mathf.Lerp(Density(i.X + dx, i.Y + dy, i.Z), Density(i.X + dx, i.Y + dy, i.Z + 1), f.Z);
+		float x0 = Mathf.Lerp(Lerp3(0, 0), Lerp3(0, 1), f.Y);
+		float x1 = Mathf.Lerp(Lerp3(1, 0), Lerp3(1, 1), f.Y);
+		return Mathf.Lerp(x0, x1, f.X);
+	}
+
+	/// <summary>How far out anything of this body can reach (m): for keeping flights clear of it.</summary>
+	public float OuterRadius => MaxSurfaceRadius;
+
 	public (int[] Points, float[] Densities) ExportEdits()
 	{
 		var points = new int[_editedPoints.Count * 3];

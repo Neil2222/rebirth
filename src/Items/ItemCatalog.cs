@@ -35,6 +35,6 @@ public static class ItemCatalog
 			["iron_ore"] = new Dictionary<string, float> { ["iron_ingot"] = 0.7f },
 			["nickel_ore"] = new Dictionary<string, float> { ["nickel_ingot"] = 0.4f },
 			["silicon_ore"] = new Dictionary<string, float> { ["silicon_wafer"] = 0.7f },
-			["stone"] = new Dictionary<string, float> { ["iron_ingot"] = 0.05f, ["nickel_ingot"] = 0.01f, ["silicon_wafer"] = 0.01f },
+			["stone"] = new Dictionary<string, float> { ["iron_ingot"] = 0.1f, ["nickel_ingot"] = 0.03f, ["silicon_wafer"] = 0.04f },
 		};
 }

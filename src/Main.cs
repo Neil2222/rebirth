@@ -4,6 +4,7 @@ using Rebirth.Building;
 using Rebirth.Characters;
 using Rebirth.Core;
 using Rebirth.Forge;
+using Rebirth.Nexus;
 using Rebirth.Persistence;
 using Rebirth.UI;
 using Rebirth.World;
@@ -11,8 +12,9 @@ using Rebirth.World;
 namespace Rebirth;
 
 /// <summary>
-/// Builds the world (sky, sun, asteroids, small planets, props), then either restores a save or spawns
-/// the starter grids. Also owns the Forge, printing designs into the world, and saving/loading.
+/// Builds the world (sky, sun, asteroids, small planets, props), then either restores a save or starts
+/// a new game (tutorial or skipped intro). Owns the overlays (Forge, fabricator, Nexus, menus, tutorial),
+/// printing designs into the world, and saving/loading.
 /// </summary>
 public partial class Main : Node3D
 {
@@ -25,8 +27,13 @@ public partial class Main : Node3D
 	public Player Player { get; private set; } = null!;
 	public ForgeScreen Forge { get; private set; } = null!;
 	public FabricatorPanel Fabricator { get; private set; } = null!;
+	public Colony Colony { get; private set; } = null!;
+	public NexusScreen Nexus { get; private set; } = null!;
+	public GameMenu Menu { get; private set; } = null!;
+	public Tutorial Tutorial { get; private set; } = null!;
 
 	private Hud _hud = null!;
+	private ProgressSave _progress = new();
 	private double _nextAutosave;
 	private double _newWorldConfirmUntil;
 
@@ -37,6 +44,9 @@ public partial class Main : Node3D
 		AddAsteroid(new Vector3(150, 40, -300), 55f, 2);
 		AddAsteroid(new Vector3(-90, 30, -60), 14f, 3);
 		AddAsteroid(new Vector3(-22, -4, -26), 8f, 4);
+		// The rock Home sits on: where you learn to drill.
+		var homeRock = new VoxelAsteroid { Name = "Home Rock", Position = new Vector3(-12, -30, 0), Radius = 16f, Seed = 11 };
+		AddChild(homeRock);
 		// Small walkable planets, each with its own sleepy look. Their gravity reaches three radii,
 		// which stays clear of the spawn.
 		AddPlanet("Dune", new Vector3(60, -140, -220), 55f, 7, VoxelMaterials.Dune, new Color(1f, 0.8f, 0.62f));
@@ -63,25 +73,132 @@ public partial class Main : Node3D
 			Fabricator.Open(grid, cell, Player);
 		};
 
+		Colony = new Colony { Name = "Colony", World = this, PilotedGrid = () => Player.PilotedGrid };
+		AddChild(Colony);
+		Colony.News += Player.ShowMessage;
+		Nexus = new NexusScreen { Name = "Nexus", Colony = Colony };
+		AddChild(Nexus);
+		Nexus.Closed += OnOverlayClosed;
+		Tutorial = new Tutorial { Name = "Tutorial", Player = Player, Colony = Colony };
+		AddChild(Tutorial);
+		Tutorial.NexusUnlocked += () => _progress.NexusUnlocked = true;
+		// Last, so Esc reaches the menu before anything else in the world.
+		Menu = new GameMenu { Name = "Menu" };
+		AddChild(Menu);
+		Menu.Closed += OnOverlayClosed;
+
 		var save = SaveSystem.PendingLoad;
 		SaveSystem.PendingLoad = null;
-		if (!_booted && SaveSystem.LatestSlot() is { } latest)
+		bool firstBoot = !_booted;
+		if (firstBoot && SaveSystem.LatestSlot() is { } latest)
 			save = SaveSystem.Read(latest);
 		_booted = true;
 
 		if (save is not null)
 		{
 			SaveSystem.Apply(save, this, Player);
+			Colony.Restore(save.Colony);
+			_progress = save.Progress;
 			if (save.ForgeDesign is not null)
 				Forge.LoadDesign(save.ForgeDesign);
 			Player.ShowMessage($"Welcome back — world from {save.SavedAt:g}");
 		}
 		else
-		{
-			SpawnBlueprint(Presets.StarterHauler(), new Transform3D(Basis.Identity, new Vector3(14, 0, -8)), isStatic: false, charge: 1f);
-			SpawnBlueprint(Presets.Outpost(), new Transform3D(Basis.Identity, new Vector3(-12, -7, -2)), isStatic: true, charge: 1f);
-		}
+			StartNewGame(homeRock, GameState.NextStart);
+		Tutorial.Begin(_progress.TutorialStep);
 		_nextAutosave = Now + AutosaveSeconds;
+
+		if (firstBoot)
+			OpenTitle(save is not null);
+	}
+
+	/// <summary>
+	/// A fresh world: Home on its rock and the starter ship. The tutorial then has you add the drill and
+	/// print the first bots; skipping the intro starts with exactly that done.
+	/// </summary>
+	private void StartNewGame(VoxelAsteroid homeRock, StartMode mode)
+	{
+		SpawnBlueprint(Presets.StarterHauler(), new Transform3D(Basis.Identity, new Vector3(14, 0, -8)), isStatic: false, charge: 1f);
+		var outpost = Presets.Outpost();
+		var home = SpawnBlueprint(outpost, Colony.PlaceOnSurface(homeRock, Vector3.Up, outpost, clearance: 2f), isStatic: true, charge: 1f);
+		home.Label = Colony.HomeLabel;
+
+		// Start in front of Home, looking at it.
+		Vector3 eye = home.GlobalTransform * new Vector3(9f, 7f, 22f);
+		Player.GlobalTransform = new Transform3D(Basis.LookingAt(home.GlobalPosition - eye, Vector3.Up), eye);
+		Player.ResetPhysicsInterpolation();
+
+		if (mode == StartMode.Tutorial)
+		{
+			_progress = new ProgressSave { TutorialStep = 0, NexusUnlocked = false };
+			return;
+		}
+		// The tutorial's outcome: tube and drill in place, two bots, and the leftover ingots in storage.
+		home.TryAdd(Tutorial.TubeCell, BlockCatalog.Tube, Basis.Identity);
+		home.TryAdd(Tutorial.DrillCell, BlockCatalog.AutoDrill, Tutorial.DrillDown);
+		foreach (var (item, amount) in Player.Inventory.Items.ToArray())
+			Player.Inventory.TransferTo(home.Inventory, item, amount);
+		var bot = Presets.WorkerBot();
+		for (int i = 0; i < Tutorial.BotsToPrint; i++)
+			SpawnBlueprint(bot, new Transform3D(Basis.Identity, home.GlobalTransform * new Vector3(-6f + i * 4f, 8f, -6f)), isStatic: false, charge: 1f);
+		_progress = new ProgressSave { TutorialStep = -1, NexusUnlocked = true };
+		Player.ShowMessage("Home, a drill and two bots are ready. Press N for the Nexus");
+	}
+
+	// ---------------------------------------------------------------- menus
+
+	private void OpenTitle(bool hasSave)
+	{
+		_hud.Visible = false;
+		Menu.Open("REBIRTH", "The Curator boxed the stars. You carry what is left of us.",
+		[
+			new GameMenu.Entry(hasSave ? "Continue" : "Start", () => { }),
+			new GameMenu.Entry("New game - with tutorial", () => NewGame(StartMode.Tutorial), Confirm: hasSave),
+			new GameMenu.Entry("New game - skip the intro", () => NewGame(StartMode.SkipIntro), Confirm: hasSave),
+			new GameMenu.Entry("Quit", () => GetTree().Quit()),
+		]);
+	}
+
+	private void OpenPauseMenu()
+	{
+		_hud.Visible = false;
+		Menu.Open("PAUSED", "The world keeps turning while you are here.",
+		[
+			new GameMenu.Entry("Resume", () => { }),
+			new GameMenu.Entry("Nexus overview   [N]", () => CallDeferred(MethodName.OpenNexus), Enabled: () => _progress.NexusUnlocked),
+			new GameMenu.Entry("Forge   [B]", () => CallDeferred(MethodName.OpenForge)),
+			new GameMenu.Entry("Quicksave   [F5]", () => SaveTo(SaveSystem.QuickSlot, "Quicksaved")),
+			new GameMenu.Entry("Quickload   [F9]", () => LoadFrom(SaveSystem.QuickSlot), Enabled: () => SaveSystem.Exists(SaveSystem.QuickSlot)),
+			new GameMenu.Entry("New game - with tutorial", () => NewGame(StartMode.Tutorial), Confirm: true),
+			new GameMenu.Entry("New game - skip the intro", () => NewGame(StartMode.SkipIntro), Confirm: true),
+			new GameMenu.Entry("Save and quit", () =>
+			{
+				SaveTo(SaveSystem.AutoSlot, null);
+				GetTree().Quit();
+			}),
+		]);
+	}
+
+	private void NewGame(StartMode mode)
+	{
+		GameState.NextStart = mode;
+		SaveSystem.PendingLoad = null;
+		ReloadWorld();
+	}
+
+	private void OpenNexus()
+	{
+		if (GameState.WorldInputBlocked || Player.PilotedGrid is not null)
+			return;
+		if (!_progress.NexusUnlocked)
+		{
+			Player.ShowMessage("The Nexus comes online once your first bots are printed");
+			return;
+		}
+		GameState.WorldInputBlocked = true;
+		_hud.Visible = false;
+		Tutorial.NexusOpened = true;
+		Nexus.Open();
 	}
 
 	private static double Now => Time.GetTicksMsec() / 1000.0;
@@ -109,16 +226,26 @@ public partial class Main : Node3D
 			LoadFrom(SaveSystem.QuickSlot);
 		else if (e.IsActionPressed("new_world"))
 			RequestNewWorld();
-		else if (e.IsActionPressed("open_forge") && !Forge.IsOpen && !GameState.WorldInputBlocked && Player.PilotedGrid is null)
+		else if (GameState.WorldInputBlocked)
+			return;
+		else if (e.IsActionPressed("release_mouse"))
+			OpenPauseMenu();
+		else if (e.IsActionPressed("open_nexus"))
+			OpenNexus();
+		else if (e.IsActionPressed("open_forge") && Player.PilotedGrid is null)
 			OpenForge();
+		else
+			return;
+		GetViewport().SetInputAsHandled();
 	}
 
 	private void OpenForge()
 	{
+		if (GameState.WorldInputBlocked || Player.PilotedGrid is not null)
+			return;
 		GameState.WorldInputBlocked = true;
 		_hud.Visible = false;
 		Forge.Open();
-		GetViewport().SetInputAsHandled();
 	}
 
 	private void OnOverlayClosed()
@@ -184,7 +311,8 @@ public partial class Main : Node3D
 	private void SaveTo(string slot, string? message)
 	{
 		_nextAutosave = Now + AutosaveSeconds;
-		SaveSystem.Write(SaveSystem.Capture(this, Player, Forge.CurrentBlueprint()), slot);
+		_progress.TutorialStep = Tutorial.StepIndex;
+		SaveSystem.Write(SaveSystem.Capture(this, Player, Forge.CurrentBlueprint(), Colony.ToSave(), _progress), slot);
 		if (message is not null)
 			Player.ShowMessage(message);
 	}

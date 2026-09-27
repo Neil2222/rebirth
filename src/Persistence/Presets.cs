@@ -15,7 +15,7 @@ public static class Presets
 	private static readonly Basis PushDown = new(Vector3.Right, -Mathf.Pi / 2f);
 	private static readonly Basis PushUp = new(Vector3.Right, Mathf.Pi / 2f);
 
-	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig()];
+	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), WorkerBot()];
 
 	/// <summary>
 	/// Default robot body: legs, torso with a battery heart and gyro shoulders, a visor head,
@@ -111,6 +111,30 @@ public static class Presets
 		bp.Add(new Vector3I(1, 2, 0), BlockCatalog.Battery, Basis.Identity);
 		foreach (int x in new[] { 0, 2, 3, 4 })
 			bp.Add(new Vector3I(x, 2, 0), BlockCatalog.SolarPanel, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>
+	/// The smallest self-running mine, meant to be set down by bots: a drill pointing down, a refinery
+	/// on top of it and storage beside it (touching blocks need no tubes), under a solar roof.
+	/// </summary>
+	public static Blueprint DrillSite()
+	{
+		var bp = new Blueprint { Name = "Drill Site", Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.AutoDrill, PushDown);
+		bp.Add(new Vector3I(0, 1, 0), BlockCatalog.Refinery, Basis.Identity);
+		bp.Add(new Vector3I(1, 1, 0), BlockCatalog.CargoContainer, Basis.Identity);
+		foreach (var cell in new[] { new Vector3I(0, 2, 0), new Vector3I(1, 2, 0), new Vector3I(0, 2, 1), new Vector3I(1, 2, 1) })
+			bp.Add(cell, BlockCatalog.SolarPanel, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>A flying crate with a face: Bot Core on top of a cargo container, so it hauls plenty.</summary>
+	public static Blueprint WorkerBot()
+	{
+		var bp = new Blueprint { Name = "Worker Bot", Kind = DesignKind.Bot };
+		bp.Add(new Vector3I(0, 1, 0), BlockCatalog.BotCore, Basis.Identity);
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.CargoContainer, Basis.Identity, Palette.Orange);
 		return bp;
 	}
 }

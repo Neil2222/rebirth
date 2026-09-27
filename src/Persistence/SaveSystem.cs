@@ -31,9 +31,9 @@ public static class SaveSystem
 			.OrderByDescending(slot => FileAccess.GetModifiedTime(PathFor(slot)))
 			.FirstOrDefault();
 
-	public static SaveGame Capture(Node world, Player player, Blueprint? forgeDesign)
+	public static SaveGame Capture(Node world, Player player, Blueprint? forgeDesign, Nexus.ColonySave colony, ProgressSave progress)
 	{
-		var save = new SaveGame { Player = player.ToSave() };
+		var save = new SaveGame { Player = player.ToSave(), Colony = colony, Progress = progress };
 		foreach (var grid in world.GetChildren().OfType<BlockGrid>())
 		{
 			if (grid.IsQueuedForDeletion() || grid.BlockCount == 0)
@@ -48,6 +48,8 @@ public static class SaveSystem
 				AngularVelocity = SaveMath.ToArray(grid.AngularVelocity),
 				Static = grid.IsStatic,
 				Dampeners = grid.Controls.Dampeners,
+				Label = grid.Label,
+				Bot = grid.IsBot,
 				Blocks = Blueprint.FromGrid(grid, grid.Name, includeState: true),
 				Inventory = storage,
 				Machines = machines,
@@ -141,6 +143,8 @@ public static class SaveSystem
 			grid.LinearVelocity = SaveMath.Vector(saved.LinearVelocity);
 			grid.AngularVelocity = SaveMath.Vector(saved.AngularVelocity);
 			grid.Controls = grid.Controls with { Dampeners = saved.Dampeners };
+			grid.Label = saved.Label;
+			grid.IsBot = saved.Bot;
 			foreach (var (item, amount) in saved.Inventory)
 				grid.Inventory.Add(item, amount);
 			foreach (var machine in saved.Machines)

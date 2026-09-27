@@ -134,8 +134,6 @@ public partial class Player : RigidBody3D
 			Input.MouseMode = Input.MouseModeEnum.Captured;
 			GetViewport().SetInputAsHandled();
 		}
-		else if (e.IsActionPressed("release_mouse"))
-			Input.MouseMode = Input.MouseModeEnum.Visible;
 		else if (e.IsActionPressed("toggle_dampeners"))
 			DampenersOn = !DampenersOn;
 		else if (e.IsActionPressed("toggle_jetpack"))

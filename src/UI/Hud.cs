@@ -108,7 +108,7 @@ public partial class Hud : CanvasLayer
 			text += "Hold LMB to drill\n";
 		else
 			text += "Press a number to take an item; again to put it away\n" +
-				"[B] Forge   [V] first/third person   hold [Alt] look around\n[F5] quicksave   [F9] quickload   [F8] new world\n";
+				"[N] Nexus   [B] Forge   [Esc] menu\n[V] first/third person   hold [Alt] look around\n";
 		return text;
 	}
 

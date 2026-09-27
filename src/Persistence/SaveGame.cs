@@ -17,11 +17,22 @@ public sealed class SaveGame
 	public List<TerrainSave> Terrain { get; set; } = new();
 	/// <summary>The design on the Forge's bench, so unfinished work survives a restart.</summary>
 	public Blueprint? ForgeDesign { get; set; }
+	public Nexus.ColonySave Colony { get; set; } = new();
+	/// <summary>Worlds from before the tutorial existed count as finished.</summary>
+	public ProgressSave Progress { get; set; } = new();
 
 	public string ToJson() => JsonSerializer.Serialize(this, Blueprint.Json);
 
 	public static SaveGame FromJson(string json) =>
 		JsonSerializer.Deserialize<SaveGame>(json, Blueprint.Json) ?? throw new JsonException("Empty save");
+}
+
+/// <summary>How far the player is: tutorial step and what is unlocked.</summary>
+public sealed class ProgressSave
+{
+	/// <summary>Current tutorial step, or -1 once it is finished or skipped.</summary>
+	public int TutorialStep { get; set; } = -1;
+	public bool NexusUnlocked { get; set; } = true;
 }
 
 public sealed class PlayerSave
@@ -47,6 +58,8 @@ public sealed class GridSave
 	public float[] AngularVelocity { get; set; } = [0, 0, 0];
 	public bool Static { get; set; }
 	public bool Dampeners { get; set; } = true;
+	public string? Label { get; set; }
+	public bool Bot { get; set; }
 	public Blueprint Blocks { get; set; } = new();
 	public Dictionary<string, float> Inventory { get; set; } = new();
 	public List<FabricatorSave> Fabricators { get; set; } = new();

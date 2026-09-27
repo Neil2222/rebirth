@@ -250,7 +250,7 @@ public partial class ForgeScreen : CanvasLayer
 		bar.AddChild(new Control { CustomMinimumSize = new Vector2(24, 0) });
 		_name = new LineEdit { Text = "New Design", CustomMinimumSize = new Vector2(260, 0), PlaceholderText = "Design name" };
 		bar.AddChild(_name);
-		_kindPicker = new OptionButton { TooltipText = "Ship: printed free-flying. Station: printed anchored. Body: worn by you." };
+		_kindPicker = new OptionButton { TooltipText = "Ship: printed free-flying. Station: printed anchored. Body: worn by you. Bot: a worker for the Nexus (needs a Bot Core)." };
 		foreach (var kind in System.Enum.GetValues<DesignKind>())
 			_kindPicker.AddItem(kind.ToString(), (int)kind);
 		_kindPicker.ItemSelected += index => _kind = (DesignKind)(int)index;

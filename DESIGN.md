@@ -52,9 +52,16 @@ gebouwen, en je eigen robotlichaam.
 - Spullen reizen als gekleurde pods door glazen buizen, via de kortste route; machines die iets nodig hebben gaan vóór opslag.
 - Auto-drill boort de grond voor zijn voorkant af; raffinaderij heeft een ertsbuffer en een staafbuffer; de fabricator trekt ontbrekende staven zelf uit opslag.
 - Blueprints worden geprint door een fabricator; één ontwerp, vijftig drones.
-- Drones krijgen simpele routes/opdrachten ("haal ijs bij maan B, lever bij verwerker op A").
+- **Bots** zijn ontwerpen met een Bot Core (ontwerptype Bot). Ze vliegen zelf: materialen van Home
+  naar een bouwplaats, blok voor blok bouwen, en ingots van sites naar Home slepen (haulroutes).
+- **Zelf bouwen is goedkoop, bots laten bouwen kost 2,5× zoveel.** Je doet het één keer zelf (tutorial);
+  daarna is groei een kwestie van kiezen: planeet, ontwerp, bots erop.
+- Later: routes tussen willekeurige sites, prioriteiten, specialisaties per bot-ontwerp.
 
 ### De Nexus (regisseursoverzicht)
+- **Nu (N of Esc-menu):** camera hoog boven het stelsel, labels bij planeten, sites en bots. Menu's
+  voor alles: bots printen bij Home, planeet kiezen (klik voor een eigen plek), ontwerp kiezen en
+  bots sturen, bouwvoortgang, haulroutes aan/uit, opslag en machines per site.
 - Bouw een **Uplink** op een planeet en die wordt deel van je Nexus.
 - Kaart van Boxes → stelsels → planeten met stromen, knelpunten, gezondheid, Lance-lading.
 - Op afstand minmaxen: productiedoelen, routes, blueprint-toewijzingen.
@@ -93,7 +100,14 @@ te fel en te donker.)
 
 ## Besturing en camera
 - Third person rondvliegen, bouwen, inspecteren, je creaties bekijken.
-- Forge voor ontwerpen, Nexus voor overzicht.
+- Forge voor ontwerpen, Nexus voor overzicht. Het spel is volledig via menu's te spelen: titelmenu,
+  Esc-menu (Nexus, Forge, opslaan, nieuw spel), Nexus.
+
+## Begin van het spel
+- **Tutorial (third person):** erts minen, raffinaderij voeren, een buis leggen, een auto-drill zetten
+  (spookblokken wijzen de plek aan), ingots laten stromen, twee Worker Bots printen. Dan gaat de Nexus aan.
+- **Intro overslaan:** start met precies die uitkomst: Home met drill en buis, twee bots, Nexus open.
+- Zelf bouwen verbeteren loont pas als er meer onderdelen en vormen zijn; eerst de groei-lus.
 
 ## Roadmap
 Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend met het eerste portaalschot.
@@ -107,8 +121,8 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | S | Stijlwissel naar comfy retro-futurisme | klaar |
 | P | Kleine loopbare planeten (40–60 m, rondje in ±1 minuut) met eigen zwaartekracht | klaar |
 | C1 | Logistiek netwerk: buizen, pods, auto-drill, machinebuffers | klaar |
-| C2 | Drones met routes tussen planeten en stations | |
-| D | Nexus-overzicht en Uplink | |
+| C2 | Bots, Nexus-overzicht met menu's, bouwen via bots (2,5× kosten), haulroutes, tutorial, titel- en pauzemenu | klaar |
+| D | Uplink, donkere planeten, stromen en knelpunten in de Nexus, routes tussen sites | |
 | E | Planeten genezen, meekleurend terrein, DNA-incubatie, nederzettingen | |
 | F | Breach Lance, Box-grens, nieuwe Box genereren | |
 | G | Dreiging en minigames: circuitpuzzel, gesprekken, cadeaus | |

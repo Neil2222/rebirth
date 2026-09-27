@@ -25,6 +25,7 @@ public static class BlockVisuals
 		BlockKind.Refinery => Refinery(),
 		BlockKind.Fabricator => Fabricator(),
 		BlockKind.AutoDrill => AutoDrill(),
+		BlockKind.BotCore => BotCore(),
 		_ => null,
 	};
 
@@ -285,6 +286,20 @@ public static class BlockVisuals
 			root.AddChild(Part(new CylinderMesh { TopRadius = 0.45f, BottomRadius = 0.45f, Height = H, Material = glass }, dir * (H * 0.5f), basis));
 			root.AddChild(Part(new TorusMesh { InnerRadius = 0.42f, OuterRadius = 0.56f, Material = collar }, dir * (H - 0.05f), basis));
 		}
+		return root;
+	}
+
+	/// <summary>A friendly face on the front (-Z): a big round lamp eye, a visor band and an antenna.</summary>
+	private static Node3D BotCore()
+	{
+		var root = new Node3D();
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(2.0f, 0.9f, 0.12f), Material = Plastic(Palette.Slate) }, new Vector3(0, 0.15f, -H - 0.05f)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.3f, Height = 0.6f, Material = Lamp(new Color(0.55f, 0.95f, 1f)) }, new Vector3(-0.45f, 0.15f, -H - 0.08f)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.3f, Height = 0.6f, Material = Lamp(new Color(0.55f, 0.95f, 1f)) }, new Vector3(0.45f, 0.15f, -H - 0.08f)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.04f, BottomRadius = 0.06f, Height = 0.9f, Material = Chrome() }, new Vector3(0.6f, H + 0.45f, 0.3f)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.14f, Height = 0.28f, Material = Lamp(new Color(1f, 0.55f, 0.3f)) }, new Vector3(0.6f, H + 0.95f, 0.3f)));
+		// Hover ring underneath: the bot's own little drive.
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.7f, OuterRadius = 0.95f, Material = Lamp(new Color(1f, 0.7f, 0.4f)) }, new Vector3(0, -H - 0.05f, 0)));
 		return root;
 	}
 }

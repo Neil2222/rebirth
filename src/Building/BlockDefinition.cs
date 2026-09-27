@@ -5,7 +5,7 @@ using Rebirth.Items;
 
 namespace Rebirth.Building;
 
-public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube }
+public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore }
 
 /// <param name="Paint">Default paint colour; each block type has its own so they are easy to tell apart.</param>
 /// <param name="MaxIntegrity">Damage the block absorbs before it is destroyed.</param>
@@ -145,8 +145,18 @@ public static class BlockCatalog
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 20f },
 	};
 
+	/// <summary>
+	/// The brain of a worker bot: a grid with one flies itself for the Nexus (building sites, hauling).
+	/// Has its own small hover drive and a 200 kg hold; thrusters make the bot faster, cargo lets it carry more.
+	/// </summary>
+	public static readonly BlockDefinition BotCore = new("bot_core", "Bot Core", BlockKind.BotCore, Palette.Peach, 300f, 60f)
+	{
+		CargoCapacity = 200f,
+		Cost = new Dictionary<string, float> { ["iron_ingot"] = 120f, ["silicon_wafer"] = 20f },
+	};
+
 	public static readonly IReadOnlyList<BlockDefinition> All =
-		[LightArmor, HeavyArmor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube];
+		[LightArmor, HeavyArmor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore];
 
 	private static readonly Dictionary<string, BlockDefinition> ById = All.ToDictionary(b => b.Id);
 
@@ -167,6 +177,8 @@ public static class Palette
 	public static readonly Color Slate = new(0.40f, 0.44f, 0.50f);
 	/// <summary>Construction-machine yellow.</summary>
 	public static readonly Color Lemon = new(0.98f, 0.84f, 0.32f);
+	/// <summary>Friendly bot-shell colour.</summary>
+	public static readonly Color Peach = new(1f, 0.74f, 0.58f);
 
 	public static readonly IReadOnlyList<Color> Swatches = [Cream, Orange, Coral, Mustard, Mint, Teal, Sky, Plum, Slate];
 }
