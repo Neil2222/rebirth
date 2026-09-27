@@ -61,7 +61,14 @@ gebouwen, en je eigen robotlichaam.
 ### De Nexus (regisseursoverzicht)
 - **Nu (N of Esc-menu):** camera hoog boven het stelsel, labels bij planeten, sites en bots. Menu's
   voor alles: bots printen bij Home, planeet kiezen (klik voor een eigen plek), ontwerp kiezen en
-  bots sturen, bouwvoortgang, haulroutes aan/uit, opslag en machines per site.
+  bots sturen, bouwvoortgang, opslag en machines per site.
+- **Uplinks:** Home en elk station met een Uplink-blok reiken 170 m. Wat buiten bereik ligt is
+  **donker** (gesluierd, geen bouwmenu): daar moet je zelf heen en een Uplink neerzetten.
+- **Bodemscan:** bij een gekozen bouwplek zie je wat er onder zit (steen, ijzer, nikkel, silicium).
+- **Stromen:** productie per minuut per station, "Income" van Home, gloeiende stroomlijnen met
+  bewegende streepjes per route, en ⚠-knelpunten in gewone taal (te weinig stroom, opslag vol,
+  drill raakt geen steen, ingots stapelen zich op zonder route).
+- **Routes tussen alle stations,** met lading: ingots, erts of alles. Nieuws-feed in de Nexus.
 - Bouw een **Uplink** op een planeet en die wordt deel van je Nexus.
 - Kaart van Boxes → stelsels → planeten met stromen, knelpunten, gezondheid, Lance-lading.
 - Op afstand minmaxen: productiedoelen, routes, blueprint-toewijzingen.
@@ -122,7 +129,7 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | P | Kleine loopbare planeten (40–60 m, rondje in ±1 minuut) met eigen zwaartekracht | klaar |
 | C1 | Logistiek netwerk: buizen, pods, auto-drill, machinebuffers | klaar |
 | C2 | Bots, Nexus-overzicht met menu's, bouwen via bots (2,5× kosten), haulroutes, tutorial, titel- en pauzemenu | klaar |
-| D | Uplink, donkere planeten, stromen en knelpunten in de Nexus, routes tussen sites | |
+| D | Uplink, donkere planeten, bodemscan, stromen en knelpunten in de Nexus, routes tussen sites | klaar |
 | E | Planeten genezen, meekleurend terrein, DNA-incubatie, nederzettingen | |
 | F | Breach Lance, Box-grens, nieuwe Box genereren | |
 | G | Dreiging en minigames: circuitpuzzel, gesprekken, cadeaus | |

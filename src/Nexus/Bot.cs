@@ -87,7 +87,7 @@ public sealed class Bot
 				Status = $"Bringing cargo to {Colony.HomeLabel}";
 				FlyTo(Colony.DockSpot(unload.Home));
 				WaitFor(Colony.LoadSeconds);
-				Do(_ => UnloadInto(unload.Home.Inventory));
+				Do(_ => UnloadInto(unload.Home));
 				break;
 
 			case BotOrder.Supply supply:
@@ -120,13 +120,13 @@ public sealed class Bot
 				Status = $"Hauling from {haul.Source.Label}";
 				FlyTo(Colony.DockSpot(haul.Source));
 				WaitFor(Colony.LoadSeconds);
-				Do(_ => TakeHaul(haul.Source.Inventory));
+				Do(_ => TakeHaul(haul.Source.Inventory, haul.Route.Cargo));
 				Do(c =>
 				{
 					if (c.Find(haul.Route.To) is { } target)
 					{
-						Status = $"Bringing ingots to {target.Label}";
-						Insert(Fly(Colony.DockSpot(target)), Wait(Colony.LoadSeconds), Instant(_ => UnloadInto(target.Inventory)));
+						Status = $"Bringing {haul.Route.Cargo.ToString().ToLowerInvariant()} to {target.Label}";
+						Insert(Fly(Colony.DockSpot(target)), Wait(Colony.LoadSeconds), Instant(_ => UnloadInto(target)));
 					}
 				});
 				Do(_ =>
@@ -159,10 +159,10 @@ public sealed class Bot
 
 	// ------------------------------------------------------------ actions
 
-	private void UnloadInto(Inventory target)
+	private void UnloadInto(BlockGrid target)
 	{
 		foreach (var (item, amount) in Grid.Inventory.Items.ToArray())
-			Grid.Inventory.TransferTo(target, item, amount);
+			Colony.RecordDelivery(target, item, Grid.Inventory.TransferTo(target.Inventory, item, amount));
 	}
 
 	private void LoadFrom(Inventory home, Dictionary<string, float> load)
@@ -188,9 +188,9 @@ public sealed class Bot
 			Grid.Inventory.TransferTo(job.Stock, item, amount);
 	}
 
-	private void TakeHaul(Inventory source)
+	private void TakeHaul(Inventory source, HaulCargo cargo)
 	{
-		foreach (var (item, amount) in source.Items.Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot).ToArray())
+		foreach (var (item, amount) in source.Items.Where(kv => Colony.Carries(cargo, kv.Key)).ToArray())
 			source.TransferTo(Grid.Inventory, item, amount);
 	}
 
@@ -240,6 +240,51 @@ public sealed class Bot
 		var definition = BlockCatalog.Get(entry.Id);
 		job.Grid.TryAdd(entry.CellVector(), definition, entry.Orientation(), charge: 0.5f, paint: entry.PaintColor(definition));
 		job.Built++;
+		Sparkle(colony.World, job.Site * BlockGrid.CellCenter(entry.CellVector()), entry.PaintColor(definition));
+	}
+
+	/// <summary>A little puff of warm sparks where a block snaps into place.</summary>
+	private static void Sparkle(Node3D world, Vector3 at, Color paint)
+	{
+		var gradient = new Gradient();
+		gradient.SetColor(0, new Color(1f, 0.95f, 0.8f));
+		gradient.SetColor(1, new Color(paint.R, paint.G, paint.B, 0f));
+		var sparks = new CpuParticles3D
+		{
+			OneShot = true,
+			Emitting = true,
+			Amount = 28,
+			Lifetime = 0.9f,
+			Explosiveness = 0.9f,
+			EmissionShape = CpuParticles3D.EmissionShapeEnum.Sphere,
+			EmissionSphereRadius = BlockGrid.CellSize * 0.6f,
+			Direction = Vector3.Up,
+			Spread = 180f,
+			InitialVelocityMin = 1.5f,
+			InitialVelocityMax = 4f,
+			Gravity = Vector3.Zero,
+			DampingMin = 2f,
+			DampingMax = 4f,
+			ScaleAmountMin = 0.6f,
+			ScaleAmountMax = 1.2f,
+			ColorRamp = gradient,
+			Mesh = new SphereMesh
+			{
+				Radius = 0.09f,
+				Height = 0.18f,
+				RadialSegments = 6,
+				Rings = 3,
+				Material = new StandardMaterial3D
+				{
+					ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+					VertexColorUseAsAlbedo = true,
+					Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+				},
+			},
+			Position = at,
+		};
+		world.AddChild(sparks);
+		sparks.GetTree().CreateTimer(2.0).Timeout += sparks.QueueFree;
 	}
 
 	private static Vector3 SiteHover(ConstructionJob job)

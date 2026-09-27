@@ -97,6 +97,29 @@ public abstract partial class VoxelBody : StaticBody3D, IVoxelSource, IMinable, 
 		return GlobalTransform * (local.Normalized() * SurfaceRadius(local));
 	}
 
+	/// <summary>
+	/// What the ground holds within <paramref name="radius"/> of a world point: kilograms of each ore item
+	/// (as mining would yield), for the Nexus's survey of a build spot.
+	/// </summary>
+	public Dictionary<string, float> Survey(Vector3 worldCenter, float radius)
+	{
+		var result = new Dictionary<string, float>();
+		Vector3 c = ToLocal(worldCenter) + Vector3.One * _half;
+		Vector3I min = ((Vector3I)(c - Vector3.One * radius).Floor()).Clamp(Vector3I.Zero, Vector3I.One * (_size - 1));
+		Vector3I max = ((Vector3I)(c + Vector3.One * radius).Ceil()).Clamp(Vector3I.Zero, Vector3I.One * (_size - 1));
+		for (int z = min.Z; z <= max.Z; z++)
+		for (int y = min.Y; y <= max.Y; y++)
+		for (int x = min.X; x <= max.X; x++)
+		{
+			int i = Index(x, y, z);
+			if (_density[i] <= 0f || new Vector3(x, y, z).DistanceTo(c) > radius)
+				continue;
+			var material = VoxelMaterials.All[_material[i]];
+			result[material.OreItemId] = result.GetValueOrDefault(material.OreItemId) + Mathf.Min(_density[i], 1f) * material.YieldPerCubicMetre;
+		}
+		return result;
+	}
+
 	/// <summary>Trilinear density at a local position.</summary>
 	private float SampleDensity(Vector3 local)
 	{

@@ -26,6 +26,7 @@ public static class BlockVisuals
 		BlockKind.Fabricator => Fabricator(),
 		BlockKind.AutoDrill => AutoDrill(),
 		BlockKind.BotCore => BotCore(),
+		BlockKind.Uplink => Uplink(),
 		_ => null,
 	};
 
@@ -300,6 +301,20 @@ public static class BlockVisuals
 		root.AddChild(Part(new SphereMesh { Radius = 0.14f, Height = 0.28f, Material = Lamp(new Color(1f, 0.55f, 0.3f)) }, new Vector3(0.6f, H + 0.95f, 0.3f)));
 		// Hover ring underneath: the bot's own little drive.
 		root.AddChild(Part(new TorusMesh { InnerRadius = 0.7f, OuterRadius = 0.95f, Material = Lamp(new Color(1f, 0.7f, 0.4f)) }, new Vector3(0, -H - 0.05f, 0)));
+		return root;
+	}
+
+	/// <summary>A little radar dish on a chrome mast with a warm beacon, like a 70s tracking station.</summary>
+	private static Node3D Uplink()
+	{
+		var root = new Node3D();
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.08f, BottomRadius = 0.12f, Height = 1.2f, Material = Chrome() }, new Vector3(0, H + 0.6f, 0)));
+		// Dish: a wide, shallow cone tipped back towards the sky.
+		var tilt = new Basis(Vector3.Right, 0.6f);
+		root.AddChild(Part(new CylinderMesh { TopRadius = 1.05f, BottomRadius = 0.25f, Height = 0.35f, Material = Plastic(Palette.Cream) }, new Vector3(0, H + 1.35f, 0), tilt));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.95f, OuterRadius = 1.08f, Material = Plastic(Palette.Orange) }, new Vector3(0, H + 1.52f, 0) + tilt * new Vector3(0, 0.02f, 0), tilt));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.02f, BottomRadius = 0.04f, Height = 0.7f, Material = Chrome() }, new Vector3(0, H + 1.6f, 0) + tilt * new Vector3(0, 0.3f, 0), tilt));
+		root.AddChild(Part(new SphereMesh { Radius = 0.12f, Height = 0.24f, Material = Lamp(new Color(1f, 0.55f, 0.3f), 2f) }, new Vector3(0, H + 1.6f, 0) + tilt * new Vector3(0, 0.68f, 0)));
 		return root;
 	}
 }

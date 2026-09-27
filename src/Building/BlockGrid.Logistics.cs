@@ -58,6 +58,11 @@ public partial class BlockGrid
 
 	public int ParcelCount => _parcels.Count;
 
+	/// <summary>Kilograms made here since the world loaded (refinery output), for the Nexus's rates.</summary>
+	public Dictionary<string, float> Produced { get; } = new();
+	/// <summary>Kilograms bots have delivered into this grid's storage since the world loaded.</summary>
+	public Dictionary<string, float> Received { get; } = new();
+
 	/// <summary>True while at least one refinery is processing ore.</summary>
 	public bool Refining => _activeRefineryDraw > 0f;
 
@@ -327,7 +332,10 @@ public partial class BlockGrid
 			}
 			state.Input.TryRemove(ore, amount);
 			foreach (var (product, ratio) in ItemCatalog.Refining[ore])
+			{
 				state.Output.Add(product, amount * ratio);
+				Produced[product] = Produced.GetValueOrDefault(product) + amount * ratio;
+			}
 			draw += block.Definition.PowerDraw;
 			_machineStatus[cell] = $"Refining {ItemCatalog.DisplayName(ore)}";
 		}

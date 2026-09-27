@@ -40,6 +40,10 @@ public partial class NexusScreen : CanvasLayer
 	private Node3D? _preview;
 
 	private readonly List<(Node3D Target, Label3D Label, Func<string> Text)> _labels = new();
+	/// <summary>Things drawn only while the Nexus is open: dark veils over unlinked bodies, flow lines.</summary>
+	private readonly List<Node3D> _overlays = new();
+	private readonly List<(HaulRoute Route, MeshInstance3D Line, ShaderMaterial Material)> _flows = new();
+	private string _survey = "";
 	private List<Blueprint> _stationDesigns = new();
 	private List<Blueprint> _botDesigns = new();
 
@@ -54,7 +58,13 @@ public partial class NexusScreen : CanvasLayer
 	private VBoxContainer _botBox = null!;
 	private OptionButton _botPicker = null!;
 	private Label _botCost = null!;
-	private CheckButton _routeToggle = null!;
+	private VBoxContainer _routeBox = null!;
+	private VBoxContainer _routeRows = null!;
+	private OptionButton _routeTarget = null!;
+	private OptionButton _routeCargo = null!;
+	private List<string> _routeTargets = new();
+	private string _routesShownFor = "";
+	private Label _news = null!;
 	private Label _bots = null!;
 	private VBoxContainer _jobs = null!;
 	private Label _top = null!;
@@ -102,11 +112,16 @@ public partial class NexusScreen : CanvasLayer
 		_bots = new Label { CustomMinimumSize = new Vector2(0, 150), AutowrapMode = TextServer.AutowrapMode.WordSmart };
 		_bots.AddThemeFontSizeOverride("font_size", 13);
 		leftBox.AddChild(_bots);
+		leftBox.AddChild(UiTheme.Heading("NEWS"));
+		_news = new Label { CustomMinimumSize = new Vector2(0, 110), AutowrapMode = TextServer.AutowrapMode.WordSmart };
+		_news.AddThemeFontSizeOverride("font_size", 13);
+		_news.AddThemeColorOverride("font_color", UiTheme.Dim);
+		leftBox.AddChild(_news);
 
 		// Right: details and actions for the selection.
-		var right = new PanelContainer { CustomMinimumSize = new Vector2(400, 0) };
+		var right = new PanelContainer { CustomMinimumSize = new Vector2(450, 0) };
 		right.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.RightWide);
-		right.OffsetRight = -16; right.OffsetTop = 80; right.OffsetBottom = -16; right.OffsetLeft = -416;
+		right.OffsetRight = -16; right.OffsetTop = 80; right.OffsetBottom = -16; right.OffsetLeft = -466;
 		root.AddChild(right);
 		var rightBox = new VBoxContainer();
 		rightBox.AddThemeConstantOverride("separation", 8);
@@ -119,9 +134,22 @@ public partial class NexusScreen : CanvasLayer
 		_details.AddThemeFontSizeOverride("font_size", 14);
 		rightBox.AddChild(_details);
 
-		_routeToggle = new CheckButton { Text = "Bots haul this site's ingots home" };
-		_routeToggle.Toggled += OnRouteToggled;
-		rightBox.AddChild(_routeToggle);
+		_routeBox = new VBoxContainer();
+		_routeBox.AddChild(UiTheme.Heading("ROUTES FROM HERE  (bots haul on their own)"));
+		_routeRows = new VBoxContainer();
+		_routeBox.AddChild(_routeRows);
+		var addRow = new HBoxContainer();
+		addRow.AddThemeConstantOverride("separation", 6);
+		addRow.AddChild(new Label { Text = "to" });
+		_routeTarget = new OptionButton { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+		addRow.AddChild(_routeTarget);
+		_routeCargo = new OptionButton();
+		foreach (var cargo in Enum.GetValues<HaulCargo>())
+			_routeCargo.AddItem(cargo.ToString(), (int)cargo);
+		addRow.AddChild(_routeCargo);
+		AddButton(addRow, "Add", AddRoute);
+		_routeBox.AddChild(addRow);
+		rightBox.AddChild(_routeBox);
 
 		_buildBox = new VBoxContainer();
 		_buildBox.AddChild(UiTheme.Heading($"BUILD HERE WITH BOTS  (costs {Colony.AutoBuildCostFactor}× hand-built)"));
@@ -223,6 +251,7 @@ public partial class NexusScreen : CanvasLayer
 		foreach (var (_, label, _) in _labels)
 			label.QueueFree();
 		_labels.Clear();
+		ClearOverlays();
 		_camera.Current = false;
 		_camera.GetParent()?.RemoveChild(_camera);
 		if (_previousCamera is not null && IsInstanceValid(_previousCamera))
@@ -248,13 +277,17 @@ public partial class NexusScreen : CanvasLayer
 		foreach (var body in Colony.Bodies.OrderBy(b => b.GlobalPosition.DistanceTo(from)))
 		{
 			string kind = body is MiniPlanet ? "planet" : "asteroid";
+			bool linked = Colony.IsLinked(body);
 			int sites = Colony.Sites.Count(s => NearBody(s) == body);
-			_places.AddItem($"{(body is MiniPlanet ? "◉" : "•")}  {body.Name}   {kind}, {body.GlobalPosition.DistanceTo(from):0} m{(sites > 0 ? $", {sites} site{(sites > 1 ? "s" : "")}" : "")}");
+			string symbol = !linked ? "◌" : body is MiniPlanet ? "◉" : "•";
+			int index = _places.AddItem($"{symbol}  {body.Name}   {(linked ? kind : "dark")}, {body.GlobalPosition.DistanceTo(from):0} m{(sites > 0 ? $", {sites} site{(sites > 1 ? "s" : "")}" : "")}");
+			if (!linked)
+				_places.SetItemCustomFgColor(index, UiTheme.Dim);
 			_placeTargets.Add(body);
 		}
 		foreach (var site in Colony.Sites)
 		{
-			_places.AddItem($"▣  {site.Label}");
+			int index = _places.AddItem($"▣  {site.Label}{(Colony.Problems(site).Count > 0 ? "  ⚠" : "")}");
 			_placeTargets.Add(site);
 		}
 	}
@@ -293,14 +326,21 @@ public partial class NexusScreen : CanvasLayer
 		else if (grid is not null)
 		{
 			_focusTarget = grid.GlobalPosition;
-			_frameTarget = grid.GlobalBasis.GetRotationQuaternion();
+			_frameTarget = grid.GlobalBasis.Orthonormalized().GetRotationQuaternion().Normalized();
 			_distanceTarget = 45f;
 		}
-		_buildBox.Visible = body is not null;
+		_buildBox.Visible = body is not null && Colony.IsLinked(body);
 		_botBox.Visible = grid is not null && grid.Label == Colony.HomeLabel;
-		_routeToggle.Visible = grid is not null && grid.Label != Colony.HomeLabel && grid.Inventory.Capacity > 0f;
-		if (_routeToggle.Visible)
-			_routeToggle.SetPressedNoSignal(Colony.Routes.Any(r => r.From == grid!.Label && r.Enabled));
+		_routeBox.Visible = grid is not null && grid.Inventory.Capacity > 0f;
+		_routesShownFor = "";
+		if (_routeBox.Visible)
+		{
+			_routeTargets = Colony.Grids.Where(g => g != grid && g.IsStatic && !g.IsBot && g.Label is not null && g.Inventory.Capacity > 0f)
+				.Select(g => g.Label!).OrderBy(l => l == Colony.HomeLabel ? "" : l).ToList();
+			_routeTarget.Clear();
+			foreach (var target in _routeTargets)
+				_routeTarget.AddItem(target);
+		}
 		RefreshSpot();
 		UpdateBotCost();
 	}
@@ -313,9 +353,11 @@ public partial class NexusScreen : CanvasLayer
 	{
 		ClearPreview();
 		_spot = null;
-		if (_body is null || SelectedDesign is not { } design)
+		_survey = "";
+		if (_body is null || SelectedDesign is not { } design || !Colony.IsLinked(_body))
 			return;
 		_spot = Colony.SuggestSite(_body, design, _spotNear);
+		_survey = SurveyText(_body, _spot.Value);
 		var material = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/hologram.gdshader") };
 		material.SetShaderParameter("tint", Palette.Mint);
 		material.SetShaderParameter("progress", 2f);   // fully "printed": a solid-looking preview
@@ -328,6 +370,18 @@ public partial class NexusScreen : CanvasLayer
 		material.SetShaderParameter("base_point", site * new Vector3(0, bounds.Position.Y, 0));
 		material.SetShaderParameter("up_dir", site.Basis.Y);
 		material.SetShaderParameter("height", bounds.Size.Y);
+	}
+
+	/// <summary>What a drill under this spot would bring up: the ground in a ball below the site.</summary>
+	private static string SurveyText(VoxelBody body, Transform3D site)
+	{
+		var found = body.Survey(site.Origin - site.Basis.Y * 7f, 6f);
+		float total = found.Values.Sum();
+		if (total < 1f)
+			return "Ground under this spot: nothing solid within drill reach.";
+		return "Ground under this spot: " + string.Join(", ", found.OrderByDescending(kv => kv.Value)
+			.Where(kv => kv.Value / total >= 0.01f)
+			.Select(kv => $"{ItemCatalog.DisplayName(kv.Key)} {kv.Value / total:P0}"));
 	}
 
 	private void ClearPreview()
@@ -369,15 +423,45 @@ public partial class NexusScreen : CanvasLayer
 		Say($"Queued {_botDesigns[_botPicker.Selected].Name} at the home fabricator ({home.FabricatorQueue(cell).Count} in queue).");
 	}
 
-	private void OnRouteToggled(bool on)
+	private void AddRoute()
 	{
-		if (_grid?.Label is not { } label)
+		if (_grid?.Label is not { } from || _routeTarget.Selected < 0 || _routeTarget.Selected >= _routeTargets.Count)
 			return;
-		var route = Colony.Routes.FirstOrDefault(r => r.From == label);
-		if (route is null && on)
-			Colony.Routes.Add(new HaulRoute { From = label, To = Colony.HomeLabel });
-		else if (route is not null)
-			route.Enabled = on;
+		var cargo = (HaulCargo)_routeCargo.GetSelectedId();
+		string to = _routeTargets[_routeTarget.Selected];
+		Say(Colony.AddRoute(from, to, cargo) ? $"Bots will haul {cargo.ToString().ToLowerInvariant()} from {from} to {to}." : "That route already runs.");
+		_routesShownFor = "";
+	}
+
+	/// <summary>One row per route leaving the selected station, with on/off and remove.</summary>
+	private void UpdateRoutes()
+	{
+		if (!_routeBox.Visible || _grid?.Label is not { } label)
+			return;
+		var routes = Colony.Routes.Where(r => r.From == label).ToList();
+		string key = label + ":" + string.Join(";", routes.Select(r => $"{r.To}/{r.Cargo}/{r.Enabled}"));
+		if (key == _routesShownFor)
+			return;
+		_routesShownFor = key;
+		foreach (var child in _routeRows.GetChildren())
+			child.QueueFree();
+		if (routes.Count == 0)
+			_routeRows.AddChild(new Label { Text = "None yet." });
+		foreach (var route in routes)
+		{
+			var row = new HBoxContainer();
+			var toggle = new CheckButton { Text = $"→ {route.To}  ({route.Cargo.ToString().ToLowerInvariant()})", ButtonPressed = route.Enabled, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+			toggle.Toggled += on => route.Enabled = on;
+			row.AddChild(toggle);
+			var remove = new Button { Text = "✕", TooltipText = "Remove this route" };
+			remove.Pressed += () =>
+			{
+				Colony.Routes.Remove(route);
+				_routesShownFor = "";
+			};
+			row.AddChild(remove);
+			_routeRows.AddChild(row);
+		}
 	}
 
 	private void Say(string text) => _message.Text = text;
@@ -391,7 +475,7 @@ public partial class NexusScreen : CanvasLayer
 		float dt = (float)delta;
 		_focus = _focus.Lerp(_focusTarget, Mathf.Min(1f, dt * 4f));
 		_distance = Mathf.Lerp(_distance, _distanceTarget, Mathf.Min(1f, dt * 4f));
-		_frame = _frame.Slerp(_frameTarget, Mathf.Min(1f, dt * 4f));
+		_frame = _frame.Normalized().Slerp(_frameTarget.Normalized(), Mathf.Min(1f, dt * 4f)).Normalized();
 		var orbit = new Basis(_frame) * Basis.FromEuler(new Vector3(_pitch, _yaw, 0f));
 		_camera.GlobalTransform = new Transform3D(orbit, _focus + orbit * new Vector3(0, 0, _distance));
 
@@ -404,6 +488,9 @@ public partial class NexusScreen : CanvasLayer
 			}
 			label.GlobalPosition = target.GlobalPosition + LabelLift(target);
 			label.Text = text();
+			// Zoomed far out, only planets and Home keep their names; the rest would pile up.
+			float seen = _camera.GlobalPosition.DistanceTo(label.GlobalPosition);
+			label.Visible = target is VoxelBody || target == Colony.Home || seen < (target is BlockGrid { IsBot: true } ? 160f : 320f);
 		}
 		// Bots and sites come and go while the screen is open.
 		if (Colony.Bots.Any(b => _labels.All(l => l.Target != b.Grid)) || Colony.Jobs.Any(j => j.Hologram is not null && _labels.All(l => l.Target != j.Hologram)))
@@ -414,7 +501,10 @@ public partial class NexusScreen : CanvasLayer
 			? "No bots yet. Select Home to print one."
 			: string.Join("\n", Colony.Bots.Select(b => $"{b.Grid.Label}: {b.Status}"));
 		UpdateDetails();
+		UpdateRoutes();
 		UpdateJobs();
+		UpdateFlows();
+		_news.Text = string.Join("\n", Colony.RecentNews.Take(5).Select(n => $"· {n.Text}"));
 		if (_buildBox.Visible)
 			UpdateCost();
 	}
@@ -434,7 +524,9 @@ public partial class NexusScreen : CanvasLayer
 		string stock = string.Join("   ", home.Inventory.Items.Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot && kv.Value >= 1f)
 			.OrderBy(kv => kv.Key).Select(kv => $"{ItemCatalog.DisplayName(kv.Key)} {kv.Value:0}"));
 		int idle = Colony.Bots.Count(b => b.Status is "Idle");
-		return $"Home: {(stock.Length > 0 ? stock : "no ingots")}      Bots: {Colony.Bots.Count} ({idle} idle)      Sites: {Colony.Sites.Count()}";
+		var (made, received) = Colony.RatesPerMinute(home);
+		float income = made.Concat(received).Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot).Sum(kv => kv.Value);
+		return $"Home: {(stock.Length > 0 ? stock : "no ingots")}      Income: +{income:0} kg/min      Bots: {Colony.Bots.Count} ({idle} idle)      Sites: {Colony.Sites.Count()}";
 	}
 
 	private void UpdateDetails()
@@ -446,13 +538,28 @@ public partial class NexusScreen : CanvasLayer
 			sb.Append(_body is MiniPlanet planet ? $"Small planet, {planet.Radius:0} m across the middle, own gravity.\n" : $"Asteroid, about {_body.Radius:0} m.\n");
 			if (Colony.Home is { } home)
 				sb.Append($"{_body.GlobalPosition.DistanceTo(home.GlobalPosition):0} m from home.\n");
+			if (!Colony.IsLinked(_body))
+			{
+				sb.Append($"\nDark: out of the Nexus's reach, so bots can't build here.\nFly there yourself and place an Uplink (toolbar page 2). An uplink reaches {Colony.UplinkRange:0} m.\n");
+				_details.Text = sb.ToString();
+				return;
+			}
 			var sites = Colony.Sites.Where(s => NearBody(s) == _body).ToList();
 			sb.Append(sites.Count == 0 ? "No sites yet.\n" : $"Sites: {string.Join(", ", sites.Select(s => s.Label))}\n");
 			sb.Append(_spotNear is null ? "Spot: sunny side, facing home. Click the surface to choose another.\n" : "Spot: where you clicked.\n");
+			if (_survey.Length > 0)
+				sb.Append(_survey + "\n");
 		}
 		else if (_grid is not null && IsInstanceValid(_grid) && !_grid.IsQueuedForDeletion())
 		{
 			_title.Text = _grid.Label ?? "Station";
+			foreach (var problem in Colony.Problems(_grid))
+				sb.Append($"⚠ {problem}\n");
+			var (made, received) = Colony.RatesPerMinute(_grid);
+			if (made.Count > 0)
+				sb.Append("Makes: " + string.Join(", ", made.OrderBy(kv => kv.Key).Select(kv => $"{ItemCatalog.DisplayName(kv.Key)} {kv.Value:0}/min")) + "\n");
+			if (received.Count > 0)
+				sb.Append("Bots bring: " + string.Join(", ", received.OrderBy(kv => kv.Key).Select(kv => $"{ItemCatalog.DisplayName(kv.Key)} {kv.Value:0}/min")) + "\n");
 			sb.Append($"Power: {_grid.PowerDelivered:0.00} / {_grid.PowerDemand:0.00} MW  (solar {_grid.SolarProduction:0.00})\n");
 			foreach (var (cell, block) in _grid.Blocks.Where(b => b.Value.Definition.Kind is BlockKind.AutoDrill or BlockKind.Refinery))
 				sb.Append($"{block.Definition.DisplayName}: {_grid.MachineStatus(cell)}\n");
@@ -547,16 +654,99 @@ public partial class NexusScreen : CanvasLayer
 		foreach (var (_, label, _) in _labels)
 			label.QueueFree();
 		_labels.Clear();
+		ClearOverlays();
 		foreach (var body in Colony.Bodies)
-			AddLabel(body, 48, () => body.Name, UiTheme.HudText);
+		{
+			bool linked = Colony.IsLinked(body);
+			AddLabel(body, linked ? 48 : 38, () => Colony.IsLinked(body) ? body.Name : $"◌ {body.Name} (dark)", linked ? UiTheme.HudText : new Color(0.7f, 0.68f, 0.78f));
+			if (!linked)
+				AddVeil(body);
+		}
 		if (Colony.Home is { } home)
-			AddLabel(home, 40, () => "⌂ Home", new Color(1f, 0.8f, 0.45f));
+			AddLabel(home, 40, () => Colony.Problems(home).Count > 0 ? "⌂ Home ⚠" : "⌂ Home", new Color(1f, 0.8f, 0.45f));
 		foreach (var site in Colony.Sites)
-			AddLabel(site, 34, () => $"▣ {site.Label}", new Color(0.7f, 1f, 0.8f));
+			AddLabel(site, 34, () => Colony.Problems(site).Count > 0 ? $"▣ {site.Label} ⚠" : $"▣ {site.Label}", new Color(0.7f, 1f, 0.8f));
 		foreach (var bot in Colony.Bots)
 			AddLabel(bot.Grid, 26, () => $"{bot.Grid.Label}", new Color(1f, 0.75f, 0.6f));
 		foreach (var job in Colony.Jobs.Where(j => j.Hologram is not null))
 			AddLabel(job.Hologram!, 32, () => $"{job.Name}  {job.Progress:P0}", Palette.Lemon);
+	}
+
+	/// <summary>A dusky veil over a body the Nexus can't see into.</summary>
+	private void AddVeil(VoxelBody body)
+	{
+		float r = body.OuterRadius * 1.06f;
+		var veil = new MeshInstance3D
+		{
+			Mesh = new SphereMesh { Radius = r, Height = r * 2f, RadialSegments = 48, Rings = 24 },
+			MaterialOverride = new StandardMaterial3D
+			{
+				AlbedoColor = new Color(0.16f, 0.12f, 0.24f, 0.62f),
+				ShadingMode = BaseMaterial3D.ShadingModeEnum.Unshaded,
+				Transparency = BaseMaterial3D.TransparencyEnum.Alpha,
+			},
+			CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+		};
+		body.AddChild(veil);
+		_overlays.Add(veil);
+	}
+
+	private void ClearOverlays()
+	{
+		foreach (var node in _overlays)
+			node.QueueFree();
+		_overlays.Clear();
+		foreach (var (_, line, _) in _flows)
+			line.QueueFree();
+		_flows.Clear();
+	}
+
+	/// <summary>
+	/// A glowing tube with travelling dashes for every running route, from source to destination, so
+	/// the colony's traffic reads at a glance. Busy routes (a bot on them) pulse brighter.
+	/// </summary>
+	private void UpdateFlows()
+	{
+		var wanted = Colony.Routes.Where(r => r.Enabled && Colony.Find(r.From) is not null && Colony.Find(r.To) is not null).ToList();
+		for (int i = _flows.Count - 1; i >= 0; i--)
+		{
+			if (wanted.Contains(_flows[i].Route))
+				continue;
+			_flows[i].Line.QueueFree();
+			_flows.RemoveAt(i);
+		}
+		foreach (var route in wanted.Where(r => _flows.All(f => f.Route != r)))
+		{
+			var material = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/flow_line.gdshader") };
+			material.SetShaderParameter("tint", route.Cargo switch
+			{
+				HaulCargo.Ore => new Color(0.95f, 0.55f, 0.35f),
+				HaulCargo.Everything => new Color(0.75f, 0.85f, 1f),
+				_ => new Color(1f, 0.85f, 0.45f),
+			});
+			var line = new MeshInstance3D
+			{
+				Mesh = new CylinderMesh { TopRadius = 1f, BottomRadius = 1f, Height = 1f, RadialSegments = 8, Rings = 1 },
+				MaterialOverride = material,
+				CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+			};
+			Colony.World.AddChild(line);
+			_flows.Add((route, line, material));
+		}
+		foreach (var (route, line, material) in _flows)
+		{
+			Vector3 a = Colony.Find(route.From)!.GlobalPosition, b = Colony.Find(route.To)!.GlobalPosition;
+			float length = a.DistanceTo(b);
+			if (length < 0.1f)
+				continue;
+			Vector3 dir = (b - a) / length;
+			// Cylinders run along Y; a thin tube whose width follows the zoom so it stays visible.
+			float width = Mathf.Clamp(_distance * 0.004f, 0.25f, 3f);
+			var basis = Basis.LookingAt(dir, Mathf.Abs(dir.Y) > 0.99f ? Vector3.Forward : Vector3.Up) * new Basis(Vector3.Right, -Mathf.Pi / 2f);
+			line.GlobalTransform = new Transform3D(basis * Basis.FromScale(new Vector3(width, length, width)), (a + b) * 0.5f);
+			material.SetShaderParameter("length", length);
+			material.SetShaderParameter("busy", route.Busy > 0 ? 1f : 0f);
+		}
 	}
 
 	private void AddLabel(Node3D target, int size, Func<string> text, Color color)

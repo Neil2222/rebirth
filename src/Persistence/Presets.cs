@@ -87,6 +87,7 @@ public static class Presets
 		bp.Add(new Vector3I(1, 1, 0), BlockCatalog.CargoContainer, Basis.Identity);
 		// Prints out of its -Z face, away from the rest of the base.
 		bp.Add(new Vector3I(0, 1, -1), BlockCatalog.Fabricator, Basis.Identity);
+		bp.Add(new Vector3I(-1, 1, -1), BlockCatalog.Uplink, Basis.Identity);
 		// Panels collect on their local +Y; turn that towards +X.
 		var sunward = new Basis(Vector3.Back, -Mathf.Pi / 2f);
 		for (int z = -1; z <= 1; z++)

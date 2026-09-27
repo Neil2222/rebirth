@@ -23,6 +23,11 @@ public partial class Colony : Node
 	public const float MaxBotSpeed = 40f;
 	private const float HaulMinimum = 50f;       // kg worth a trip
 	private const float SiteSpacing = 22f;       // m between sites on the same body
+	/// <summary>How far an uplink (or Home) reaches: bodies whose surface is this close are linked.</summary>
+	public const float UplinkRange = 170f;
+	private const float RateWindow = 60f;        // seconds of history behind production rates
+	private const float SampleInterval = 5f;
+	private const int NewsKept = 8;
 
 	/// <summary>World parent of grids and terrain.</summary>
 	public Node3D World { get; set; } = null!;
@@ -37,7 +42,14 @@ public partial class Colony : Node
 	/// <summary>Short news for the HUD ("Drill Site on Dune is running").</summary>
 	public event System.Action<string>? News;
 
+	/// <summary>Latest news, newest first, with the time it happened.</summary>
+	public List<(double Time, string Text)> RecentNews { get; } = new();
+
 	private float _scanTimer;
+	private float _sampleTimer;
+	private double _clock;
+	// Per grid: timestamped copies of its Produced + Received counters, oldest first.
+	private readonly Dictionary<BlockGrid, Queue<(double Time, Dictionary<string, float> Made, Dictionary<string, float> Got)>> _samples = new();
 
 	// ------------------------------------------------------------ queries
 
@@ -63,6 +75,25 @@ public partial class Colony : Node
 
 	public IEnumerable<VoxelBody> Bodies => World.GetChildren().OfType<VoxelBody>();
 
+	/// <summary>Where the Nexus can reach from: Home and every station with an Uplink.</summary>
+	public IEnumerable<BlockGrid> Uplinks => Grids.Where(g => g.IsStatic && !g.IsBot && (g.Label == HomeLabel || g.HasBlock(BlockKind.Uplink)));
+
+	/// <summary>A linked body shows its details in the Nexus and bots may build on it.</summary>
+	public bool IsLinked(VoxelBody body) =>
+		Uplinks.Any(u => u.GlobalPosition.DistanceTo(body.GlobalPosition) - body.OuterRadius <= UplinkRange);
+
+	/// <summary>The body a station stands on (or floats nearest to).</summary>
+	public VoxelBody? BodyOf(Node3D node) =>
+		Bodies.OrderBy(b => b.GlobalPosition.DistanceTo(node.GlobalPosition) - b.OuterRadius).FirstOrDefault();
+
+	private void Announce(string text)
+	{
+		RecentNews.Insert(0, (_clock, text));
+		if (RecentNews.Count > NewsKept)
+			RecentNews.RemoveAt(RecentNews.Count - 1);
+		News?.Invoke(text);
+	}
+
 	public BlockGrid? Find(string label) => Grids.FirstOrDefault(g => g.Label == label);
 
 	/// <summary>Ingots needed to have bots build <paramref name="design"/>.</summary>
@@ -74,6 +105,8 @@ public partial class Colony : Node
 	/// <summary>Queues a build of <paramref name="design"/> on <paramref name="body"/> at <paramref name="site"/>.</summary>
 	public ConstructionJob OrderBuild(Blueprint design, VoxelBody body, Transform3D site)
 	{
+		if (!IsLinked(body))
+			throw new System.InvalidOperationException($"{body.Name} is not linked to the Nexus");
 		int number = 1;
 		string baseName = $"{body.Name} {design.Name}";
 		while (Find($"{baseName} {number}") is not null || Jobs.Any(j => j.Name == $"{baseName} {number}"))
@@ -161,10 +194,18 @@ public partial class Colony : Node
 	{
 		float dt = (float)delta;
 		_scanTimer -= dt;
+		_clock += dt;
 		if (_scanTimer <= 0f)
 		{
 			_scanTimer = 0.5f;
 			AdoptBots();
+			NameUplinks();
+		}
+		_sampleTimer -= dt;
+		if (_sampleTimer <= 0f)
+		{
+			_sampleTimer = SampleInterval;
+			SampleRates();
 		}
 		Bots.RemoveAll(bot =>
 		{
@@ -199,13 +240,84 @@ public partial class Colony : Node
 				while (Grids.Any(g => g.Label == $"Bot {n}"))
 					n++;
 				grid.Label = $"Bot {n}";
-				News?.Invoke($"{grid.Label} reports for work");
+				Announce($"{grid.Label} reports for work");
 			}
 			// Bots fly themselves along planned paths instead of through the physics engine.
 			grid.FreezeMode = RigidBody3D.FreezeModeEnum.Kinematic;
 			grid.Freeze = true;
 			Bots.Add(new Bot(grid));
 		}
+	}
+
+	/// <summary>A station you set an Uplink on becomes a named site; its body lights up in the Nexus.</summary>
+	private void NameUplinks()
+	{
+		_ = Home;   // an older world's unnamed base must become Home, not an uplink site
+		foreach (var grid in Grids.Where(g => g.IsStatic && !g.IsBot && g.Label is null && g.HasBlock(BlockKind.Uplink)).ToList())
+		{
+			var body = BodyOf(grid);
+			bool wasDark = body is not null && !Uplinks.Any(u => u != grid && u.GlobalPosition.DistanceTo(body.GlobalPosition) - body.OuterRadius <= UplinkRange);
+			string name = $"{body?.Name ?? "Deep space"} Uplink";
+			int n = 1;
+			while (Find(n == 1 ? name : $"{name} {n}") is not null)
+				n++;
+			grid.Label = n == 1 ? name : $"{name} {n}";
+			Announce(wasDark ? $"{body!.Name} is linked to the Nexus - bots can build there now" : $"{grid.Label} is online");
+		}
+	}
+
+	private void SampleRates()
+	{
+		foreach (var grid in _samples.Keys.Where(g => !GodotObject.IsInstanceValid(g) || g.IsQueuedForDeletion()).ToList())
+			_samples.Remove(grid);
+		foreach (var grid in Grids.Where(g => g.IsStatic && !g.IsBot))
+		{
+			if (!_samples.TryGetValue(grid, out var queue))
+				_samples[grid] = queue = new();
+			queue.Enqueue((_clock, new Dictionary<string, float>(grid.Produced), new Dictionary<string, float>(grid.Received)));
+			while (queue.Count > 2 && _clock - queue.Peek().Time > RateWindow)
+				queue.Dequeue();
+		}
+	}
+
+	/// <summary>Kilograms per minute a station makes (refining) and receives (bot deliveries), over the last minute.</summary>
+	public (Dictionary<string, float> Made, Dictionary<string, float> Received) RatesPerMinute(BlockGrid grid)
+	{
+		var made = new Dictionary<string, float>();
+		var got = new Dictionary<string, float>();
+		if (!_samples.TryGetValue(grid, out var queue) || queue.Count < 2)
+			return (made, got);
+		var first = queue.Peek();
+		var last = queue.Last();
+		float minutes = (float)(last.Time - first.Time) / 60f;
+		if (minutes <= 0f)
+			return (made, got);
+		foreach (var (item, amount) in last.Made)
+			if (amount - first.Made.GetValueOrDefault(item) > 0.01f)
+				made[item] = (amount - first.Made.GetValueOrDefault(item)) / minutes;
+		foreach (var (item, amount) in last.Got)
+			if (amount - first.Got.GetValueOrDefault(item) > 0.01f)
+				got[item] = (amount - first.Got.GetValueOrDefault(item)) / minutes;
+		return (made, got);
+	}
+
+	/// <summary>What holds a station back, in plain words; empty when all is well.</summary>
+	public List<string> Problems(BlockGrid grid)
+	{
+		var problems = new List<string>();
+		if (grid.PowerDemand > 0.01f && grid.PowerSatisfaction < 0.9f)
+			problems.Add($"Low power ({grid.PowerSatisfaction:P0}): add solar panels or a battery");
+		if (grid.Inventory.Capacity > 0f && grid.Inventory.FreeSpace < grid.Inventory.Capacity * 0.05f)
+			problems.Add("Storage is full");
+		foreach (var (cell, block) in grid.Blocks)
+			if (block.Definition.Kind == BlockKind.AutoDrill && grid.MachineStatus(cell) == "No rock within reach")
+				problems.Add("A drill can't reach rock");
+		float ingots = Haulable(grid.Inventory, HaulCargo.Ingots);
+		if (grid.Label != HomeLabel && ingots > 1000f && !Routes.Any(r => r.Enabled && r.From == grid.Label))
+			problems.Add($"{ingots:0} kg of ingots piling up: no route hauls them");
+		if (grid.Label != HomeLabel && Routes.Any(r => r.Enabled && r.From == grid.Label) && Bots.Count == 0)
+			problems.Add("No bots to run its routes");
+		return problems;
 	}
 
 	private void UpdateJob(ConstructionJob job)
@@ -226,7 +338,7 @@ public partial class Colony : Node
 		if (Home is { } home)
 			foreach (var (item, amount) in job.Stock.Items.ToArray())
 				home.Inventory.Add(item, amount);
-		News?.Invoke($"{job.Name} is built and running");
+		Announce($"{job.Name} is built and running");
 	}
 
 	/// <summary>The next thing an idle bot should do, or null to go and park at home.</summary>
@@ -257,18 +369,46 @@ public partial class Colony : Node
 		// 2. Hauling: the fullest enabled route with enough waiting.
 		var route = Routes
 			.Where(r => r.Enabled && r.Busy == 0)
-			.Select(r => (Route: r, Source: Find(r.From)))
-			.Where(x => x.Source is not null && Haulable(x.Source!.Inventory) >= HaulMinimum)
-			.OrderByDescending(x => Haulable(x.Source!.Inventory))
+			.Select(r => (Route: r, Source: Find(r.From), Target: Find(r.To)))
+			.Where(x => x.Source is not null && x.Target is not null && x.Target.Inventory.FreeSpace >= HaulMinimum
+				&& Haulable(x.Source!.Inventory, x.Route.Cargo) >= HaulMinimum)
+			.OrderByDescending(x => Haulable(x.Source!.Inventory, x.Route.Cargo))
 			.FirstOrDefault();
 		if (route.Source is not null)
 			return new BotOrder.Haul(route.Route, route.Source!);
 		return null;
 	}
 
-	/// <summary>Ingots are always worth fetching; ore only when a site stores lots of it.</summary>
-	internal static float Haulable(Inventory source) =>
-		source.Items.Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot).Sum(kv => kv.Value);
+	/// <summary>Kilograms of <paramref name="cargo"/> a route could pick up from <paramref name="source"/>.</summary>
+	internal static float Haulable(Inventory source, HaulCargo cargo) =>
+		source.Items.Where(kv => Carries(cargo, kv.Key)).Sum(kv => kv.Value);
+
+	internal static bool Carries(HaulCargo cargo, string item) => cargo switch
+	{
+		HaulCargo.Ingots => ItemCatalog.Get(item).Category == ItemCategory.Ingot,
+		HaulCargo.Ore => ItemCatalog.Get(item).Category == ItemCategory.Ore,
+		_ => true,
+	};
+
+	/// <summary>Adds (or re-enables) a route; returns false when it already runs.</summary>
+	public bool AddRoute(string from, string to, HaulCargo cargo)
+	{
+		if (from == to)
+			return false;
+		var existing = Routes.FirstOrDefault(r => r.From == from && r.To == to && r.Cargo == cargo);
+		if (existing is not null)
+		{
+			bool was = existing.Enabled;
+			existing.Enabled = true;
+			return !was;
+		}
+		Routes.Add(new HaulRoute { From = from, To = to, Cargo = cargo });
+		return true;
+	}
+
+	/// <summary>Bots record what they drop off so the Nexus can show flows.</summary>
+	internal static void RecordDelivery(BlockGrid target, string item, float amount) =>
+		target.Received[item] = target.Received.GetValueOrDefault(item) + amount;
 
 	// ------------------------------------------------------------ flight
 
@@ -377,7 +517,7 @@ public partial class Colony : Node
 			Built = j.Built,
 			Stock = j.Stock.Items.ToDictionary(kv => kv.Key, kv => kv.Value),
 		}).ToList(),
-		Routes = Routes.Select(r => new HaulRoute { From = r.From, To = r.To, Enabled = r.Enabled }).ToList(),
+		Routes = Routes.Select(r => new HaulRoute { From = r.From, To = r.To, Cargo = r.Cargo, Enabled = r.Enabled }).ToList(),
 	};
 
 	/// <summary>Restores jobs and routes after the grids are back (partly built sites carry the job's name).</summary>
@@ -400,11 +540,15 @@ public partial class Colony : Node
 	}
 }
 
-/// <summary>A route bots serve on their own: ingots from a site's storage to another's.</summary>
+/// <summary>What a haul route carries.</summary>
+public enum HaulCargo { Ingots, Ore, Everything }
+
+/// <summary>A route bots serve on their own: goods from one station's storage to another's.</summary>
 public sealed class HaulRoute
 {
 	public string From { get; set; } = "";
 	public string To { get; set; } = Colony.HomeLabel;
+	public HaulCargo Cargo { get; set; } = HaulCargo.Ingots;
 	public bool Enabled { get; set; } = true;
 	/// <summary>Bots currently on this route.</summary>
 	[System.Text.Json.Serialization.JsonIgnore]
