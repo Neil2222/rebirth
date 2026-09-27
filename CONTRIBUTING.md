@@ -12,8 +12,9 @@ Thanks for wanting to help! Ideas, bug reports and pull requests are all welcome
 ## Making a change
 
 1. **Fork** the repository and clone your fork.
-2. Install **Godot 4.7 (.NET)** and the **.NET 8 SDK**, open `project.godot`, and press F5 to play.
-3. Create a branch for your change: `git checkout -b my-change`.
+2. Install **Godot 4.7 (.NET)**, the **.NET 8 SDK** and **Git LFS** (run `git lfs install` once), open
+   `project.godot`, and press F5 to play.
+3. Create a branch for your change, named after you and the topic: `git checkout -b yourname/my-change`.
 4. Build and try it:
    - `dotnet build` must pass. The automatic check on your pull request runs the same.
    - Play the part you changed, or drive it with a smoke script (see `AGENTS.md`).
@@ -22,6 +23,12 @@ Thanks for wanting to help! Ideas, bug reports and pull requests are all welcome
    tested it, and a screenshot or short clip for anything visible.
 
 Keep pull requests focused: one feature or fix each is much easier to review than a big mix.
+
+## Assets
+
+Game-ready files (`.glb` models, `.png` textures, `.ogg`/`.wav` sounds, fonts) go into the repo through Git LFS;
+`.gitattributes` handles that automatically. Source files (`.blend`, `.psd`) stay out of git: keep them on the
+team's shared drive.
 
 ## Working with AI assistants
 

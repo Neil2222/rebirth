@@ -7,6 +7,11 @@ obj/
 /android/
 /export/
 build/
+# Source files for assets stay on the shared drive, not in git (export .glb/.png into the repo instead)
+*.blend
+*.blend1
+*.psd
+*.kra
 # Local smoke-test scaffolding (see AGENTS.md)
 /SmokeDriver.cs*
 /smoke_test.*

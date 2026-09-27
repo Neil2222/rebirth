@@ -28,6 +28,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref }}
+          # Without this, assets in Git LFS export as tiny pointer files and the game ships without them.
+          lfs: true
 
       - uses: actions/setup-dotnet@v4
         with:

@@ -229,8 +229,12 @@ te fel en te donker.)
 - Zelf bouwen verbeteren loont pas als er meer onderdelen en vormen zijn; eerst de groei-lus.
 
 ## Samenwerken
-- Publiek op GitHub onder MIT. Bijdragen via fork + pull request; `master` alleen via PR met een groene
-  build-check (de eigenaar mag er direct langs). CODEOWNERS vraagt de eigenaar om review.
+- Publiek op GitHub onder MIT. Neil en Rusta bouwen samen, ieder met een eigen AI-assistent.
+- Werkwijze: issue → branch `naam/onderwerp` → pull request (wat, waarom, hoe getest, wat nog open,
+  screenshot) → groene build → de ander reviewt → mergen → tag `vX.Y.Z` → itch.io. Eén issue = één PR.
+- `master` alleen via PR met een groene build-check, ook voor de eigenaar. CODEOWNERS vraagt de eigenaar om review.
+- Assets: spelklare bestanden (.glb, .png, .ogg) via Git LFS in de repo; bronbestanden (.blend, .psd) op
+  de gedeelde NAS, niet in git.
 - `AGENTS.md` is de handleiding voor AI-assistenten (codekaart, afspraken, testen door het echte spel aan te
   sturen, valkuilen); `CONTRIBUTING.md` voor mensen. Issue-formulieren voor bugs en ideeën, Discussions voor vragen.
 
