@@ -6,3 +6,4 @@ obj/
 *.user
 /android/
 /export/
+build/
