@@ -61,7 +61,7 @@ public partial class BlockGrid
 			solar += block.Definition.SolarOutput * Mathf.Max(0f, up.Dot(Sun.Direction));
 		}
 
-		float demand = _activeRefineryDraw + _fabricatorDraw + _drillDraw;
+		float demand = _activeRefineryDraw + _fabricatorDraw + _drillDraw + _terraformDraw;
 		if (!Freeze)
 		{
 			demand += _gyroDraw;
@@ -106,5 +106,5 @@ public partial class BlockGrid
 		PowerDelivered = delivered;
 	}
 
-	private bool HasConsumers() => _thrusters.Count > 0 || _gyroDraw > 0f || _refineryDraw > 0f || _drillDraw > 0f || _fabricatorQueues.Values.Any(q => q.Count > 0);
+	private bool HasConsumers() => _thrusters.Count > 0 || _gyroDraw > 0f || _refineryDraw > 0f || _drillDraw > 0f || _terraformDraw > 0f || _fabricatorQueues.Values.Any(q => q.Count > 0);
 }

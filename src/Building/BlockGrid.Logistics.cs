@@ -165,6 +165,7 @@ public partial class BlockGrid
 	{
 		UpdateDrills(dt);
 		UpdateRefineries(dt);
+		UpdateTerraformers(dt);
 		MoveParcels(dt);
 
 		_dispatchTimer -= dt;
@@ -260,6 +261,11 @@ public partial class BlockGrid
 				if (room >= 1f)
 					foreach (string ore in RefiningPriority)
 						yield return (ore, room);
+				break;
+			case BlockKind.AirProcessor or BlockKind.Hydrator or BlockKind.SeedGarden:
+				float space = input.FreeSpace - IncomingTotal(cell);
+				if (space >= 1f)
+					yield return (TerraformInput(block.Definition.Kind)!, space);
 				break;
 			case BlockKind.Fabricator:
 				if (FabricatorQueue(cell) is not { Count: > 0 } queue || queue[0].Paid)

@@ -76,6 +76,11 @@ gebouwen, en je eigen robotlichaam.
 - Vloeiende overgang tussen third person en de Nexus.
 
 ### Planeten genezen
+- **Nu (E1):** elke kleine planeet heeft Lucht, Water en Bodem (0–100%). Toolbarpagina "Life":
+  **Air Processor** (stookt steen tot lucht), **Hydrator** (smelt ijs tot zee; ijs komt uit de korst van
+  Frost), **Seed Garden** (maakt bodem, pas vanaf 30% lucht en water). Presets: Air Maker (drill + processor),
+  Water Works (hydrator + opslag, ijs per botroute), Garden. De haze wordt hemelsblauw, zeeën stijgen in de
+  dalen, groen verspreidt zich over vlakke grond. Levende planeten geven **Resonance**.
 - Slapende planeet (stoffig, kaal) → atmosfeerverwerkers, ijsleveringen, bodem en zaad.
 - Het terrein kleurt letterlijk mee naarmate de planeet gezonder wordt.
 - Incubators met menselijk DNA; nederzettingen verschijnen als lichtjes en groeien.
@@ -130,7 +135,8 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | C1 | Logistiek netwerk: buizen, pods, auto-drill, machinebuffers | klaar |
 | C2 | Bots, Nexus-overzicht met menu's, bouwen via bots (2,5× kosten), haulroutes, tutorial, titel- en pauzemenu | klaar |
 | D | Uplink, donkere planeten, bodemscan, stromen en knelpunten in de Nexus, routes tussen sites | klaar |
-| E | Planeten genezen, meekleurend terrein, DNA-incubatie, nederzettingen | |
+| E1 | Planeten genezen: lucht, water, bodem, meekleurend terrein, zeeën, Resonance | klaar |
+| E2 | DNA-incubatie, nederzettingen, verzoeken van mensen | |
 | F | Breach Lance, Box-grens, nieuwe Box genereren | |
 | G | Dreiging en minigames: circuitpuzzel, gesprekken, cadeaus | |
 

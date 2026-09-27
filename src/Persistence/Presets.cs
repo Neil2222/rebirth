@@ -15,7 +15,7 @@ public static class Presets
 	private static readonly Basis PushDown = new(Vector3.Right, -Mathf.Pi / 2f);
 	private static readonly Basis PushUp = new(Vector3.Right, Mathf.Pi / 2f);
 
-	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), WorkerBot()];
+	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), AirMaker(), WaterWorks(), Garden(), WorkerBot()];
 
 	/// <summary>
 	/// Default robot body: legs, torso with a battery heart and gyro shoulders, a visor head,
@@ -136,6 +136,33 @@ public static class Presets
 		var bp = new Blueprint { Name = "Worker Bot", Kind = DesignKind.Bot };
 		bp.Add(new Vector3I(0, 1, 0), BlockCatalog.BotCore, Basis.Identity);
 		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.CargoContainer, Basis.Identity, Palette.Orange);
+		return bp;
+	}
+
+	/// <summary>Drill pointing down feeding an Air Processor on top: stone in, air out. Solar ring around.</summary>
+	public static Blueprint AirMaker() => DrillFed("Air Maker", BlockCatalog.AirProcessor);
+
+	/// <summary>Drill pointing down feeding a Seed Garden: soil for a planet whose air and seas are back.</summary>
+	public static Blueprint Garden() => DrillFed("Garden", BlockCatalog.SeedGarden);
+
+	private static Blueprint DrillFed(string name, BlockDefinition machine)
+	{
+		var bp = new Blueprint { Name = name, Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.AutoDrill, PushDown);
+		bp.Add(new Vector3I(0, 1, 0), machine, Basis.Identity);
+		foreach (var cell in new[] { new Vector3I(1, 1, 0), new Vector3I(-1, 1, 0), new Vector3I(0, 1, 1), new Vector3I(0, 1, -1), new Vector3I(1, 1, 1), new Vector3I(-1, 1, -1) })
+			bp.Add(cell, BlockCatalog.SolarPanel, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>A Hydrator with storage beside it: ice arrives by bot route (from Frost) and melts into the seas.</summary>
+	public static Blueprint WaterWorks()
+	{
+		var bp = new Blueprint { Name = "Water Works", Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.Hydrator, Basis.Identity);
+		bp.Add(new Vector3I(1, 0, 0), BlockCatalog.CargoContainer, Basis.Identity);
+		foreach (var cell in new[] { new Vector3I(-1, 0, 0), new Vector3I(0, 0, 1), new Vector3I(0, 0, -1), new Vector3I(1, 0, 1), new Vector3I(1, 0, -1), new Vector3I(2, 0, 0) })
+			bp.Add(cell, BlockCatalog.SolarPanel, Basis.Identity);
 		return bp;
 	}
 }

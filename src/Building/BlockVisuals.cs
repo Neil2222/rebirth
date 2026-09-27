@@ -27,6 +27,9 @@ public static class BlockVisuals
 		BlockKind.AutoDrill => AutoDrill(),
 		BlockKind.BotCore => BotCore(),
 		BlockKind.Uplink => Uplink(),
+		BlockKind.AirProcessor => AirProcessor(),
+		BlockKind.Hydrator => Hydrator(),
+		BlockKind.SeedGarden => SeedGarden(),
 		_ => null,
 	};
 
@@ -315,6 +318,45 @@ public static class BlockVisuals
 		root.AddChild(Part(new TorusMesh { InnerRadius = 0.95f, OuterRadius = 1.08f, Material = Plastic(Palette.Orange) }, new Vector3(0, H + 1.52f, 0) + tilt * new Vector3(0, 0.02f, 0), tilt));
 		root.AddChild(Part(new CylinderMesh { TopRadius = 0.02f, BottomRadius = 0.04f, Height = 0.7f, Material = Chrome() }, new Vector3(0, H + 1.6f, 0) + tilt * new Vector3(0, 0.3f, 0), tilt));
 		root.AddChild(Part(new SphereMesh { Radius = 0.12f, Height = 0.24f, Material = Lamp(new Color(1f, 0.55f, 0.3f), 2f) }, new Vector3(0, H + 1.6f, 0) + tilt * new Vector3(0, 0.68f, 0)));
+		return root;
+	}
+
+	/// <summary>Two striped chimneys on top: the planet's lungs.</summary>
+	private static Node3D AirProcessor()
+	{
+		var root = new Node3D();
+		foreach (float x in new[] { -0.45f, 0.5f })
+		{
+			float h = x < 0f ? 1.3f : 0.95f;
+			root.AddChild(Part(new CylinderMesh { TopRadius = 0.28f, BottomRadius = 0.34f, Height = h, Material = Plastic(Palette.Cream) }, new Vector3(x, H + h * 0.5f, 0.2f)));
+			root.AddChild(Part(new CylinderMesh { TopRadius = 0.3f, BottomRadius = 0.3f, Height = 0.14f, Material = Plastic(Palette.Coral) }, new Vector3(x, H + h * 0.72f, 0.2f)));
+			root.AddChild(Part(new TorusMesh { InnerRadius = 0.2f, OuterRadius = 0.32f, Material = Chrome() }, new Vector3(x, H + h, 0.2f)));
+		}
+		root.AddChild(Part(new SphereMesh { Radius = 0.1f, Height = 0.2f, Material = Lamp(new Color(0.6f, 0.9f, 1f)) }, new Vector3(0.9f, 0.6f, -H - 0.03f)));
+		return root;
+	}
+
+	/// <summary>A glass tank of sea-blue water on top.</summary>
+	private static Node3D Hydrator()
+	{
+		var root = new Node3D();
+		var glass = new StandardMaterial3D { AlbedoColor = new Color(0.85f, 0.95f, 1f, 0.25f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.05f };
+		var water = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.65f, 0.95f, 0.85f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.1f };
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.85f, BottomRadius = 0.85f, Height = 1.1f, Material = glass }, new Vector3(0, H + 0.55f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.78f, BottomRadius = 0.78f, Height = 0.75f, Material = water }, new Vector3(0, H + 0.4f, 0)));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.8f, OuterRadius = 0.95f, Material = Chrome() }, new Vector3(0, H + 1.1f, 0)));
+		return root;
+	}
+
+	/// <summary>A bubble greenhouse with little round shrubs inside.</summary>
+	private static Node3D SeedGarden()
+	{
+		var root = new Node3D();
+		var glass = new StandardMaterial3D { AlbedoColor = new Color(0.9f, 1f, 0.92f, 0.22f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.05f };
+		root.AddChild(Part(new SphereMesh { Radius = 1.1f, Height = 1.1f, IsHemisphere = true, Material = glass }, new Vector3(0, H, 0)));
+		var leaf = Plastic(new Color(0.42f, 0.72f, 0.36f));
+		foreach (var (x, z, r) in new[] { (-0.4f, -0.2f, 0.32f), (0.35f, 0.25f, 0.26f), (0.1f, -0.45f, 0.22f), (-0.2f, 0.4f, 0.2f) })
+			root.AddChild(Part(new SphereMesh { Radius = r, Height = r * 2f, Material = leaf }, new Vector3(x, H + r * 0.8f, z)));
 		return root;
 	}
 }

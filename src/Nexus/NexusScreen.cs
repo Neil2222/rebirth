@@ -372,6 +372,23 @@ public partial class NexusScreen : CanvasLayer
 		material.SetShaderParameter("height", bounds.Size.Y);
 	}
 
+	private static string Bar(float fraction) =>
+		new string('█', Mathf.RoundToInt(fraction * 12f)) + new string('░', 12 - Mathf.RoundToInt(fraction * 12f));
+
+	/// <summary>How alive a planet is, and what to do about it.</summary>
+	private static string VitalsText(MiniPlanet planet)
+	{
+		var sb = new StringBuilder($"\nAir    {Bar(planet.Air)}  {planet.Air:P0}\nWater  {Bar(planet.Water)}  {planet.Water:P0}\nSoil   {Bar(planet.Soil)}  {planet.Soil:P0}\n");
+		if (planet.ResonancePerMinute > 0.01f)
+			sb.Append($"Gives off {planet.ResonancePerMinute:0.0} Resonance/min\n");
+		sb.Append(planet.Soil >= 0.999f ? "Fully alive.\n"
+			: planet.Air < Colony.GardenThreshold || planet.Water < Colony.GardenThreshold
+				? $"Heal it: Air Makers turn stone into air, Water Works melt ice (drill it on Frost) into seas. Gardens take at {Colony.GardenThreshold:P0} air and water.\n"
+				: "Air and seas are back: Gardens can grow soil now.\n");
+		sb.Append($"Each vital takes {planet.KilogramsForFullVital / 1000f:0} t of stone or ice.\n");
+		return sb.ToString();
+	}
+
 	/// <summary>What a drill under this spot would bring up: the ground in a ball below the site.</summary>
 	private static string SurveyText(VoxelBody body, Transform3D site)
 	{
@@ -526,7 +543,8 @@ public partial class NexusScreen : CanvasLayer
 		int idle = Colony.Bots.Count(b => b.Status is "Idle");
 		var (made, received) = Colony.RatesPerMinute(home);
 		float income = made.Concat(received).Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot).Sum(kv => kv.Value);
-		return $"Home: {(stock.Length > 0 ? stock : "no ingots")}      Income: +{income:0} kg/min      Bots: {Colony.Bots.Count} ({idle} idle)      Sites: {Colony.Sites.Count()}";
+		return $"Home: {(stock.Length > 0 ? stock : "no ingots")}      Income: +{income:0} kg/min      Bots: {Colony.Bots.Count} ({idle} idle)      Sites: {Colony.Sites.Count()}" +
+			$"      Resonance: {Colony.Resonance:0}{(Colony.ResonancePerMinute > 0.01f ? $" (+{Colony.ResonancePerMinute:0.0}/min)" : "")}";
 	}
 
 	private void UpdateDetails()
@@ -546,6 +564,8 @@ public partial class NexusScreen : CanvasLayer
 			}
 			var sites = Colony.Sites.Where(s => NearBody(s) == _body).ToList();
 			sb.Append(sites.Count == 0 ? "No sites yet.\n" : $"Sites: {string.Join(", ", sites.Select(s => s.Label))}\n");
+			if (_body is MiniPlanet living)
+				sb.Append(VitalsText(living));
 			sb.Append(_spotNear is null ? "Spot: sunny side, facing home. Click the surface to choose another.\n" : "Spot: where you clicked.\n");
 			if (_survey.Length > 0)
 				sb.Append(_survey + "\n");
@@ -658,7 +678,9 @@ public partial class NexusScreen : CanvasLayer
 		foreach (var body in Colony.Bodies)
 		{
 			bool linked = Colony.IsLinked(body);
-			AddLabel(body, linked ? 48 : 38, () => Colony.IsLinked(body) ? body.Name : $"◌ {body.Name} (dark)", linked ? UiTheme.HudText : new Color(0.7f, 0.68f, 0.78f));
+			AddLabel(body, linked ? 48 : 38, () => !Colony.IsLinked(body) ? $"◌ {body.Name} (dark)"
+				: body is MiniPlanet { Vitality: > 0.005f } p ? $"{body.Name}  ♥ {p.Vitality:P0}" : body.Name,
+				linked ? UiTheme.HudText : new Color(0.7f, 0.68f, 0.78f));
 			if (!linked)
 				AddVeil(body);
 		}
@@ -721,6 +743,7 @@ public partial class NexusScreen : CanvasLayer
 			material.SetShaderParameter("tint", route.Cargo switch
 			{
 				HaulCargo.Ore => new Color(0.95f, 0.55f, 0.35f),
+				HaulCargo.Ice => new Color(0.6f, 0.85f, 1f),
 				HaulCargo.Everything => new Color(0.75f, 0.85f, 1f),
 				_ => new Color(1f, 0.85f, 0.45f),
 			});

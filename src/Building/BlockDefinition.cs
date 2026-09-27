@@ -5,7 +5,7 @@ using Rebirth.Items;
 
 namespace Rebirth.Building;
 
-public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink }
+public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink, AirProcessor, Hydrator, SeedGarden }
 
 /// <param name="Paint">Default paint colour; each block type has its own so they are easy to tell apart.</param>
 /// <param name="MaxIntegrity">Damage the block absorbs before it is destroyed.</param>
@@ -31,7 +31,11 @@ public sealed record BlockDefinition(string Id, string DisplayName, BlockKind Ki
 	public float OutputCapacity { get; init; }
 
 	/// <summary>Carries parcels: part of a grid's logistics network when touching other such blocks.</summary>
-	public bool Logistics => Kind is BlockKind.Tube or BlockKind.CargoContainer or BlockKind.Refinery or BlockKind.Fabricator or BlockKind.AutoDrill;
+	public bool Logistics => Kind is BlockKind.Tube or BlockKind.CargoContainer or BlockKind.Refinery or BlockKind.Fabricator or BlockKind.AutoDrill
+		or BlockKind.AirProcessor or BlockKind.Hydrator or BlockKind.SeedGarden;
+
+	/// <summary>Heals the planet it stands on (air, water, soil) from what the network brings it.</summary>
+	public bool Terraformer => Kind is BlockKind.AirProcessor or BlockKind.Hydrator or BlockKind.SeedGarden;
 
 	/// <summary>Drawn as a solid cube in the grid mesh; tubes are see-through pipes instead.</summary>
 	public bool FullCube => Kind != BlockKind.Tube;
@@ -164,8 +168,33 @@ public static class BlockCatalog
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 200f, ["nickel_ingot"] = 30f, ["silicon_wafer"] = 80f },
 	};
 
+	/// <summary>Bakes stone into breathable air for the planet it stands on.</summary>
+	public static readonly BlockDefinition AirProcessor = new("air_processor", "Air Processor", BlockKind.AirProcessor, Palette.Sky, 2200f, 120f)
+	{
+		PowerDraw = 0.8f,
+		InputCapacity = 400f,
+		Cost = new Dictionary<string, float> { ["iron_ingot"] = 300f, ["nickel_ingot"] = 40f, ["silicon_wafer"] = 60f },
+	};
+
+	/// <summary>Melts ice into the planet's seas.</summary>
+	public static readonly BlockDefinition Hydrator = new("hydrator", "Hydrator", BlockKind.Hydrator, Palette.Teal, 2000f, 120f)
+	{
+		PowerDraw = 0.6f,
+		InputCapacity = 400f,
+		Cost = new Dictionary<string, float> { ["iron_ingot"] = 250f, ["nickel_ingot"] = 60f, ["silicon_wafer"] = 40f },
+	};
+
+	/// <summary>Grinds stone into soil and sows it; only takes once the air and seas are coming back.</summary>
+	public static readonly BlockDefinition SeedGarden = new("seed_garden", "Seed Garden", BlockKind.SeedGarden, Palette.Mint, 1500f, 100f)
+	{
+		PowerDraw = 0.4f,
+		InputCapacity = 200f,
+		Cost = new Dictionary<string, float> { ["iron_ingot"] = 150f, ["silicon_wafer"] = 80f },
+	};
+
 	public static readonly IReadOnlyList<BlockDefinition> All =
-		[LightArmor, HeavyArmor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink];
+		[LightArmor, HeavyArmor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink,
+		AirProcessor, Hydrator, SeedGarden];
 
 	private static readonly Dictionary<string, BlockDefinition> ById = All.ToDictionary(b => b.Id);
 

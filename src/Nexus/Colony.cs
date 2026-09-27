@@ -42,6 +42,16 @@ public partial class Colony : Node
 	/// <summary>Short news for the HUD ("Drill Site on Dune is running").</summary>
 	public event System.Action<string>? News;
 
+	/// <summary>
+	/// Resonance gathered from living planets: what will one day charge the Breach Lance.
+	/// </summary>
+	public float Resonance { get; private set; }
+
+	public float ResonancePerMinute => Bodies.OfType<MiniPlanet>().Sum(p => p.ResonancePerMinute);
+
+	/// <summary>Seeds take once a planet's air and seas are this far back.</summary>
+	public const float GardenThreshold = 0.3f;
+
 	/// <summary>Latest news, newest first, with the time it happened.</summary>
 	public List<(double Time, string Text)> RecentNews { get; } = new();
 
@@ -222,6 +232,30 @@ public partial class Colony : Node
 		}
 		foreach (var job in Jobs.ToArray())
 			UpdateJob(job);
+		Heal(dt);
+	}
+
+	/// <summary>Hands what terraformers made to the planet they stand on, and gathers Resonance.</summary>
+	private void Heal(float dt)
+	{
+		foreach (var grid in Grids)
+		{
+			if (!grid.IsStatic || grid.IsBot || !grid.Blocks.Any(b => b.Value.Definition.Terraformer))
+				continue;
+			var planet = BodyOf(grid) is MiniPlanet p && p.GlobalPosition.DistanceTo(grid.GlobalPosition) < p.OuterRadius + 25f ? p : null;
+			grid.OnPlanet = planet is not null;
+			grid.GardensCanGrow = planet is not null && planet.Air >= GardenThreshold && planet.Water >= GardenThreshold;
+			var made = grid.TakeTerraformed();
+			if (planet is null)
+				continue;
+			float before = planet.Vitality;
+			foreach (var (vital, kilograms) in made)
+				planet.Nourish(vital, kilograms);
+			// Milestones every quarter of the way back to life.
+			if (Mathf.FloorToInt(planet.Vitality * 4f) > Mathf.FloorToInt(before * 4f))
+				Announce(planet.Vitality >= 0.999f ? $"{planet.Name} is fully alive!" : $"{planet.Name} is {Mathf.FloorToInt(planet.Vitality * 4f) * 25}% back to life");
+		}
+		Resonance += ResonancePerMinute * dt / 60f;
 	}
 
 	/// <summary>Any free-flying grid with a Bot Core joins the workforce (printed bots, loaded bots).</summary>
@@ -386,7 +420,8 @@ public partial class Colony : Node
 	internal static bool Carries(HaulCargo cargo, string item) => cargo switch
 	{
 		HaulCargo.Ingots => ItemCatalog.Get(item).Category == ItemCategory.Ingot,
-		HaulCargo.Ore => ItemCatalog.Get(item).Category == ItemCategory.Ore,
+		HaulCargo.Ore => ItemCatalog.Get(item).Category == ItemCategory.Ore && item != "ice",
+		HaulCargo.Ice => item == "ice",
 		_ => true,
 	};
 
@@ -507,6 +542,8 @@ public partial class Colony : Node
 
 	public ColonySave ToSave() => new()
 	{
+		Resonance = Resonance,
+		Planets = Bodies.OfType<MiniPlanet>().Select(p => new PlanetSave { Name = p.Name, Air = p.Air, Water = p.Water, Soil = p.Soil }).ToList(),
 		Jobs = Jobs.Select(j => new JobSave
 		{
 			Name = j.Name,
@@ -536,12 +573,21 @@ public partial class Colony : Node
 			ShowHologram(job);
 		}
 		Routes.AddRange(save.Routes);
+		Resonance = save.Resonance;
+		foreach (var saved in save.Planets)
+		{
+			if (Bodies.OfType<MiniPlanet>().FirstOrDefault(p => p.Name == saved.Name) is not { } planet)
+				continue;
+			planet.Air = saved.Air;
+			planet.Water = saved.Water;
+			planet.Soil = saved.Soil;
+		}
 		AdoptBots();
 	}
 }
 
 /// <summary>What a haul route carries.</summary>
-public enum HaulCargo { Ingots, Ore, Everything }
+public enum HaulCargo { Ingots, Ore, Ice, Everything }
 
 /// <summary>A route bots serve on their own: goods from one station's storage to another's.</summary>
 public sealed class HaulRoute
@@ -657,8 +703,18 @@ public sealed class ConstructionJob
 /// <summary>Colony state in a save.</summary>
 public sealed class ColonySave
 {
+	public float Resonance { get; set; }
+	public List<PlanetSave> Planets { get; set; } = new();
 	public List<JobSave> Jobs { get; set; } = new();
 	public List<HaulRoute> Routes { get; set; } = new();
+}
+
+public sealed class PlanetSave
+{
+	public string Name { get; set; } = "";
+	public float Air { get; set; }
+	public float Water { get; set; }
+	public float Soil { get; set; }
 }
 
 public sealed class JobSave

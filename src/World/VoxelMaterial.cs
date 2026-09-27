@@ -29,7 +29,7 @@ public static class VoxelMaterials
 		new("Regolith", new Color(0.80f, 0.69f, 0.62f), "stone", 60f, 0f),
 		// Sleepy planet crusts, each still waiting to come alive.
 		new("Dune", new Color(0.88f, 0.74f, 0.60f), "stone", 60f, 0f),
-		new("Frost", new Color(0.80f, 0.87f, 0.94f), "stone", 60f, 0f),
+		new("Frost", new Color(0.80f, 0.87f, 0.94f), "ice", 90f, 0f),
 		new("Moss", new Color(0.64f, 0.67f, 0.52f), "stone", 60f, 0f),
 	];
 }

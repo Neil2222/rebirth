@@ -16,6 +16,8 @@ public static class ItemCatalog
 		["iron_ore"] = new("iron_ore", "Iron Ore", ItemCategory.Ore, new Color(0.88f, 0.46f, 0.30f)),
 		["nickel_ore"] = new("nickel_ore", "Nickel Ore", ItemCategory.Ore, new Color(0.50f, 0.80f, 0.64f)),
 		["silicon_ore"] = new("silicon_ore", "Silicon Ore", ItemCategory.Ore, new Color(0.86f, 0.84f, 0.96f)),
+		// Raw, not refined: Hydrators melt it into a planet's seas.
+		["ice"] = new("ice", "Ice", ItemCategory.Ore, new Color(0.72f, 0.9f, 1f)),
 		["iron_ingot"] = new("iron_ingot", "Iron Ingot", ItemCategory.Ingot, new Color(0.82f, 0.82f, 0.86f)),
 		["nickel_ingot"] = new("nickel_ingot", "Nickel Ingot", ItemCategory.Ingot, new Color(0.66f, 0.86f, 0.74f)),
 		["silicon_wafer"] = new("silicon_wafer", "Silicon Wafer", ItemCategory.Ingot, new Color(0.45f, 0.52f, 0.9f)),

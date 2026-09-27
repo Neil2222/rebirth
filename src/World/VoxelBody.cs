@@ -72,6 +72,9 @@ public abstract partial class VoxelBody : StaticBody3D, IVoxelSource, IMinable, 
 
 	public string TerrainId => Name;
 
+	/// <summary>The body's terrain material, for per-body looks (a healing planet's green).</summary>
+	protected ShaderMaterial SurfaceMaterial => _surfaceMaterial;
+
 	/// <summary>
 	/// Distance from the center to the surface along <paramref name="localDirection"/>, including dug-out
 	/// edits: the outermost point where the field turns solid, found by stepping inwards.
