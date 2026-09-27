@@ -38,6 +38,12 @@ public partial class Colony : Node
 	public List<ConstructionJob> Jobs { get; } = new();
 	public List<HaulRoute> Routes { get; } = new();
 
+	/// <summary>A Curator swarm watches this spot: bots keep away (set by the threats manager).</summary>
+	public System.Func<Vector3, bool> Blocked { get; set; } = _ => false;
+
+	/// <summary>Threat state to save (set by the threats manager).</summary>
+	public System.Func<Threats.ThreatsSave>? ThreatsToSave { get; set; }
+
 	/// <summary>Grid the player is piloting, which bots leave alone.</summary>
 	public System.Func<BlockGrid?> PilotedGrid { get; set; } = () => null;
 
@@ -369,6 +375,10 @@ public partial class Colony : Node
 	public List<string> Problems(BlockGrid grid)
 	{
 		var problems = new List<string>();
+		foreach (var cell in grid.Quarantined)
+			problems.Add($"A virus naps in the {grid.Blocks.First(b => b.Key == cell).Value.Definition.DisplayName}: purge it");
+		if (Blocked(grid.GlobalPosition))
+			problems.Add("A Curator swarm is watching: bots stay away");
 		if (grid.PowerDemand > 0.01f && grid.PowerSatisfaction < 0.9f)
 			problems.Add($"Low power ({grid.PowerSatisfaction:P0}): add solar panels or a battery");
 		if (grid.Inventory.Capacity > 0f && grid.Inventory.FreeSpace < grid.Inventory.Capacity * 0.05f)
@@ -419,6 +429,11 @@ public partial class Colony : Node
 		// 1. Construction: bring what the next blocks need, as far as home has it.
 		foreach (var job in Jobs)
 		{
+			if (Blocked(job.Site.Origin))
+			{
+				job.Status = "A Curator swarm is watching the site";
+				continue;
+			}
 			var load = job.NextLoad(home.Inventory, bot.Grid.Inventory.Capacity);
 			if (load.Count > 0)
 				return new BotOrder.Supply(job, load);
@@ -435,6 +450,7 @@ public partial class Colony : Node
 			.Where(r => r.Enabled && r.Busy == 0)
 			.Select(r => (Route: r, Source: Find(r.From), Target: Find(r.To)))
 			.Where(x => x.Source is not null && x.Target is not null && x.Target.Inventory.FreeSpace >= HaulMinimum
+				&& !Blocked(x.Source.GlobalPosition) && !Blocked(x.Target.GlobalPosition)
 				&& Haulable(x.Source!.Inventory, x.Route.Cargo) >= HaulMinimum)
 			.OrderByDescending(x => Haulable(x.Source!.Inventory, x.Route.Cargo))
 			.FirstOrDefault();
@@ -573,6 +589,7 @@ public partial class Colony : Node
 	public ColonySave ToSave() => new()
 	{
 		Settlements = SettlementsToSave?.Invoke() ?? new(),
+		Threats = ThreatsToSave?.Invoke() ?? new(),
 		Resonance = Resonance,
 		LanceCharge = LanceCharge,
 		Planets = Bodies.OfType<MiniPlanet>().Select(p => new PlanetSave { Name = p.Name, Air = p.Air, Water = p.Water, Soil = p.Soil }).ToList(),
@@ -737,6 +754,7 @@ public sealed class ConstructionJob
 public sealed class ColonySave
 {
 	public List<Life.Settlement> Settlements { get; set; } = new();
+	public Threats.ThreatsSave Threats { get; set; } = new();
 	public float Resonance { get; set; }
 	public float LanceCharge { get; set; }
 	public List<PlanetSave> Planets { get; set; } = new();

@@ -189,6 +189,7 @@ public partial class BlockGrid : RigidBody3D
 		if (!_blocks.Remove(cell, out var block))
 			return false;
 		DropFabricator(cell);
+		Purge(cell);
 		_state.Remove(cell);
 
 		_shapes.Remove(cell, out var shape);

@@ -216,7 +216,7 @@ public partial class BlockGrid
 		var networks = Networks();
 		foreach (var (cell, state) in _state)
 		{
-			if (state.Output is not { } output || output.Items.Count == 0 || !networks.ContainsKey(cell))
+			if (state.Output is not { } output || output.Items.Count == 0 || !networks.ContainsKey(cell) || _quarantined.Contains(cell))
 				continue;
 			var (item, have) = output.Items.First();
 			float amount = Mathf.Min(ParcelSize, have);
@@ -253,7 +253,7 @@ public partial class BlockGrid
 	private IEnumerable<(string Item, float Amount)> Demand(Vector3I cell, PlacedBlock block)
 	{
 		var state = _state[cell];
-		if (state.Input is not { } input)
+		if (state.Input is not { } input || _quarantined.Contains(cell))
 			yield break;
 		switch (block.Definition.Kind)
 		{
@@ -321,7 +321,7 @@ public partial class BlockGrid
 		float draw = 0f;
 		foreach (var (cell, block) in _blocks)
 		{
-			if (block.Definition.Kind != BlockKind.Refinery)
+			if (block.Definition.Kind != BlockKind.Refinery || Napping(cell))
 				continue;
 			var state = _state[cell];
 			string? ore = RefiningPriority.FirstOrDefault(o => state.Input!.Get(o) > 0f);
@@ -354,7 +354,7 @@ public partial class BlockGrid
 		float draw = 0f;
 		foreach (var (cell, block) in _blocks)
 		{
-			if (block.Definition.Kind != BlockKind.AutoDrill)
+			if (block.Definition.Kind != BlockKind.AutoDrill || Napping(cell))
 				continue;
 			var output = _state[cell].Output!;
 			if (output.FreeSpace <= 0f)

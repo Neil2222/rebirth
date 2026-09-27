@@ -98,7 +98,12 @@ gebouwen, en je eigen robotlichaam.
 Geen FPS, geen tijdsdruk. Getroffen machines gaan in **quarantaine** (stil, niet kapot).
 - **Virus**: een circuitpuzzel om het te zuiveren.
 - **Zwerm van de Curator**: praten, iets geven, of te slim af zijn met een puzzel.
-- Later: **firewall**-gebouwen die dreiging geautomatiseerd afhandelen.
+- **Nu (G1):** pas als je een eigen site hebt en ±5 min speelt, daarna ±elke 6–10 min een event. Niets gaat kapot.
+  - **Virus:** een machine gaat in quarantaine (paarse gloed, ligt stil). Zuiveren met een **circuitpuzzel**
+    (tegels draaien tot er stroom loopt; met Hint-knop) via F bij de machine of de Nexus. +10 Resonance.
+  - **Zwerm:** lavendelkleurige diamantjes boven een site; bots blijven weg. Praten (juiste antwoord = weg, +30),
+    cadeau (400 ijzer + 100 silicium, +15) of te slim af zijn (moeilijkere puzzel, +40). Gaat na 15 min vanzelf.
+  - **Firewall**-blok (preset Firewall Post): zuivert virussen binnen 170 m vanzelf na 20 s, mits stroom.
 
 ### De Breach Lance (Spirit Bomb)
 - De Lance is een spits met ringen (preset "Breach Lance") die opgeslagen **Resonance** drinkt tot hij vol is
@@ -196,7 +201,8 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | E2 | DNA-incubatie, nederzettingen, verzoeken van mensen (leveren, bouwen, praten, cadeaus), band | klaar |
 | F1 | Breach Lance als Spirit Bomb, Box-wand, doorbraak, vaste tweede Box (Tide Box) | klaar |
 | F2 | Box-kaart en reizen, meenemen (laadruimte, botbaai), Starlight-upgrades, gegenereerde Boxes (Dim, Frost, Ember) | klaar |
-| G | Dreiging en minigames: circuitpuzzel, gesprekken, cadeaus | |
+| G1 | Vriendelijke dreiging: virus + quarantaine + circuitpuzzel, Curator-zwerm (praten, cadeau, puzzel), Firewall | klaar |
+| G2 | Meer dreigingstypes per Box-soort, zwermgesprekken die een verhaal vertellen | |
 
 ## Techniek
 - Godot 4.7 (.NET) + C#, Jolt-physics.

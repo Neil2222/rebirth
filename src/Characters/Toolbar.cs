@@ -22,7 +22,7 @@ public static class Toolbar
 		],
 		[
 			new ToolbarItem("Hand Drill", IsDrill: true),
-			.. Blocks(BlockCatalog.Fabricator, BlockCatalog.AutoDrill, BlockCatalog.Tube, BlockCatalog.BotCore, BlockCatalog.Uplink),
+			.. Blocks(BlockCatalog.Fabricator, BlockCatalog.AutoDrill, BlockCatalog.Tube, BlockCatalog.BotCore, BlockCatalog.Uplink, BlockCatalog.Firewall),
 		],
 		[
 			new ToolbarItem("Hand Drill", IsDrill: true),

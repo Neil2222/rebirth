@@ -25,7 +25,7 @@ public static class PartGuide
 		new("Power", All, [BlockCatalog.Battery, BlockCatalog.SolarPanel]),
 		new("Storage & tubes", [DesignKind.Ship, DesignKind.Station, DesignKind.Bot], [BlockCatalog.CargoContainer, BlockCatalog.Tube]),
 		new("Production", [DesignKind.Station, DesignKind.Ship], [BlockCatalog.AutoDrill, BlockCatalog.Refinery, BlockCatalog.Fabricator]),
-		new("Nexus", [DesignKind.Station], [BlockCatalog.Uplink]),
+		new("Nexus", [DesignKind.Station], [BlockCatalog.Uplink, BlockCatalog.Firewall]),
 		new("Life", [DesignKind.Station], [BlockCatalog.AirProcessor, BlockCatalog.Hydrator, BlockCatalog.SeedGarden, BlockCatalog.Incubator]),
 		new("The way out", [DesignKind.Station], [BlockCatalog.BreachLance]),
 	];
@@ -61,6 +61,7 @@ public static class PartGuide
 		BlockKind.Refinery => "Turns ore into ingots. Must touch storage or tubes.",
 		BlockKind.Fabricator => "Prints designs (bots, ships) from ingots, out of its front face.",
 		BlockKind.Uplink => "Lets the Nexus reach 170 m around it: bots can build there.",
+		BlockKind.Firewall => "Chases viruses out of machines within 170 m by itself. Needs power.",
 		BlockKind.AirProcessor => "Turns stone into air for the planet it stands on.",
 		BlockKind.Hydrator => "Melts ice into the planet's seas.",
 		BlockKind.SeedGarden => "Grows soil once air and water are at 30%.",

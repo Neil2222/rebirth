@@ -15,7 +15,7 @@ public static class Presets
 	private static readonly Basis PushDown = new(Vector3.Right, -Mathf.Pi / 2f);
 	private static readonly Basis PushUp = new(Vector3.Right, Mathf.Pi / 2f);
 
-	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), AirMaker(), WaterWorks(), Garden(), SettlementSeed(), BreachLanceSite(), UplinkPost(), WorkerBot()];
+	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), AirMaker(), WaterWorks(), Garden(), SettlementSeed(), BreachLanceSite(), UplinkPost(), FirewallPost(), WorkerBot()];
 
 	/// <summary>
 	/// Default robot body: legs, torso with a battery heart and gyro shoulders, a visor head,
@@ -196,6 +196,17 @@ public static class Presets
 		var bp = new Blueprint { Name = "Uplink Post", Kind = DesignKind.Station };
 		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.LightArmor, Basis.Identity);
 		bp.Add(new Vector3I(0, 1, 0), BlockCatalog.Uplink, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>A Firewall with its own solar power: keeps viruses out of machines within 170 m.</summary>
+	public static Blueprint FirewallPost()
+	{
+		var bp = new Blueprint { Name = "Firewall Post", Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.Firewall, Basis.Identity);
+		foreach (var cell in new[] { new Vector3I(1, 0, 0), new Vector3I(-1, 0, 0), new Vector3I(0, 0, 1), new Vector3I(0, 0, -1) })
+			bp.Add(cell, BlockCatalog.SolarPanel, Basis.Identity);
+		bp.Add(new Vector3I(1, 0, 1), BlockCatalog.Battery, Basis.Identity);
 		return bp;
 	}
 }

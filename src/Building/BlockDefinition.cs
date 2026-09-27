@@ -5,7 +5,7 @@ using Rebirth.Items;
 
 namespace Rebirth.Building;
 
-public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink, AirProcessor, Hydrator, SeedGarden, Incubator, BreachLance }
+public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink, AirProcessor, Hydrator, SeedGarden, Incubator, BreachLance, Firewall }
 
 /// <param name="Paint">Default paint colour; each block type has its own so they are easy to tell apart.</param>
 /// <param name="MaxIntegrity">Damage the block absorbs before it is destroyed.</param>
@@ -209,9 +209,16 @@ public static class BlockCatalog
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 2500f, ["nickel_ingot"] = 600f, ["silicon_wafer"] = 900f },
 	};
 
+	/// <summary>Chases viruses out of every machine within reach (the Nexus uplink range), all by itself.</summary>
+	public static readonly BlockDefinition Firewall = new("firewall", "Firewall", BlockKind.Firewall, Palette.Plum, 1600f, 150f)
+	{
+		PowerDraw = 0.3f,
+		Cost = new Dictionary<string, float> { ["iron_ingot"] = 300f, ["nickel_ingot"] = 60f, ["silicon_wafer"] = 200f },
+	};
+
 	public static readonly IReadOnlyList<BlockDefinition> All =
 		[LightArmor, HeavyArmor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink,
-		AirProcessor, Hydrator, SeedGarden, Incubator, BreachLance];
+		AirProcessor, Hydrator, SeedGarden, Incubator, BreachLance, Firewall];
 
 	private static readonly Dictionary<string, BlockDefinition> ById = All.ToDictionary(b => b.Id);
 

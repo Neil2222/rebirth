@@ -8,6 +8,7 @@ using Rebirth.Core;
 using Rebirth.Forge;
 using Rebirth.Life;
 using Rebirth.Nexus;
+using Rebirth.Threats;
 using Rebirth.Persistence;
 using Rebirth.UI;
 using Rebirth.World;
@@ -36,6 +37,9 @@ public partial class Main : Node3D
 	public SlotPanel Slots { get; private set; } = null!;
 	public InventoryPanel Inventory { get; private set; } = null!;
 	public ControlsPanel Controls { get; private set; } = null!;
+	public Threats.Threats Threats { get; private set; } = null!;
+	public CircuitPuzzle Puzzle { get; private set; } = null!;
+	public SwarmPanel SwarmTalk { get; private set; } = null!;
 	public GraphicsPanel Graphics { get; private set; } = null!;
 	public People People { get; private set; } = null!;
 	public TalkPanel Talk { get; private set; } = null!;
@@ -91,8 +95,34 @@ public partial class Main : Node3D
 		Colony.SettlementsToSave = () => People.Settlements;
 		Talk = new TalkPanel { Name = "Talk", People = People };
 		var boxMap = new BoxMapPanel { Name = "BoxMap" };
-		Nexus = new NexusScreen { Name = "Nexus", Colony = Colony, People = People, Talk = Talk, BoxMap = boxMap };
+		Threats = new Threats.Threats { Name = "Threats", Colony = Colony };
+		AddChild(Threats);
+		Colony.Blocked = Threats.Blocked;
+		Colony.ThreatsToSave = Threats.ToSave;
+		Puzzle = new CircuitPuzzle { Name = "Puzzle" };
+		SwarmTalk = new SwarmPanel { Name = "SwarmTalk", Threats = Threats, Colony = Colony, Puzzle = Puzzle };
+		Nexus = new NexusScreen
+		{
+			Name = "Nexus", Colony = Colony, People = People, Talk = Talk, BoxMap = boxMap, Threats = Threats,
+			PurgeRequested = OpenPurge,
+			SwarmRequested = OpenSwarm,
+			Covered = () => Puzzle.IsOpen || SwarmTalk.IsOpen,
+		};
 		AddChild(Nexus);
+		// Above the Nexus, so they get Esc first.
+		AddChild(SwarmTalk);
+		AddChild(Puzzle);
+		Puzzle.Closed += CloseUnlessNexus;
+		SwarmTalk.Closed += CloseUnlessNexus;
+		Player.PurgeRequested += OpenPurge;
+		Player.UsedNothing += () =>
+		{
+			if (Threats.SwarmNear(Player.GlobalPosition, 30f) is { } near)
+				OpenSwarm(near);
+		};
+		_hud.Notice = () => Threats.SwarmNear(Player.GlobalPosition, 30f) is not null
+			? Keybinds.Fill("A swarm of the Curator hums overhead.  [{use}]  talk to it")
+			: null;
 		AddChild(boxMap);
 		boxMap.TravelRequested += target =>
 		{
@@ -148,6 +178,7 @@ public partial class Main : Node3D
 		{
 			SaveSystem.Apply(save, this, Player);
 			Colony.Restore(save.Colony);
+			Threats.Restore(save.Colony.Threats);
 			People.Restore(save.Colony.Settlements);
 			_progress = save.Progress;
 			if (save.ForgeDesign is not null)
@@ -592,6 +623,29 @@ public partial class Main : Node3D
 		GameState.WorldInputBlocked = true;
 		_hud.Visible = false;
 		Forge.Open();
+	}
+
+	private void OpenPurge(BlockGrid grid, Vector3I cell)
+	{
+		_hud.Visible = false;
+		string name = grid.TryGet(cell, out var block) ? block.Definition.DisplayName : "machine";
+		Puzzle.Open("PURGE THE VIRUS", $"A virus is napping in the {name} at {grid.Label ?? "this station"}. Wake it up and send it home.", 5,
+			() => Threats.Purge(grid, cell));
+	}
+
+	private void OpenSwarm(Swarm swarm)
+	{
+		_hud.Visible = false;
+		SwarmTalk.Open(swarm);
+	}
+
+	/// <summary>Puzzles and swarm talks can be opened from the Nexus: closing them returns there, not to the world.</summary>
+	private void CloseUnlessNexus()
+	{
+		if (Nexus.IsOpen)
+			Input.MouseMode = Input.MouseModeEnum.Visible;
+		else if (!Puzzle.IsOpen && !SwarmTalk.IsOpen)
+			OnOverlayClosed();
 	}
 
 	private void ApplyGraphics() => GraphicsSettings.Current.Apply(GetViewport(), _environment, _sun);

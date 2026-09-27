@@ -34,6 +34,7 @@ public static class BlockVisuals
 		BlockKind.SeedGarden => SeedGarden(),
 		BlockKind.Incubator => Incubator(),
 		BlockKind.BreachLance => BreachLance(),
+		BlockKind.Firewall => Firewall(),
 		_ => null,
 	};
 
@@ -397,6 +398,16 @@ public static class BlockVisuals
 		var glow = Part(new SphereMesh { Radius = 0.45f, Height = 0.9f, Material = Lamp(new Color(1f, 0.85f, 0.55f), 2.5f) }, new Vector3(0, H + 6.2f, 0));
 		glow.Name = LanceGlowName;
 		root.AddChild(glow);
+		return root;
+	}
+
+	/// <summary>A little shield dome with a steady green lamp: all clear.</summary>
+	private static Node3D Firewall()
+	{
+		var root = new Node3D();
+		root.AddChild(Part(new SphereMesh { Radius = 0.9f, Height = 0.9f, IsHemisphere = true, Material = Plastic(Palette.Mint) }, new Vector3(0, H, 0)));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.85f, OuterRadius = 1.0f, Material = Chrome() }, new Vector3(0, H + 0.05f, 0)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.16f, Height = 0.32f, Material = Lamp(new Color(0.55f, 1f, 0.6f), 1.8f) }, new Vector3(0, H + 0.95f, 0)));
 		return root;
 	}
 }

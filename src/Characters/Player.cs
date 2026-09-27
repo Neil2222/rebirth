@@ -69,6 +69,12 @@ public partial class Player : RigidBody3D
 	/// <summary>F on an incubator: the world opens the village's panel.</summary>
 	public event Action<BlockGrid>? VillageRequested;
 
+	/// <summary>F on a quarantined machine: the world opens the purge puzzle.</summary>
+	public event Action<BlockGrid, Vector3I>? PurgeRequested;
+
+	/// <summary>F while not looking at any block (the world may have something nearby to talk to).</summary>
+	public event Action? UsedNothing;
+
 	/// <summary>Toolbar page shown on the number keys (Tab flips).</summary>
 	public int ToolbarPage { get; private set; }
 
@@ -272,8 +278,13 @@ public partial class Player : RigidBody3D
 			return;
 		}
 		if (BuildTool.AimedGrid is not { } grid || !grid.TryGet(BuildTool.AimedCell, out var block))
+		{
+			UsedNothing?.Invoke();
 			return;
-		if (block.Definition.Kind == BlockKind.Cockpit)
+		}
+		if (grid.IsQuarantined(BuildTool.AimedCell))
+			PurgeRequested?.Invoke(grid, BuildTool.AimedCell);
+		else if (block.Definition.Kind == BlockKind.Cockpit)
 			EnterCockpit(grid, BuildTool.AimedCell);
 		else if (block.Definition.Kind == BlockKind.Fabricator)
 			FabricatorRequested?.Invoke(grid, BuildTool.AimedCell);

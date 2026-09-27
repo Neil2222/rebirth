@@ -28,6 +28,13 @@ public partial class NexusScreen : CanvasLayer
 	public People People { get; set; } = null!;
 	public TalkPanel Talk { get; set; } = null!;
 	public BoxMapPanel BoxMap { get; set; } = null!;
+	public Threats.Threats Threats { get; set; } = null!;
+	/// <summary>Opens the purge puzzle for a quarantined machine.</summary>
+	public Action<BlockGrid, Vector3I> PurgeRequested { get; set; } = (_, _) => { };
+	/// <summary>Opens the conversation with a swarm.</summary>
+	public Action<Threats.Swarm> SwarmRequested { get; set; } = _ => { };
+	/// <summary>A puzzle or swarm panel on top: the Nexus leaves the keys alone.</summary>
+	public Func<bool> Covered { get; set; } = () => false;
 
 	private Camera3D _camera = null!;
 	private Camera3D? _previousCamera;
@@ -77,6 +84,8 @@ public partial class NexusScreen : CanvasLayer
 	private string _stockShown = "";
 	private string _linkedShown = "";
 	private VBoxContainer _peopleBox = null!;
+	private VBoxContainer _threatBox = null!;
+	private string _threatsShown = "";
 	private VBoxContainer _lanceBox = null!;
 	private Label _lanceText = null!;
 	private Button _fireButton = null!;
@@ -162,6 +171,9 @@ public partial class NexusScreen : CanvasLayer
 		_fireButton.Pressed += () => FireRequested?.Invoke();
 		_lanceBox.AddChild(_fireButton);
 		rightBox.AddChild(_lanceBox);
+		_threatBox = new VBoxContainer();
+		_threatBox.AddThemeConstantOverride("separation", 4);
+		rightBox.AddChild(_threatBox);
 		_uplinkButton = new Button { Text = "Send bots to set up an Uplink" };
 		_uplinkButton.Pressed += OrderUplink;
 		rightBox.AddChild(_uplinkButton);
@@ -428,6 +440,35 @@ public partial class NexusScreen : CanvasLayer
 			_places.Select(index);
 	}
 
+	/// <summary>Viruses in the selected station's machines and a swarm over it, each with a button to deal with it.</summary>
+	private void UpdateThreats()
+	{
+		var grid = _grid is not null && IsInstanceValid(_grid) && !_grid.IsQueuedForDeletion() ? _grid : null;
+		var swarm = grid is null ? null : Threats.SwarmNear(grid.GlobalPosition, Rebirth.Threats.Threats.SwarmReach);
+		string key = grid is null ? "" : string.Join(",", grid.Quarantined) + "|" + (swarm is null ? "" : swarm.Site);
+		if (key == _threatsShown)
+			return;
+		_threatsShown = key;
+		foreach (var child in _threatBox.GetChildren())
+			child.QueueFree();
+		if (grid is null || (grid.Quarantined.Count == 0 && swarm is null))
+			return;
+		_threatBox.AddChild(UiTheme.Heading("TROUBLE"));
+		foreach (var cell in grid.Quarantined.ToList())
+		{
+			var name = grid.Blocks.First(b => b.Key == cell).Value.Definition.DisplayName;
+			var purge = new Button { Text = $"Purge the virus in the {name}" };
+			purge.Pressed += () => PurgeRequested(grid, cell);
+			_threatBox.AddChild(purge);
+		}
+		if (swarm is not null)
+		{
+			var meet = new Button { Text = "Deal with the Curator swarm" };
+			meet.Pressed += () => SwarmRequested(swarm);
+			_threatBox.AddChild(meet);
+		}
+	}
+
 	/// <summary>Home's ingots as item pictures in the top bar.</summary>
 	private void UpdateStock()
 	{
@@ -638,7 +679,8 @@ public partial class NexusScreen : CanvasLayer
 			label.Visible = target is VoxelBody || target == Colony.Home || seen < (target is BlockGrid { IsBot: true } ? 160f : 320f);
 		}
 		// Bots and sites come and go while the screen is open.
-		if (Colony.Bots.Any(b => _labels.All(l => l.Target != b.Grid)) || Colony.Jobs.Any(j => j.Hologram is not null && _labels.All(l => l.Target != j.Hologram)))
+		if (Colony.Bots.Any(b => _labels.All(l => l.Target != b.Grid)) || Colony.Jobs.Any(j => j.Hologram is not null && _labels.All(l => l.Target != j.Hologram))
+			|| Threats.Swarms.Any(s => _labels.All(l => l.Target != s)))
 			CreateLabels();
 
 		_top.Text = TopText();
@@ -647,6 +689,7 @@ public partial class NexusScreen : CanvasLayer
 			: string.Join("\n", Colony.Bots.Select(b => $"{b.Grid.Label}: {b.Status}"));
 		RefreshWhenLinksChange();
 		UpdateDetails();
+		UpdateThreats();
 		UpdateStock();
 		_uplinkButton.Visible = _body is not null && !Colony.IsLinked(_body) && Colony.Jobs.All(j => j.BodyName != _body.Name);
 		UpdateLance();
@@ -826,6 +869,8 @@ public partial class NexusScreen : CanvasLayer
 			AddLabel(site, 34, () => Colony.Problems(site).Count > 0 ? $"▣ {site.Label} ⚠" : $"▣ {site.Label}", new Color(0.7f, 1f, 0.8f));
 		foreach (var bot in Colony.Bots)
 			AddLabel(bot.Grid, 26, () => $"{bot.Grid.Label}", new Color(1f, 0.75f, 0.6f));
+		foreach (var swarm in Threats.Swarms)
+			AddLabel(swarm, 30, () => "✦ Curator swarm", new Color(0.85f, 0.75f, 1f));
 		foreach (var job in Colony.Jobs.Where(j => j.Hologram is not null))
 			AddLabel(job.Hologram!, 32, () => $"{job.Name}  {job.Progress:P0}", Palette.Lemon);
 	}
@@ -932,7 +977,7 @@ public partial class NexusScreen : CanvasLayer
 	{
 		if (!Visible)
 			return;
-		if (Talk.IsOpen || BoxMap.IsOpen)
+		if (Talk.IsOpen || BoxMap.IsOpen || Covered())
 			return;
 		if (e.IsActionPressed("open_nexus") || e.IsActionPressed("release_mouse"))
 		{

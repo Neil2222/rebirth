@@ -66,6 +66,8 @@ public sealed class GridSave
 	public Dictionary<string, float> Inventory { get; set; } = new();
 	public List<FabricatorSave> Fabricators { get; set; } = new();
 	public List<MachineSave> Machines { get; set; } = new();
+	/// <summary>Quarantined cells as x, y, z triples.</summary>
+	public List<int[]> Quarantined { get; set; } = new();
 }
 
 /// <summary>A machine's buffers; parcels still in the tubes are saved as already delivered.</summary>

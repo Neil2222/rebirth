@@ -50,6 +50,8 @@ public partial class BlockGrid
 		float draw = 0f;
 		foreach (var (cell, block) in _blocks)
 		{
+			if (Napping(cell))
+				continue;
 			if (block.Definition.Kind == BlockKind.Incubator)
 			{
 				_machineStatus[cell] = !OnPlanet ? "Needs to stand on a planet"

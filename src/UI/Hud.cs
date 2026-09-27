@@ -16,6 +16,9 @@ public partial class Hud : CanvasLayer
 {
 	public Player Player { get; set; } = null!;
 
+	/// <summary>Something nearby worth a word (a swarm to talk to); shown when there is no other message.</summary>
+	public System.Func<string?> Notice { get; set; } = () => null;
+
 	private static readonly string[] PageNames = ["Build", "Machines", "Life"];
 
 	private Label _speed = null!;
@@ -209,7 +212,7 @@ public partial class Hud : CanvasLayer
 		UpdatePockets();
 		UpdateCard();
 		_keys.Text = Keybinds.Fill("{open_nexus}  Nexus    {open_forge}  Forge    {open_inventory}  Inventory    {release_mouse}  Menu");
-		_message.Text = Player.Message ?? (Player.Drill.InventoryFull && Player.Drill.Equipped ? Keybinds.Fill("Pockets full: unload at a cargo container [{use}]") : "");
+		_message.Text = Player.Message ?? (Player.Drill.InventoryFull && Player.Drill.Equipped ? Keybinds.Fill("Pockets full: unload at a cargo container [{use}]") : Notice() ?? "");
 	}
 
 	// ------------------------------------------------------------ status
@@ -358,7 +361,7 @@ public partial class Hud : CanvasLayer
 		}
 		_cardItems.Visible = _cardItems.GetChildCount() > 0;
 
-		string action = def.Kind switch
+		string action = grid.IsQuarantined(cell) ? "{use}  purge the virus" : def.Kind switch
 		{
 			BlockKind.Cockpit => "{use}  sit in cockpit",
 			BlockKind.Fabricator => "{use}  open fabricator",

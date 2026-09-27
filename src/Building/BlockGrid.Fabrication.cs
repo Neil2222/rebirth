@@ -87,6 +87,11 @@ public partial class BlockGrid
 		float draw = 0f;
 		foreach (var (cell, queue) in _fabricatorQueues)
 		{
+			if (_quarantined.Contains(cell))
+			{
+				_fabricatorStatus[cell] = QuarantineStatus;
+				continue;
+			}
 			if (queue.Count == 0)
 			{
 				_fabricatorStatus[cell] = "Idle";

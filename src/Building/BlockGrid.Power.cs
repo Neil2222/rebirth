@@ -42,7 +42,8 @@ public partial class BlockGrid
 				_solarPanels.Add(cell);
 			if (def.Kind == BlockKind.Refinery)
 				_refineryDraw += def.PowerDraw;
-			if (def.Kind == BlockKind.Gyroscope)
+			// Always-on consumers: gyroscopes and firewalls.
+			if (def.Kind is BlockKind.Gyroscope or BlockKind.Firewall)
 				_gyroDraw += def.PowerDraw;
 			cargo += def.CargoCapacity;
 		}

@@ -151,6 +151,7 @@ public static class SaveSystem
 				Blocks = Blueprint.FromGrid(grid, grid.Name, includeState: true),
 				Inventory = storage,
 				Machines = machines,
+				Quarantined = grid.Quarantined.Select(c => new[] { c.X, c.Y, c.Z }).ToList(),
 				Fabricators = grid.FabricatorQueues.Select(f => new FabricatorSave
 				{
 					Cell = [f.Cell.X, f.Cell.Y, f.Cell.Z],
@@ -224,6 +225,8 @@ public static class SaveSystem
 				foreach (var (item, amount) in machine.Output)
 					state.Output?.Add(item, amount);
 			}
+			foreach (var cell in saved.Quarantined)
+				grid.Quarantine(new Vector3I(cell[0], cell[1], cell[2]));
 			foreach (var fabricator in saved.Fabricators)
 			{
 				var jobs = fabricator.Queue.Select((design, i) => new FabricatorJob
