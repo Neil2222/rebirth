@@ -31,11 +31,11 @@ public static class PartGuide
 	];
 
 	/// <summary>Whether a part makes sense in this kind of design (the brain depends on the kind).</summary>
-	public static bool Fits(BlockDefinition block, DesignKind kind) => block.Kind switch
+	public static bool Fits(BlockDefinition block, DesignKind kind) => BlockCatalog.Get(block.FamilyId) is var family && family.Kind switch
 	{
 		BlockKind.Cockpit => kind is DesignKind.Ship or DesignKind.Body,
 		BlockKind.BotCore => kind == DesignKind.Bot,
-		_ => Categories.Any(c => c.Blocks.Contains(block) && c.Kinds.Contains(kind)),
+		_ => Categories.Any(c => c.Blocks.Contains(family) && c.Kinds.Contains(kind)),
 	};
 
 	public static string Intro(DesignKind kind) => kind switch
@@ -48,7 +48,8 @@ public static class PartGuide
 
 	public static string Describe(BlockDefinition block) => block.Kind switch
 	{
-		BlockKind.Armor => block == BlockCatalog.HeavyArmor ? "Tough and heavy. For hulls that take knocks." : "Cheap, light building block for shapes and frames.",
+		BlockKind.Armor => (block.FamilyId == BlockCatalog.HeavyArmor.Id ? "Tough and heavy. For hulls that take knocks." : "Cheap, light building block for shapes and frames.")
+			+ ShapeNote(block.Shape),
 		BlockKind.Cockpit => "The brain and seat. In a body it is the head; in a ship, where you sit. It faces its blue window forward.",
 		BlockKind.BotCore => "A bot's brain with its own small hover drive and a 200 kg hold. Every bot needs one.",
 		BlockKind.Thruster => "Pushes the opposite way from its flame. Point flames down to lift, backwards to fly forward.",
@@ -68,6 +69,17 @@ public static class PartGuide
 		BlockKind.Incubator => "Wakes families from DNA once the planet is habitable.",
 		BlockKind.BreachLance => "Gathers Resonance into a ball of light that breaks the Box open.",
 		_ => "",
+	};
+
+	private static string ShapeNote(BlockShape shape) => shape switch
+	{
+		BlockShape.Slope => " A ramp: the low edge faces front, the full sides are the bottom and back.",
+		BlockShape.Corner => " A pyramid corner, for the tips of noses and roofs.",
+		BlockShape.InnerCorner => " A cube with one corner cut off, to go between two slopes.",
+		BlockShape.Half => " Half height, for thin floors and steps.",
+		BlockShape.Rounded => " A rounded edge: a soft curve instead of a sharp corner.",
+		BlockShape.Cylinder => " A round pillar.",
+		_ => " Comes in more shapes.",
 	};
 
 	/// <summary>What this kind of design needs, ticked off as you build.</summary>

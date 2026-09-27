@@ -5,22 +5,12 @@ using Godot;
 namespace Rebirth.Building;
 
 /// <summary>
-/// Turns a set of blocks into one mesh of their exposed faces (faces between neighbouring blocks
-/// are skipped). Used by live grids and by static models of blueprints.
+/// Turns a set of blocks into one mesh of their exposed faces. Each block draws the faces of its shape
+/// (see <see cref="BlockShapes"/>), turned with the block; a face on a cell side is skipped when the
+/// neighbour there covers that side completely. Used by live grids and by static models of blueprints.
 /// </summary>
 public static class BlockMesher
 {
-	// Outward direction plus two tangents with u × v = dir, so corner order below is consistent.
-	private static readonly (Vector3I Dir, Vector3 U, Vector3 V)[] Faces =
-	[
-		(Vector3I.Right, Vector3.Up, Vector3.Back),
-		(Vector3I.Left, Vector3.Back, Vector3.Up),
-		(Vector3I.Up, Vector3.Back, Vector3.Right),
-		(Vector3I.Down, Vector3.Right, Vector3.Back),
-		(Vector3I.Back, Vector3.Right, Vector3.Up),
-		(Vector3I.Forward, Vector3.Up, Vector3.Right),
-	];
-
 	private static ShaderMaterial? _material;
 
 	/// <summary>The toy-block material shared by every block mesh (see block.gdshader).</summary>
@@ -38,44 +28,51 @@ public static class BlockMesher
 		var uv2s = new List<Vector2>();
 		var tangents = new List<float>();
 		var indices = new List<int>();
-		const float h = BlockGrid.CellSize * 0.5f;
 
 		foreach (var (cell, block) in blocks)
 		{
-			// Non-cube blocks (tubes) draw themselves as decorations.
-			if (!block.Definition.FullCube)
-				continue;
+			var geometry = BlockShapes.Get(block.Definition.Shape);
+			if (geometry.Faces.Count == 0)
+				continue;   // tubes and machines with their own model draw themselves
 			Vector3 center = BlockGrid.CellCenter(cell);
+			Basis turn = block.Orientation;
 			// See block.gdshader for the channel layout.
 			Color color = block.Paint.SrgbToLinear();
 			var uv2 = new Vector2(health(cell), (cell.X * 73 + cell.Y * 19 + cell.Z * 7) % 101 / 101f);
-			foreach (var (dir, u, v) in Faces)
+			foreach (var face in geometry.Faces)
 			{
-				// A face is hidden only when a solid cube covers it; tubes leave it on show.
-				if (blocks.TryGetValue(cell + dir, out var neighbour) && neighbour.Definition.FullCube)
-					continue;
-
-				Vector3 n = dir;
-				Vector3 faceCenter = center + n * h;
-				int b = vertices.Count;
-				vertices.Add(faceCenter + (-u - v) * h);
-				vertices.Add(faceCenter + (u - v) * h);
-				vertices.Add(faceCenter + (u + v) * h);
-				vertices.Add(faceCenter + (-u + v) * h);
-				uvs.Add(new Vector2(0, 0));
-				uvs.Add(new Vector2(1, 0));
-				uvs.Add(new Vector2(1, 1));
-				uvs.Add(new Vector2(0, 1));
-				for (int i = 0; i < 4; i++)
+				if (face.Side is { } side)
 				{
+					var gridSide = BlockGrid.DominantAxis(turn * (Vector3)side);
+					if (blocks.TryGetValue(cell + gridSide, out var neighbour) && BlockShapes.Covers(neighbour, -gridSide))
+						continue;
+				}
+				int b = vertices.Count;
+				Vector3 tangent = turn * face.Tangent;
+				Vector3 faceNormal = Vector3.Zero;
+				for (int i = 0; i < face.Points.Length; i++)
+				{
+					vertices.Add(center + turn * (face.Points[i] * BlockGrid.CellSize));
+					var n = turn * face.Normals[i];
+					faceNormal += n;
 					normals.Add(n);
+					uvs.Add(face.Uvs[i]);
 					colors.Add(color);
 					uv2s.Add(uv2);
 					// Tangent along +U; with w = 1 Godot derives the binormal n × u = v, i.e. along +V.
-					tangents.AddRange([u.X, u.Y, u.Z, 1f]);
+					tangents.AddRange([tangent.X, tangent.Y, tangent.Z, 1f]);
 				}
-				// Godot treats clockwise triangles as front-facing.
-				indices.AddRange([b, b + 2, b + 1, b, b + 3, b + 2]);
+				// A fan over the polygon. Godot treats clockwise triangles (seen from outside) as front-facing.
+				for (int i = 1; i < face.Points.Length - 1; i++)
+				{
+					var p0 = vertices[b];
+					var p1 = vertices[b + i];
+					var p2 = vertices[b + i + 1];
+					if ((p1 - p0).Cross(p2 - p0).Dot(faceNormal) > 0f)
+						indices.AddRange([b, b + i + 1, b + i]);
+					else
+						indices.AddRange([b, b + i, b + i + 1]);
+				}
 			}
 		}
 

@@ -83,6 +83,12 @@ public partial class NexusScreen : CanvasLayer
 	private Label _news = null!;
 	private Label _buildHeading = null!;
 	private Button _uplinkButton = null!;
+
+	/// <summary>A station being moved: while set, picking a place previews it there instead of a new design.</summary>
+	private BlockGrid? _moving;
+	private Blueprint? _movingShape;
+	private Button _moveButton = null!;
+	private Button _cancelMoveButton = null!;
 	private HBoxContainer _stock = null!;
 	private string _stockShown = "";
 	private string _linkedShown = "";
@@ -196,6 +202,9 @@ public partial class NexusScreen : CanvasLayer
 		_threatBox = new VBoxContainer();
 		_threatBox.AddThemeConstantOverride("separation", 4);
 		rightBox.AddChild(_threatBox);
+		_moveButton = new Button { Text = "Move this station..." };
+		_moveButton.Pressed += StartMove;
+		rightBox.AddChild(_moveButton);
 		_uplinkButton = new Button { Text = "Send bots to set up an Uplink" };
 		_uplinkButton.Pressed += OrderUplink;
 		rightBox.AddChild(_uplinkButton);
@@ -232,6 +241,9 @@ public partial class NexusScreen : CanvasLayer
 		_buildButton = new Button { Text = "Send bots to build" };
 		_buildButton.Pressed += OrderBuild;
 		_buildBox.AddChild(_buildButton);
+		_cancelMoveButton = new Button { Text = "Cancel the move" };
+		_cancelMoveButton.Pressed += CancelMove;
+		_buildBox.AddChild(_cancelMoveButton);
 		rightBox.AddChild(_buildBox);
 
 		_botBox = new VBoxContainer();
@@ -400,7 +412,12 @@ public partial class NexusScreen : CanvasLayer
 			_frameTarget = grid.GlobalBasis.Orthonormalized().GetRotationQuaternion().Normalized();
 			_distanceTarget = 45f;
 		}
+		if (grid is not null)
+			_moving = null;   // picking a station calls off a move in progress
 		_buildBox.Visible = body is not null && Colony.IsLinked(body);
+		_designPicker.Visible = _moving is null;
+		_cancelMoveButton.Visible = _moving is not null;
+		_buildButton.Text = _moving is null ? "Send bots to build" : $"Move {_moving.Label} here";
 		_botBox.Visible = grid is not null && grid.Label == Colony.HomeLabel;
 		_routeBox.Visible = grid is not null && grid.Inventory.Capacity > 0f;
 		_routesShownFor = "";
@@ -416,6 +433,9 @@ public partial class NexusScreen : CanvasLayer
 		UpdateBotCost();
 	}
 
+	/// <summary>What the hologram shows: the station being moved, or the design to build.</summary>
+	private Blueprint? SpotDesign => _moving is not null ? _movingShape : SelectedDesign;
+
 	private Blueprint? SelectedDesign =>
 		_designPicker.Selected >= 0 && _designPicker.Selected < _stationDesigns.Count ? _stationDesigns[_designPicker.Selected] : null;
 
@@ -425,7 +445,7 @@ public partial class NexusScreen : CanvasLayer
 		ClearPreview();
 		_spot = null;
 		_survey = "";
-		if (_body is null || SelectedDesign is not { } design || !Colony.IsLinked(_body))
+		if (_body is null || SpotDesign is not { } design || !Colony.IsLinked(_body))
 			return;
 		_spot = Colony.SuggestSite(_body, design, _spotNear);
 		_survey = SurveyText(_body, _spot.Value);
@@ -655,8 +675,40 @@ public partial class NexusScreen : CanvasLayer
 
 	// ------------------------------------------------------------ actions
 
+	private void StartMove()
+	{
+		if (_grid is not { } grid || !Colony.CanMove(grid))
+			return;
+		var (label, current) = (grid.Label, Colony.BodyOf(grid));
+		_movingShape = Blueprint.FromGrid(grid, label!);
+		// Show where it would go on the rock it stands on; click anywhere else to choose another spot.
+		_moving = grid;
+		if (current is not null && Colony.IsLinked(current))
+			Select(current, null, grid.GlobalPosition);
+		Say($"Click a lit planet or asteroid where {label} should go, then press \"Move {label} here\".");
+	}
+
+	private void CancelMove()
+	{
+		var grid = _moving;
+		_moving = null;
+		Say("");
+		if (grid is not null)
+			Select(null, grid);
+	}
+
 	private void OrderBuild()
 	{
+		if (_moving is { } moving)
+		{
+			if (_spot is not { } target)
+				return;
+			Colony.MoveStation(moving, target);
+			_moving = null;
+			Say($"{moving.Label} is lifting off. It lands in a few seconds; bots and routes follow it.");
+			Select(null, moving);
+			return;
+		}
 		if (_body is null || SelectedDesign is not { } design || _spot is not { } spot)
 			return;
 		if (Colony.Home is null)
@@ -770,6 +822,10 @@ public partial class NexusScreen : CanvasLayer
 		UpdateThreats();
 		UpdateStock();
 		_uplinkButton.Visible = _body is not null && !Colony.IsLinked(_body) && Colony.Jobs.All(j => j.BodyName != _body.Name);
+		_moveButton.Visible = _grid is not null && Colony.CanMove(_grid);
+		_moveButton.Text = _grid is not null && _grid.Blocks.Any(b => b.Value.Definition.Kind == BlockKind.AutoDrill && _grid.MachineStatus(b.Key) == "No rock within reach")
+			? "Move this station to fresh rock..."
+			: "Move this station...";
 		UpdateLance();
 		UpdatePeople();
 		UpdateRoutes();
@@ -855,6 +911,13 @@ public partial class NexusScreen : CanvasLayer
 
 	private void UpdateCost()
 	{
+		if (_moving is not null)
+		{
+			_buildHeading.Text = $"MOVE {_moving.Label!.ToUpperInvariant()} HERE";
+			_cost.Text = "Free. It lifts off, flies over and lands in a few seconds,\nwith everything in storage. Routes and bots follow it.";
+			_buildButton.Disabled = _spot is null;
+			return;
+		}
 		if (SelectedDesign is not { } design)
 		{
 			_cost.Text = "No station designs. Make one in the Forge.";

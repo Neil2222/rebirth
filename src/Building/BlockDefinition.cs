@@ -37,8 +37,16 @@ public sealed record BlockDefinition(string Id, string DisplayName, BlockKind Ki
 	/// <summary>Heals the planet it stands on (air, water, soil) from what the network brings it.</summary>
 	public bool Terraformer => Kind is BlockKind.AirProcessor or BlockKind.Hydrator or BlockKind.SeedGarden;
 
-	/// <summary>Drawn as a solid cube in the grid mesh; tubes are see-through pipes instead.</summary>
-	public bool FullCube => Kind != BlockKind.Tube;
+	/// <summary>
+	/// How the block fills its cell. Frame blocks come in several shapes (variants of one family); machines
+	/// with their own silhouette are <see cref="BlockShape.Custom"/>; tubes draw nothing in the grid mesh.
+	/// </summary>
+	public BlockShape Shape { get; init; } = BlockShape.Cube;
+
+	/// <summary>The id of the block this is a shape variant of (its own id for the base block).</summary>
+	public string Family { get; init; } = "";
+
+	public string FamilyId => Family.Length > 0 ? Family : Id;
 	/// <summary>Ingots (item id → kg) consumed to build the block in survival; refunded on removal.</summary>
 	public IReadOnlyDictionary<string, float> Cost { get; init; } = new Dictionary<string, float>();
 }
@@ -87,6 +95,7 @@ public static class BlockCatalog
 
 	public static readonly BlockDefinition Thruster = new("ion_thruster", "Ion Thruster", BlockKind.Thruster, Palette.Orange, 700f, 80f)
 	{
+		Shape = BlockShape.Custom,
 		Thrust = 250_000f,
 		PowerDraw = 3.4f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 200f, ["nickel_ingot"] = 80f },
@@ -94,6 +103,7 @@ public static class BlockCatalog
 
 	public static readonly BlockDefinition Gyroscope = new("gyroscope", "Gyroscope", BlockKind.Gyroscope, Palette.Mustard, 1400f, 80f)
 	{
+		Shape = BlockShape.Custom,
 		Torque = 30_000_000f,
 		PowerDraw = 0.03f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 250f, ["nickel_ingot"] = 30f },
@@ -101,6 +111,7 @@ public static class BlockCatalog
 
 	public static readonly BlockDefinition Battery = new("battery", "Battery", BlockKind.Battery, Palette.Mint, 1500f, 80f)
 	{
+		Shape = BlockShape.Custom,
 		BatteryCapacity = 3f,
 		BatteryMaxPower = 12f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 100f, ["nickel_ingot"] = 40f, ["silicon_wafer"] = 20f },
@@ -108,6 +119,7 @@ public static class BlockCatalog
 
 	public static readonly BlockDefinition SolarPanel = new("solar_panel", "Solar Panel", BlockKind.SolarPanel, Palette.Cream, 400f, 60f)
 	{
+		Shape = BlockShape.Custom,
 		SolarOutput = 0.16f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 60f, ["silicon_wafer"] = 30f },
 	};
@@ -120,6 +132,7 @@ public static class BlockCatalog
 
 	public static readonly BlockDefinition Refinery = new("refinery", "Refinery", BlockKind.Refinery, Palette.Coral, 3000f, 150f)
 	{
+		Shape = BlockShape.Custom,
 		PowerDraw = 0.56f,
 		InputCapacity = 400f,
 		OutputCapacity = 400f,
@@ -138,6 +151,7 @@ public static class BlockCatalog
 	/// <summary>Bores into whatever rock is in front of its -Z face and sends the ore out as parcels.</summary>
 	public static readonly BlockDefinition AutoDrill = new("auto_drill", "Auto Drill", BlockKind.AutoDrill, Palette.Lemon, 1800f, 120f)
 	{
+		Shape = BlockShape.Custom,
 		PowerDraw = 0.8f,
 		OutputCapacity = 400f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 250f, ["nickel_ingot"] = 40f },
@@ -146,6 +160,7 @@ public static class BlockCatalog
 	/// <summary>A glass pipe that links machines and storage so parcels can travel between them.</summary>
 	public static readonly BlockDefinition Tube = new("tube", "Tube", BlockKind.Tube, Palette.Cream, 150f, 50f)
 	{
+		Shape = BlockShape.None,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 20f },
 	};
 
@@ -165,12 +180,14 @@ public static class BlockCatalog
 	/// </summary>
 	public static readonly BlockDefinition Uplink = new("uplink", "Uplink", BlockKind.Uplink, Palette.Sky, 800f, 80f)
 	{
+		Shape = BlockShape.Custom,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 200f, ["nickel_ingot"] = 30f, ["silicon_wafer"] = 80f },
 	};
 
 	/// <summary>Bakes stone into breathable air for the planet it stands on.</summary>
 	public static readonly BlockDefinition AirProcessor = new("air_processor", "Air Processor", BlockKind.AirProcessor, Palette.Sky, 2200f, 120f)
 	{
+		Shape = BlockShape.Custom,
 		PowerDraw = 0.8f,
 		InputCapacity = 400f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 300f, ["nickel_ingot"] = 40f, ["silicon_wafer"] = 60f },
@@ -179,6 +196,7 @@ public static class BlockCatalog
 	/// <summary>Melts ice into the planet's seas.</summary>
 	public static readonly BlockDefinition Hydrator = new("hydrator", "Hydrator", BlockKind.Hydrator, Palette.Teal, 2000f, 120f)
 	{
+		Shape = BlockShape.Custom,
 		PowerDraw = 0.6f,
 		InputCapacity = 400f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 250f, ["nickel_ingot"] = 60f, ["silicon_wafer"] = 40f },
@@ -187,6 +205,7 @@ public static class BlockCatalog
 	/// <summary>Grinds stone into soil and sows it; only takes once the air and seas are coming back.</summary>
 	public static readonly BlockDefinition SeedGarden = new("seed_garden", "Seed Garden", BlockKind.SeedGarden, Palette.Mint, 1500f, 100f)
 	{
+		Shape = BlockShape.Custom,
 		PowerDraw = 0.4f,
 		InputCapacity = 200f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 150f, ["silicon_wafer"] = 80f },
@@ -197,6 +216,7 @@ public static class BlockCatalog
 	/// </summary>
 	public static readonly BlockDefinition Incubator = new("incubator", "Incubator", BlockKind.Incubator, Palette.Coral, 1800f, 120f)
 	{
+		Shape = BlockShape.Custom,
 		PowerDraw = 0.5f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 300f, ["nickel_ingot"] = 80f, ["silicon_wafer"] = 150f },
 	};
@@ -206,23 +226,55 @@ public static class BlockCatalog
 	/// </summary>
 	public static readonly BlockDefinition BreachLance = new("breach_lance", "Breach Lance", BlockKind.BreachLance, Palette.Mustard, 8000f, 400f)
 	{
+		Shape = BlockShape.Custom,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 2500f, ["nickel_ingot"] = 600f, ["silicon_wafer"] = 900f },
 	};
 
 	/// <summary>Chases viruses out of every machine within reach (the Nexus uplink range), all by itself.</summary>
 	public static readonly BlockDefinition Firewall = new("firewall", "Firewall", BlockKind.Firewall, Palette.Plum, 1600f, 150f)
 	{
+		Shape = BlockShape.Custom,
 		PowerDraw = 0.3f,
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 300f, ["nickel_ingot"] = 60f, ["silicon_wafer"] = 200f },
 	};
 
-	public static readonly IReadOnlyList<BlockDefinition> All =
+	/// <summary>Shapes the frame blocks come in, besides the cube, in picker order.</summary>
+	public static readonly BlockShape[] FrameShapes =
+		[BlockShape.Slope, BlockShape.Corner, BlockShape.InnerCorner, BlockShape.Half, BlockShape.Rounded, BlockShape.Cylinder];
+
+	/// <summary>
+	/// A shape variant of a frame block: same material, mass, toughness and cost in proportion to how much
+	/// of the cell it fills (costs rounded up to 5 kg).
+	/// </summary>
+	private static BlockDefinition Variant(BlockDefinition block, BlockShape shape)
+	{
+		float fill = BlockShapes.Get(shape).Volume;
+		return block with
+		{
+			Id = $"{block.Id}_{shape.ToString().ToLowerInvariant()}",
+			DisplayName = $"{block.DisplayName}: {BlockShapes.Name(shape)}",
+			Mass = block.Mass * fill,
+			MaxIntegrity = block.MaxIntegrity * fill,
+			Shape = shape,
+			Family = block.Id,
+			Cost = block.Cost.ToDictionary(kv => kv.Key, kv => Mathf.Ceil(kv.Value * fill / 5f) * 5f),
+		};
+	}
+
+	private static readonly BlockDefinition[] Base =
 		[LightArmor, HeavyArmor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink,
 		AirProcessor, Hydrator, SeedGarden, Incubator, BreachLance, Firewall];
+
+	public static readonly IReadOnlyList<BlockDefinition> All =
+		[.. Base, .. new[] { LightArmor, HeavyArmor }.SelectMany(b => FrameShapes.Select(s => Variant(b, s)))];
 
 	private static readonly Dictionary<string, BlockDefinition> ById = All.ToDictionary(b => b.Id);
 
 	public static BlockDefinition Get(string id) => ById[id];
+
+	/// <summary>The block and all its shape variants, base first.</summary>
+	public static List<BlockDefinition> Variants(BlockDefinition block) =>
+		All.Where(b => b.FamilyId == block.FamilyId).ToList();
 }
 
 /// <summary>Warm retro-futuristic paint colours for blocks, accents and the paint tool.</summary>

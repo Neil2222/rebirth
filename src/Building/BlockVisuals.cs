@@ -20,37 +20,45 @@ public static class BlockVisuals
 	{
 		BlockKind.Cockpit => Cockpit(paint),
 		BlockKind.Thruster => Thruster(paint),
-		BlockKind.Gyroscope => Gyroscope(),
-		BlockKind.Battery => Battery(),
-		BlockKind.SolarPanel => SolarPanel(),
+		BlockKind.Gyroscope => Gyroscope(paint),
+		BlockKind.Battery => Battery(paint),
+		BlockKind.SolarPanel => SolarPanel(paint),
 		BlockKind.CargoContainer => CargoContainer(paint),
-		BlockKind.Refinery => Refinery(),
+		BlockKind.Refinery => Refinery(paint),
 		BlockKind.Fabricator => Fabricator(),
-		BlockKind.AutoDrill => AutoDrill(),
+		BlockKind.AutoDrill => AutoDrill(paint),
 		BlockKind.BotCore => BotCore(),
-		BlockKind.Uplink => Uplink(),
-		BlockKind.AirProcessor => AirProcessor(),
-		BlockKind.Hydrator => Hydrator(),
-		BlockKind.SeedGarden => SeedGarden(),
-		BlockKind.Incubator => Incubator(),
-		BlockKind.BreachLance => BreachLance(),
-		BlockKind.Firewall => Firewall(),
+		BlockKind.Uplink => Uplink(paint),
+		BlockKind.AirProcessor => AirProcessor(paint),
+		BlockKind.Hydrator => Hydrator(paint),
+		BlockKind.SeedGarden => SeedGarden(paint),
+		BlockKind.Incubator => Incubator(paint),
+		BlockKind.BreachLance => BreachLance(paint),
+		BlockKind.Firewall => Firewall(paint),
 		_ => null,
 	};
 
 	/// <summary>
-	/// Translucent preview of a block (cube plus its decoration) drawn entirely with
+	/// Translucent preview of a block (its shape plus its decoration) drawn entirely with
 	/// <paramref name="material"/>, so its colour can signal whether placement is allowed.
 	/// </summary>
 	public static Node3D CreateGhost(BlockDefinition block, Color paint, Material material)
 	{
 		var root = new Node3D();
-		root.AddChild(new MeshInstance3D
+		Mesh? body = block.Shape switch
 		{
-			Mesh = new BoxMesh { Size = Vector3.One * BlockGrid.CellSize * 1.002f },
-			MaterialOverride = material,
-			CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
-		});
+			BlockShape.Custom => null,
+			BlockShape.None => new BoxMesh { Size = Vector3.One * BlockGrid.CellSize * 0.6f },
+			_ => BlockMesher.Build(new Dictionary<Vector3I, PlacedBlock> { [Vector3I.Zero] = new(block, Basis.Identity, paint) }, _ => 1f),
+		};
+		if (body is not null)
+			root.AddChild(new MeshInstance3D
+			{
+				Mesh = body,
+				Scale = Vector3.One * 1.002f,
+				MaterialOverride = material,
+				CastShadow = GeometryInstance3D.ShadowCastingSetting.Off,
+			});
 		if (CreateDecoration(block, paint) is { } decoration)
 		{
 			foreach (var node in decoration.FindChildren("*", nameof(MeshInstance3D), recursive: true, owned: false))
@@ -128,6 +136,20 @@ public static class BlockVisuals
 
 	private static readonly Basis ToZ = new(Vector3.Right, Mathf.Pi / 2f);   // Y-aligned primitives onto Z
 
+	/// <summary>
+	/// The mounting plate machines with their own silhouette stand on: it fills the bottom of the cell so
+	/// the block still reads as sitting on its neighbour. Along <paramref name="side"/> (default: the floor).
+	/// </summary>
+	private static MeshInstance3D Plate(Color paint, Vector3? side = null)
+	{
+		var down = side ?? Vector3.Down;
+		var size = new Vector3(
+			Mathf.Abs(down.X) > 0.5f ? 0.3f : 2.36f,
+			Mathf.Abs(down.Y) > 0.5f ? 0.3f : 2.36f,
+			Mathf.Abs(down.Z) > 0.5f ? 0.3f : 2.36f);
+		return Part(new BoxMesh { Size = size, Material = Plastic(paint.Darkened(0.12f)) }, down * (H - 0.15f));
+	}
+
 	// ------------------------------------------------------------ blocks
 
 	private static Node3D Cockpit(Color paint)
@@ -156,9 +178,13 @@ public static class BlockVisuals
 		return root;
 	}
 
+	/// <summary>A round engine body on a mounting plate (the -Z side it pushes towards), with a bell nozzle out the back.</summary>
 	private static Node3D Thruster(Color paint)
 	{
 		var root = new Node3D();
+		root.AddChild(Plate(paint, Vector3.Forward));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.8f, BottomRadius = 0.95f, Height = 1.9f, Material = Plastic(paint) }, new Vector3(0, 0, 0.1f), ToZ));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.88f, OuterRadius = 1.02f, Material = Chrome() }, new Vector3(0, 0, -0.7f), ToZ));
 		// Bell nozzle on the exhaust side (+Z), with a painted rim.
 		root.AddChild(Part(new CylinderMesh { TopRadius = 0.55f, BottomRadius = 0.95f, Height = 0.6f, Material = Plastic(Palette.Slate) }, new Vector3(0, 0, H + 0.3f), ToZ));
 		root.AddChild(Part(new TorusMesh { InnerRadius = 0.88f, OuterRadius = 1.02f, Material = Plastic(paint.Lightened(0.15f)) }, new Vector3(0, 0, H + 0.6f), ToZ));
@@ -184,60 +210,78 @@ public static class BlockVisuals
 		return root;
 	}
 
-	private static Node3D Gyroscope()
+	/// <summary>A painted ball spinning inside two brass rings, on a little pedestal.</summary>
+	private static Node3D Gyroscope(Color paint)
 	{
 		var root = new Node3D();
-		var ring = new TorusMesh { InnerRadius = 1.22f, OuterRadius = 1.36f, Material = Brass() };
+		root.AddChild(Plate(paint));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.18f, BottomRadius = 0.3f, Height = 0.5f, Material = Chrome() }, new Vector3(0, -H + 0.5f, 0)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.72f, Height = 1.44f, Material = Plastic(paint) }, Vector3.Zero));
+		var ring = new TorusMesh { InnerRadius = 1.02f, OuterRadius = 1.16f, Material = Brass() };
 		root.AddChild(new MeshInstance3D { Mesh = ring });
 		root.AddChild(Part(ring, Vector3.Zero, new Basis(Vector3.Right, Mathf.Pi / 2f)));
+		root.AddChild(Part(ring, Vector3.Zero, new Basis(Vector3.Forward, Mathf.Pi / 2f)));
 		return root;
 	}
 
-	private static Node3D Battery()
+	/// <summary>Three chunky round cells with chrome caps and a charge lamp each.</summary>
+	private static Node3D Battery(Color paint)
 	{
-		// Chrome bands and a row of charge lamps on the front.
 		var root = new Node3D();
-		var band = new BoxMesh { Size = new Vector3(2.56f, 0.18f, 2.56f), Material = Chrome() };
-		root.AddChild(Part(band, new Vector3(0, 0.75f, 0)));
-		root.AddChild(Part(band, new Vector3(0, -0.75f, 0)));
+		root.AddChild(Plate(paint));
 		Color[] lamps = [new(0.4f, 0.95f, 0.5f), new(0.4f, 0.95f, 0.5f), new(1f, 0.8f, 0.3f)];
-		for (int i = 0; i < lamps.Length; i++)
-			root.AddChild(Part(new SphereMesh { Radius = 0.11f, Height = 0.22f, Material = Lamp(lamps[i]) }, new Vector3(-0.35f + i * 0.35f, 0, -H - 0.02f)));
+		for (int i = 0; i < 3; i++)
+		{
+			float x = -0.78f + i * 0.78f;
+			root.AddChild(Part(new CylinderMesh { TopRadius = 0.36f, BottomRadius = 0.36f, Height = 1.8f, Material = Plastic(paint) }, new Vector3(x, -0.05f, 0)));
+			root.AddChild(Part(new CylinderMesh { TopRadius = 0.22f, BottomRadius = 0.3f, Height = 0.18f, Material = Chrome() }, new Vector3(x, 0.94f, 0)));
+			root.AddChild(Part(new TorusMesh { InnerRadius = 0.33f, OuterRadius = 0.41f, Material = Chrome() }, new Vector3(x, -0.3f, 0)));
+			root.AddChild(Part(new SphereMesh { Radius = 0.1f, Height = 0.2f, Material = Lamp(lamps[i]) }, new Vector3(x, 0.35f, -0.36f)));
+		}
 		return root;
 	}
 
-	private static Node3D SolarPanel()
+	/// <summary>Deep-blue cells in a frame, held up on a post. The +Y face must point at the sun.</summary>
+	private static Node3D SolarPanel(Color paint)
 	{
-		// Deep-blue cells in a chrome frame on the +Y face; that face must point at the sun.
 		var root = new Node3D();
+		root.AddChild(Plate(paint));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.14f, BottomRadius = 0.2f, Height = 1.9f, Material = Chrome() }, new Vector3(0, -0.1f, 0)));
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(2.44f, 0.16f, 2.44f), Material = Plastic(paint) }, new Vector3(0, H - 0.2f, 0)));
 		var cells = new StandardMaterial3D { AlbedoColor = new Color(0.12f, 0.2f, 0.45f), Metallic = 0.4f, Roughness = 0.2f };
 		var cell = new BoxMesh { Size = new Vector3(1.05f, 0.06f, 1.05f), Material = cells };
 		foreach (var (x, z) in new[] { (-0.58f, -0.58f), (0.58f, -0.58f), (-0.58f, 0.58f), (0.58f, 0.58f) })
-			root.AddChild(Part(cell, new Vector3(x, H + 0.03f, z)));
-		var chrome = Chrome();
-		root.AddChild(Part(new BoxMesh { Size = new Vector3(2.4f, 0.08f, 0.1f), Material = chrome }, new Vector3(0, H + 0.03f, 0)));
-		root.AddChild(Part(new BoxMesh { Size = new Vector3(0.1f, 0.08f, 2.4f), Material = chrome }, new Vector3(0, H + 0.03f, 0)));
+			root.AddChild(Part(cell, new Vector3(x, H - 0.1f, z)));
 		return root;
 	}
 
+	/// <summary>A ribbed crate: chunky bands around it, and a lighter door with two handles on the front.</summary>
 	private static Node3D CargoContainer(Color paint)
 	{
-		// A lighter inset door on the front with two chunky handles.
 		var root = new Node3D();
-		root.AddChild(Part(new BoxMesh { Size = new Vector3(1.8f, 1.8f, 0.08f), Material = Plastic(paint.Lightened(0.25f)) }, new Vector3(0, 0, -H - 0.04f)));
+		var rib = Plastic(paint.Darkened(0.15f));
+		foreach (float x in new[] { -0.8f, 0f, 0.8f })
+			root.AddChild(Part(new BoxMesh { Size = new Vector3(0.16f, 2.62f, 2.62f), Material = rib }, new Vector3(x, 0, 0)));
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(2.62f, 0.16f, 2.62f), Material = rib }, new Vector3(0, 1.1f, 0)));
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(1.3f, 1.6f, 0.08f), Material = Plastic(paint.Lightened(0.25f)) }, new Vector3(0, -0.05f, -H - 0.08f)));
 		var handle = new CapsuleMesh { Radius = 0.07f, Height = 0.6f, Material = Chrome() };
-		root.AddChild(Part(handle, new Vector3(-0.45f, 0, -H - 0.14f)));
-		root.AddChild(Part(handle, new Vector3(0.45f, 0, -H - 0.14f)));
+		root.AddChild(Part(handle, new Vector3(-0.3f, -0.05f, -H - 0.18f)));
+		root.AddChild(Part(handle, new Vector3(0.3f, -0.05f, -H - 0.18f)));
 		return root;
 	}
 
-	private static Node3D Refinery()
+	/// <summary>A round furnace tank with chrome bands and a stubby glowing chimney.</summary>
+	private static Node3D Refinery(Color paint)
 	{
-		// A stubby round chimney with a warm furnace glow in its mouth.
 		var root = new Node3D();
-		root.AddChild(Part(new CylinderMesh { TopRadius = 0.5f, BottomRadius = 0.65f, Height = 0.9f, Material = Plastic(Palette.Slate) }, new Vector3(0, H + 0.45f, 0)));
-		root.AddChild(Part(new TorusMesh { InnerRadius = 0.46f, OuterRadius = 0.6f, Material = Chrome() }, new Vector3(0, H + 0.9f, 0)));
-		root.AddChild(Part(new CylinderMesh { TopRadius = 0.44f, BottomRadius = 0.44f, Height = 0.05f, Material = Lamp(new Color(1f, 0.5f, 0.15f), 1.6f) }, new Vector3(0, H + 0.88f, 0)));
+		root.AddChild(Plate(paint));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 1.0f, BottomRadius = 1.1f, Height = 1.8f, Material = Plastic(paint) }, new Vector3(0, -0.05f, 0)));
+		foreach (float y in new[] { -0.6f, 0.5f })
+			root.AddChild(Part(new TorusMesh { InnerRadius = 1.02f, OuterRadius = 1.12f, Material = Chrome() }, new Vector3(0, y, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.45f, BottomRadius = 0.6f, Height = 0.8f, Material = Plastic(Palette.Slate) }, new Vector3(0, 1.25f, 0)));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.42f, OuterRadius = 0.55f, Material = Chrome() }, new Vector3(0, 1.65f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.4f, BottomRadius = 0.4f, Height = 0.05f, Material = Lamp(new Color(1f, 0.5f, 0.15f), 1.6f) }, new Vector3(0, 1.63f, 0)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.12f, Height = 0.24f, Material = Lamp(new Color(1f, 0.55f, 0.25f)) }, new Vector3(0, 0f, -1.08f)));
 		return root;
 	}
 
@@ -256,18 +300,26 @@ public static class BlockVisuals
 		return root;
 	}
 
-	private static Node3D AutoDrill()
+	/// <summary>
+	/// A little drill tower lying along Z: a mounting plate at the back, a round motor with a chrome lattice,
+	/// and a chunky drill head on the front (-Z) with a spinning cone bit.
+	/// </summary>
+	private static Node3D AutoDrill(Color paint)
 	{
-		// A chunky drill head on the front (-Z): chrome collar and a spinning cone bit.
 		var root = new Node3D();
-		root.AddChild(Part(new CylinderMesh { TopRadius = 0.95f, BottomRadius = 1.05f, Height = 0.35f, Material = Plastic(Palette.Slate) }, new Vector3(0, 0, -H - 0.17f), ToZ));
-		root.AddChild(Part(new TorusMesh { InnerRadius = 0.78f, OuterRadius = 0.95f, Material = Chrome() }, new Vector3(0, 0, -H - 0.35f), ToZ));
-		var bit = new Node3D { Name = DrillBitName, Transform = new Transform3D(new Basis(Vector3.Right, -Mathf.Pi / 2f), new Vector3(0, 0, -H - 0.35f)) };
+		root.AddChild(Plate(paint, Vector3.Back));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.85f, BottomRadius = 1.0f, Height = 1.5f, Material = Plastic(paint) }, new Vector3(0, 0, 0.2f), ToZ));
+		var strut = new BoxMesh { Size = new Vector3(0.14f, 0.14f, 2.1f), Material = Chrome() };
+		foreach (var (x, y) in new[] { (1f, 1f), (-1f, 1f), (1f, -1f), (-1f, -1f) })
+			root.AddChild(Part(strut, new Vector3(x * 0.95f, y * 0.95f, 0f)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.95f, BottomRadius = 1.05f, Height = 0.35f, Material = Plastic(Palette.Slate) }, new Vector3(0, 0, -H + 0.17f), ToZ));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.78f, OuterRadius = 0.95f, Material = Chrome() }, new Vector3(0, 0, -H), ToZ));
+		var bit = new Node3D { Name = DrillBitName, Transform = new Transform3D(new Basis(Vector3.Right, -Mathf.Pi / 2f), new Vector3(0, 0, -H)) };
 		// In the bit's frame +Y points out of the face, so spinning about Y turns it in place.
 		bit.AddChild(Part(new CylinderMesh { TopRadius = 0.02f, BottomRadius = 0.7f, Height = 1.2f, Material = Chrome() }, new Vector3(0, 0.6f, 0)));
 		bit.AddChild(Part(new BoxMesh { Size = new Vector3(1.3f, 0.08f, 0.12f), Material = Plastic(Palette.Orange) }, new Vector3(0, 0.3f, 0)));
 		root.AddChild(bit);
-		root.AddChild(Part(new SphereMesh { Radius = 0.1f, Height = 0.2f, Material = Lamp(new Color(1f, 0.75f, 0.3f)) }, new Vector3(0.9f, 0.9f, -H - 0.03f)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.1f, Height = 0.2f, Material = Lamp(new Color(1f, 0.75f, 0.3f)) }, new Vector3(0, 0.88f, 0.4f)));
 		return root;
 	}
 
@@ -312,79 +364,92 @@ public static class BlockVisuals
 		return root;
 	}
 
-	/// <summary>A little radar dish on a chrome mast with a warm beacon, like a 70s tracking station.</summary>
-	private static Node3D Uplink()
+	/// <summary>A little tracking station: an equipment box, a chrome mast, a dish and a warm beacon.</summary>
+	private static Node3D Uplink(Color paint)
 	{
 		var root = new Node3D();
-		root.AddChild(Part(new CylinderMesh { TopRadius = 0.08f, BottomRadius = 0.12f, Height = 1.2f, Material = Chrome() }, new Vector3(0, H + 0.6f, 0)));
-		// Dish: a wide, shallow cone tipped back towards the sky.
+		root.AddChild(Plate(paint));
+		root.AddChild(Part(new BoxMesh { Size = new Vector3(1.3f, 0.9f, 1.3f), Material = Plastic(paint) }, new Vector3(0, -H + 0.75f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.08f, BottomRadius = 0.13f, Height = 2.6f, Material = Chrome() }, new Vector3(0, 0.35f, 0)));
 		var tilt = new Basis(Vector3.Right, 0.6f);
-		root.AddChild(Part(new CylinderMesh { TopRadius = 1.05f, BottomRadius = 0.25f, Height = 0.35f, Material = Plastic(Palette.Cream) }, new Vector3(0, H + 1.35f, 0), tilt));
-		root.AddChild(Part(new TorusMesh { InnerRadius = 0.95f, OuterRadius = 1.08f, Material = Plastic(Palette.Orange) }, new Vector3(0, H + 1.52f, 0) + tilt * new Vector3(0, 0.02f, 0), tilt));
-		root.AddChild(Part(new CylinderMesh { TopRadius = 0.02f, BottomRadius = 0.04f, Height = 0.7f, Material = Chrome() }, new Vector3(0, H + 1.6f, 0) + tilt * new Vector3(0, 0.3f, 0), tilt));
-		root.AddChild(Part(new SphereMesh { Radius = 0.12f, Height = 0.24f, Material = Lamp(new Color(1f, 0.55f, 0.3f), 2f) }, new Vector3(0, H + 1.6f, 0) + tilt * new Vector3(0, 0.68f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 1.05f, BottomRadius = 0.25f, Height = 0.35f, Material = Plastic(Palette.Cream) }, new Vector3(0, H + 0.4f, 0), tilt));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 0.95f, OuterRadius = 1.08f, Material = Plastic(Palette.Orange) }, new Vector3(0, H + 0.57f, 0) + tilt * new Vector3(0, 0.02f, 0), tilt));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.02f, BottomRadius = 0.04f, Height = 0.7f, Material = Chrome() }, new Vector3(0, H + 0.65f, 0) + tilt * new Vector3(0, 0.3f, 0), tilt));
+		root.AddChild(Part(new SphereMesh { Radius = 0.12f, Height = 0.24f, Material = Lamp(new Color(1f, 0.55f, 0.3f), 2f) }, new Vector3(0, H + 0.65f, 0) + tilt * new Vector3(0, 0.68f, 0)));
 		return root;
 	}
 
-	/// <summary>Two striped chimneys on top: the planet's lungs.</summary>
-	private static Node3D AirProcessor()
+	/// <summary>A round body with two striped chimneys: the planet's lungs.</summary>
+	private static Node3D AirProcessor(Color paint)
 	{
 		var root = new Node3D();
+		root.AddChild(Plate(paint));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 1.0f, BottomRadius = 1.08f, Height = 1.6f, Material = Plastic(paint) }, new Vector3(0, -0.15f, 0)));
 		foreach (float x in new[] { -0.45f, 0.5f })
 		{
-			float h = x < 0f ? 1.3f : 0.95f;
-			root.AddChild(Part(new CylinderMesh { TopRadius = 0.28f, BottomRadius = 0.34f, Height = h, Material = Plastic(Palette.Cream) }, new Vector3(x, H + h * 0.5f, 0.2f)));
-			root.AddChild(Part(new CylinderMesh { TopRadius = 0.3f, BottomRadius = 0.3f, Height = 0.14f, Material = Plastic(Palette.Coral) }, new Vector3(x, H + h * 0.72f, 0.2f)));
-			root.AddChild(Part(new TorusMesh { InnerRadius = 0.2f, OuterRadius = 0.32f, Material = Chrome() }, new Vector3(x, H + h, 0.2f)));
+			float h = x < 0f ? 1.4f : 1.05f;
+			float bottom = 0.6f;
+			root.AddChild(Part(new CylinderMesh { TopRadius = 0.28f, BottomRadius = 0.34f, Height = h, Material = Plastic(Palette.Cream) }, new Vector3(x, bottom + h * 0.5f, 0.1f)));
+			root.AddChild(Part(new CylinderMesh { TopRadius = 0.3f, BottomRadius = 0.3f, Height = 0.14f, Material = Plastic(Palette.Coral) }, new Vector3(x, bottom + h * 0.72f, 0.1f)));
+			root.AddChild(Part(new TorusMesh { InnerRadius = 0.2f, OuterRadius = 0.32f, Material = Chrome() }, new Vector3(x, bottom + h, 0.1f)));
 		}
-		root.AddChild(Part(new SphereMesh { Radius = 0.1f, Height = 0.2f, Material = Lamp(new Color(0.6f, 0.9f, 1f)) }, new Vector3(0.9f, 0.6f, -H - 0.03f)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.1f, Height = 0.2f, Material = Lamp(new Color(0.6f, 0.9f, 1f)) }, new Vector3(0, -0.1f, -1.06f)));
 		return root;
 	}
 
-	/// <summary>A glass tank of sea-blue water on top.</summary>
-	private static Node3D Hydrator()
+	/// <summary>A tall glass tank of sea-blue water in chrome rings.</summary>
+	private static Node3D Hydrator(Color paint)
 	{
 		var root = new Node3D();
+		root.AddChild(Plate(paint));
 		var glass = new StandardMaterial3D { AlbedoColor = new Color(0.85f, 0.95f, 1f, 0.25f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.05f };
 		var water = new StandardMaterial3D { AlbedoColor = new Color(0.3f, 0.65f, 0.95f, 0.85f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.1f };
-		root.AddChild(Part(new CylinderMesh { TopRadius = 0.85f, BottomRadius = 0.85f, Height = 1.1f, Material = glass }, new Vector3(0, H + 0.55f, 0)));
-		root.AddChild(Part(new CylinderMesh { TopRadius = 0.78f, BottomRadius = 0.78f, Height = 0.75f, Material = water }, new Vector3(0, H + 0.4f, 0)));
-		root.AddChild(Part(new TorusMesh { InnerRadius = 0.8f, OuterRadius = 0.95f, Material = Chrome() }, new Vector3(0, H + 1.1f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 1.0f, BottomRadius = 1.0f, Height = 2.1f, Material = glass }, new Vector3(0, 0.1f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.92f, BottomRadius = 0.92f, Height = 1.3f, Material = water }, new Vector3(0, -0.3f, 0)));
+		foreach (float y in new[] { -0.9f, 1.15f })
+			root.AddChild(Part(new TorusMesh { InnerRadius = 0.95f, OuterRadius = 1.1f, Material = Chrome() }, new Vector3(0, y, 0)));
 		return root;
 	}
 
 	/// <summary>A bubble greenhouse with little round shrubs inside.</summary>
-	private static Node3D SeedGarden()
+	private static Node3D SeedGarden(Color paint)
 	{
 		var root = new Node3D();
+		root.AddChild(Plate(paint));
 		var glass = new StandardMaterial3D { AlbedoColor = new Color(0.9f, 1f, 0.92f, 0.22f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.05f };
-		root.AddChild(Part(new SphereMesh { Radius = 1.1f, Height = 1.1f, IsHemisphere = true, Material = glass }, new Vector3(0, H, 0)));
+		float floor = -H + 0.3f;
+		root.AddChild(Part(new SphereMesh { Radius = 1.15f, Height = 1.15f * 1.6f, IsHemisphere = true, Material = glass }, new Vector3(0, floor, 0)));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 1.08f, OuterRadius = 1.2f, Material = Chrome() }, new Vector3(0, floor + 0.02f, 0)));
 		var leaf = Plastic(new Color(0.42f, 0.72f, 0.36f));
-		foreach (var (x, z, r) in new[] { (-0.4f, -0.2f, 0.32f), (0.35f, 0.25f, 0.26f), (0.1f, -0.45f, 0.22f), (-0.2f, 0.4f, 0.2f) })
-			root.AddChild(Part(new SphereMesh { Radius = r, Height = r * 2f, Material = leaf }, new Vector3(x, H + r * 0.8f, z)));
+		foreach (var (x, z, r) in new[] { (-0.4f, -0.2f, 0.36f), (0.35f, 0.25f, 0.3f), (0.1f, -0.45f, 0.26f), (-0.2f, 0.4f, 0.24f) })
+			root.AddChild(Part(new SphereMesh { Radius = r, Height = r * 2f, Material = leaf }, new Vector3(x, floor + r * 0.8f, z)));
 		return root;
 	}
 
 	/// <summary>A glass capsule with a warm glow inside, cradled in chrome rings: where people wake up.</summary>
-	private static Node3D Incubator()
+	private static Node3D Incubator(Color paint)
 	{
 		var root = new Node3D();
+		root.AddChild(Plate(paint));
 		var glass = new StandardMaterial3D { AlbedoColor = new Color(1f, 0.95f, 0.88f, 0.3f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.05f };
-		root.AddChild(Part(new CapsuleMesh { Radius = 0.55f, Height = 1.7f, Material = glass }, new Vector3(0, H + 0.85f, 0)));
-		root.AddChild(Part(new SphereMesh { Radius = 0.28f, Height = 0.56f, Material = Lamp(new Color(1f, 0.72f, 0.5f), 1.4f) }, new Vector3(0, H + 0.85f, 0)));
-		foreach (float y in new[] { 0.3f, 1.4f })
-			root.AddChild(Part(new TorusMesh { InnerRadius = 0.52f, OuterRadius = 0.66f, Material = Chrome() }, new Vector3(0, H + y, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.8f, BottomRadius = 0.95f, Height = 0.4f, Material = Plastic(paint) }, new Vector3(0, -H + 0.5f, 0)));
+		root.AddChild(Part(new CapsuleMesh { Radius = 0.65f, Height = 2.0f, Material = glass }, new Vector3(0, 0.25f, 0)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.3f, Height = 0.6f, Material = Lamp(new Color(1f, 0.72f, 0.5f), 1.4f) }, new Vector3(0, 0.25f, 0)));
+		foreach (float y in new[] { -0.35f, 0.85f })
+			root.AddChild(Part(new TorusMesh { InnerRadius = 0.62f, OuterRadius = 0.76f, Material = Chrome() }, new Vector3(0, y, 0)));
 		return root;
 	}
 
 	/// <summary>
-	/// A tall brass-and-cream spire with three chrome rings that spin faster as it charges, and a glowing
-	/// tip where the beam will leave. It points along the block's +Y.
+	/// A tall brass-and-cream spire on a round plinth, with three chrome rings that spin faster as it charges
+	/// and a glowing tip where the beam will leave. It points along the block's +Y.
 	/// </summary>
-	private static Node3D BreachLance()
+	private static Node3D BreachLance(Color paint)
 	{
 		var root = new Node3D();
-		root.AddChild(Part(new CylinderMesh { TopRadius = 0.35f, BottomRadius = 0.9f, Height = 6f, Material = Plastic(Palette.Cream) }, new Vector3(0, H + 3f, 0)));
+		root.AddChild(Plate(paint));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.95f, BottomRadius = 1.15f, Height = 0.7f, Material = Plastic(paint) }, new Vector3(0, -H + 0.65f, 0)));
+		root.AddChild(Part(new CylinderMesh { TopRadius = 0.35f, BottomRadius = 0.9f, Height = 7.0f, Material = Plastic(Palette.Cream) }, new Vector3(0, 2.75f, 0)));
 		root.AddChild(Part(new CylinderMesh { TopRadius = 0.5f, BottomRadius = 0.5f, Height = 0.3f, Material = Plastic(Palette.Mustard) }, new Vector3(0, H + 2f, 0)));
 		root.AddChild(Part(new CylinderMesh { TopRadius = 0.4f, BottomRadius = 0.4f, Height = 0.3f, Material = Plastic(Palette.Coral) }, new Vector3(0, H + 4.2f, 0)));
 		var rings = new Node3D { Name = LanceRingsName };
@@ -402,12 +467,14 @@ public static class BlockVisuals
 	}
 
 	/// <summary>A little shield dome with a steady green lamp: all clear.</summary>
-	private static Node3D Firewall()
+	private static Node3D Firewall(Color paint)
 	{
 		var root = new Node3D();
-		root.AddChild(Part(new SphereMesh { Radius = 0.9f, Height = 0.9f, IsHemisphere = true, Material = Plastic(Palette.Mint) }, new Vector3(0, H, 0)));
-		root.AddChild(Part(new TorusMesh { InnerRadius = 0.85f, OuterRadius = 1.0f, Material = Chrome() }, new Vector3(0, H + 0.05f, 0)));
-		root.AddChild(Part(new SphereMesh { Radius = 0.16f, Height = 0.32f, Material = Lamp(new Color(0.55f, 1f, 0.6f), 1.8f) }, new Vector3(0, H + 0.95f, 0)));
+		root.AddChild(Plate(paint));
+		float floor = -H + 0.3f;
+		root.AddChild(Part(new SphereMesh { Radius = 1.1f, Height = 1.1f * 1.7f, IsHemisphere = true, Material = Plastic(paint) }, new Vector3(0, floor, 0)));
+		root.AddChild(Part(new TorusMesh { InnerRadius = 1.05f, OuterRadius = 1.18f, Material = Chrome() }, new Vector3(0, floor + 0.05f, 0)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.16f, Height = 0.32f, Material = Lamp(new Color(0.55f, 1f, 0.6f), 1.8f) }, new Vector3(0, floor + 1.9f, 0)));
 		return root;
 	}
 }

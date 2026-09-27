@@ -293,14 +293,15 @@ public partial class Hud : CanvasLayer
 		}
 		_pageLabel.Text = $"{PageNames[Player.ToolbarPage % PageNames.Length]}  {Player.ToolbarPage + 1}/{Toolbar.Pages.Count}\n{Keybinds.Label("toolbar_page")}";
 		foreach (var slot in _slots)
-			slot.Selected = slot.Item is not null && slot.Item == Player.Equipped;
+			slot.Selected = slot.Item is not null && Player.Equipped is not null && slot.Item.Name == (Player.Equipped.Block is { } held ? BlockCatalog.Get(held.FamilyId).DisplayName : Player.Equipped.Name);
 
 		var equipped = Player.Equipped;
 		_selectedName.Text = equipped switch
 		{
 			null => "",
 			{ IsDrill: true } => Keybinds.Fill("Hand Drill   hold {primary_action} to drill"),
-			{ Block: { } block } => block.DisplayName + Keybinds.Fill("   {primary_action} place · {secondary_action} remove · {rotate_block_yaw}/{rotate_block_pitch} turn"),
+			{ Block: { } block } => block.DisplayName + Keybinds.Fill("   {primary_action} place · {secondary_action} remove · {rotate_block_yaw}/{rotate_block_pitch} turn")
+				+ (BlockCatalog.Variants(block).Count > 1 ? Keybinds.Fill(" · {cycle_shape} shape") : ""),
 			_ => equipped.Name,
 		};
 		_selectedInfo.Text = equipped?.Block is { } described ? Forge.PartGuide.Describe(described) : "";

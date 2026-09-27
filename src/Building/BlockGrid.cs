@@ -173,7 +173,12 @@ public partial class BlockGrid : RigidBody3D
 			return false;
 		_state[cell] = state;
 
-		var shape = new CollisionShape3D { Shape = _cellShape, Position = CellCenter(cell) };
+		// Sloped and round frame blocks collide as their shape, so you can walk up a ramp.
+		var shape = new CollisionShape3D
+		{
+			Shape = BlockShapes.Collider(block.Definition.Shape, _cellShape),
+			Transform = new Transform3D(block.Orientation, CellCenter(cell)),
+		};
 		AddChild(shape);
 		_shapes[cell] = shape;
 

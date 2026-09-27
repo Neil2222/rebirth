@@ -22,6 +22,7 @@ public static class Keybinds
 		("sprint", "Sprint"), ("toggle_jetpack", "Jetpack on/off"), ("toggle_dampeners", "Dampeners on/off"),
 		("toggle_light", "Light on/off"), ("use", "Use / interact"), ("primary_action", "Place / drill"),
 		("secondary_action", "Remove block"), ("rotate_block_yaw", "Turn block"), ("rotate_block_pitch", "Tip block"),
+		("cycle_shape", "Next block shape"),
 		("toolbar_page", "Next hotbar page"), ("toolbar_page_back", "Previous hotbar page"),
 		("open_inventory", "Inventory"), ("open_nexus", "Nexus"), ("open_forge", "Forge"),
 		("toggle_view", "First / third person"), ("free_look", "Look around (hold)"),
@@ -51,6 +52,7 @@ public static class Keybinds
 		Default("toggle_grid_static", Key.K);
 		Default("rotate_block_yaw", Key.R);
 		Default("rotate_block_pitch", Key.T);
+		Default("cycle_shape", Key.G);
 		Default("toggle_creative", Key.F2);
 		Default("toggle_light", Key.L);
 		Default("sprint", Key.Shift);

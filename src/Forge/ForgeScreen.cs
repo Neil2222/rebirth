@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Rebirth.Building;
+using Rebirth.Core;
 using Rebirth.Persistence;
 using Rebirth.UI;
 
@@ -74,6 +75,10 @@ public partial class ForgeScreen : CanvasLayer
 	private Label _kindIntro = null!;
 	private VBoxContainer _partsBox = null!;
 	private Label _partInfo = null!;
+
+	/// <summary>One button per shape of the selected part (hidden for parts with one shape).</summary>
+	private HFlowContainer _shapes = null!;
+	private readonly Dictionary<BlockDefinition, Button> _shapeButtons = new();
 	private Label _checklist = null!;
 	private bool _showAllParts;
 	private Button _buildButton = null!, _paintButton = null!;
@@ -303,6 +308,10 @@ public partial class ForgeScreen : CanvasLayer
 		_partInfo = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(220, 0) };
 		_partInfo.AddThemeFontSizeOverride("font_size", 13);
 		parts.AddChild(_partInfo);
+		_shapes = new HFlowContainer();
+		_shapes.AddThemeConstantOverride("h_separation", 3);
+		_shapes.AddThemeConstantOverride("v_separation", 3);
+		parts.AddChild(_shapes);
 		parts.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
 		parts.AddChild(UiTheme.Heading("TOOL"));
 		var modeGroup = new ButtonGroup();
@@ -361,7 +370,7 @@ public partial class ForgeScreen : CanvasLayer
 		row.AddChild(new Control { CustomMinimumSize = new Vector2(24, 0) });
 		var help = new Label
 		{
-			Text = "LMB place/paint   RMB remove   RMB-drag orbit   MMB-drag pan   Wheel zoom   R/T rotate   F focus   Ctrl+Z undo",
+			Text = Keybinds.Fill("LMB place/paint   RMB remove   RMB-drag orbit   MMB-drag pan   Wheel zoom   {rotate_block_yaw}/{rotate_block_pitch} rotate   {cycle_shape} shape   F focus   Ctrl+Z undo"),
 			VerticalAlignment = VerticalAlignment.Center,
 		};
 		help.AddThemeColorOverride("font_color", UiTheme.Dim);
@@ -503,11 +512,56 @@ public partial class ForgeScreen : CanvasLayer
 
 	private void SelectPart(BlockDefinition block)
 	{
+		bool newFamily = _selected.FamilyId != block.FamilyId || _shapeButtons.Count == 0;
 		_selected = block;
-		if (_partButtons.TryGetValue(block, out var button))
+		if (_partButtons.TryGetValue(BlockCatalog.Get(block.FamilyId), out var button))
 			button.ButtonPressed = true;
 		_partInfo.Text = $"{block.DisplayName}\n{PartGuide.Describe(block)}";
+		if (newFamily)
+			RebuildShapes();
+		if (_shapeButtons.TryGetValue(block, out var shape))
+			shape.ButtonPressed = true;
 		SetMode(Mode.Build);
+	}
+
+	/// <summary>Picture buttons for every shape of the selected part; the shape key steps through them too.</summary>
+	private void RebuildShapes()
+	{
+		foreach (var child in _shapes.GetChildren())
+			child.QueueFree();
+		_shapeButtons.Clear();
+		var variants = BlockCatalog.Variants(_selected);
+		_shapes.Visible = variants.Count > 1;
+		if (variants.Count < 2)
+			return;
+		var group = new ButtonGroup();
+		foreach (var variant in variants)
+		{
+			var button = new Button
+			{
+				ToggleMode = true,
+				ButtonGroup = group,
+				Icon = Rebirth.UI.BlockIcons.For(variant) ?? Swatch(variant.Paint),
+				ExpandIcon = true,
+				CustomMinimumSize = new Vector2(44, 44),
+				TooltipText = Keybinds.Fill($"{BlockShapes.Name(variant.Shape)}  ({{cycle_shape}} next shape)"),
+			};
+			button.Pressed += () => SelectPart(variant);
+			_shapes.AddChild(button);
+			_shapeButtons[variant] = button;
+		}
+	}
+
+	private void CycleShape()
+	{
+		var variants = BlockCatalog.Variants(_selected);
+		if (variants.Count < 2)
+		{
+			Toast($"{_selected.DisplayName} comes in one shape");
+			return;
+		}
+		SelectPart(variants[(variants.IndexOf(_selected) + 1) % variants.Count]);
+		Toast(_selected.DisplayName);
 	}
 
 	/// <summary>
@@ -646,10 +700,12 @@ public partial class ForgeScreen : CanvasLayer
 	{
 		if (key.Keycode == Key.Z && key.CtrlPressed)
 			Undo();
-		else if (key.Keycode == Key.R)
+		else if (key.IsActionPressed("rotate_block_yaw"))
 			RotateGhost(_camera.GlobalBasis.Y);
-		else if (key.Keycode == Key.T)
+		else if (key.IsActionPressed("rotate_block_pitch"))
 			RotateGhost(_camera.GlobalBasis.X);
+		else if (key.IsActionPressed("cycle_shape"))
+			CycleShape();
 		else if (key.Keycode == Key.F)
 			FocusCamera();
 		else if (key.Keycode is Key.B or Key.Escape)

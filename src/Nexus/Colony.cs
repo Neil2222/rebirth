@@ -225,12 +225,81 @@ public partial class Colony : Node
 		return new Transform3D(basis, center + up * height);
 	}
 
+	// ------------------------------------------------------------ moving stations
+
+	/// <summary>How long a station takes to lift off, fly and land somewhere new.</summary>
+	public const float MoveSeconds = 8f;
+
+	private sealed class StationMove(BlockGrid grid, Transform3D from, Transform3D to)
+	{
+		public BlockGrid Grid { get; } = grid;
+		public Transform3D From { get; } = from;
+		public Transform3D To { get; } = to;
+		public float Progress { get; set; }
+	}
+
+	private readonly List<StationMove> _moves = new();
+
+	/// <summary>Home and finished sites can move; ships, bots and half-built sites can't.</summary>
+	public bool CanMove(BlockGrid grid) =>
+		grid.IsStatic && !grid.IsBot && grid.Label is not null && Jobs.All(j => j.Grid != grid) && !IsMoving(grid);
+
+	public bool IsMoving(BlockGrid grid) => _moves.Any(m => m.Grid == grid);
+
+	/// <summary>
+	/// Lifts a station off and flies it to <paramref name="to"/> (from <see cref="SuggestSite"/>), e.g. when
+	/// its drills have dug out the rock in reach. It keeps its name, storage, routes and people.
+	/// </summary>
+	public void MoveStation(BlockGrid grid, Transform3D to)
+	{
+		if (!CanMove(grid))
+			return;
+		_moves.Add(new StationMove(grid, grid.GlobalTransform, to));
+		Announce($"{grid.Label} lifted off for a new spot.");
+	}
+
+	/// <summary>Lands every station in flight at once (before saving, so a save never holds one mid-air).</summary>
+	public void FinishMoves()
+	{
+		foreach (var move in _moves.Where(m => GodotObject.IsInstanceValid(m.Grid)))
+			move.Grid.GlobalTransform = move.To;
+		_moves.Clear();
+	}
+
+	private void TickMoves(float dt)
+	{
+		for (int i = _moves.Count - 1; i >= 0; i--)
+		{
+			var move = _moves[i];
+			if (!GodotObject.IsInstanceValid(move.Grid))
+			{
+				_moves.RemoveAt(i);
+				continue;
+			}
+			move.Progress = Mathf.Min(move.Progress + dt / MoveSeconds, 1f);
+			float s = Mathf.SmoothStep(0f, 1f, move.Progress);
+			// A gentle hop: straight up off the ground, over, and down, never through the rock between.
+			var up = (move.From.Basis.Y + move.To.Basis.Y).Normalized();
+			float hop = 12f + move.From.Origin.DistanceTo(move.To.Origin) * 0.4f;
+			var origin = move.From.Origin.Lerp(move.To.Origin, s) + up * hop * Mathf.Sin(Mathf.Pi * s);
+			var basis = new Basis(move.From.Basis.GetRotationQuaternion().Slerp(move.To.Basis.GetRotationQuaternion(), s));
+			move.Grid.GlobalTransform = new Transform3D(basis, origin);
+			if (move.Progress >= 1f)
+			{
+				move.Grid.GlobalTransform = move.To;
+				_moves.RemoveAt(i);
+				Announce($"{move.Grid.Label} landed in its new spot.");
+			}
+		}
+	}
+
 	// ------------------------------------------------------------ simulation
 
 	public override void _PhysicsProcess(double delta)
 	{
 		float dt = (float)delta;
 		ProductionStats.Tick(dt);
+		TickMoves(dt);
 		_scanTimer -= dt;
 		_clock += dt;
 		if (_scanTimer <= 0f)
@@ -406,7 +475,7 @@ public partial class Colony : Node
 			problems.Add("Storage is full");
 		foreach (var (cell, block) in grid.Blocks)
 			if (block.Definition.Kind == BlockKind.AutoDrill && grid.MachineStatus(cell) == "No rock within reach")
-				problems.Add("A drill can't reach rock");
+				problems.Add("A drill can't reach rock: move the station to fresh rock");
 		float ingots = Haulable(grid.Inventory, HaulCargo.Ingots);
 		if (grid.Label != HomeLabel && ingots > 1000f && !Routes.Any(r => r.Enabled && r.From == grid.Label))
 			problems.Add($"{ingots:0} kg of ingots piling up: no route hauls them");

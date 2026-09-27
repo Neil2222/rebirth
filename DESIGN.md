@@ -46,6 +46,14 @@ gebouwen, en je eigen robotlichaam.
 - **Shell**: vrije vormgeving en neonkleuren.
 - Elk gebouw en voertuig heeft een **standaardontwerp** (preset); zelf ontwerpen mag altijd.
 - Ontwerpen zijn **blueprints**: opgeslagen, deelbaar, en door fabrieken in serie te printen.
+- **Vormen:** Light en Heavy Armor bestaan als kubus, helling, hoek, binnenhoek, half blok, afgeronde
+  rand en pilaar. G (herbindbaar) wisselt de vorm, in de Forge én met een blok in de hand; de Forge
+  toont ook knoppen per vorm. Elke vorm is een eigen blok-id (`light_armor_slope` ...) met massa, sterkte
+  en kosten naar volume; botsing volgt de vorm (je loopt een helling op). Alleen een volle zijde verbergt
+  het vlak van de buur. Oude saves blijven kubussen.
+- **Machines hebben een eigen silhouet** binnen hun ene cel: zonnepaneel op een paal, ronde
+  motor met straalpijp, drie ronde accucellen, geribde kist, tank met schoorsteen, liggende boortoren,
+  kas-bol, watertank, capsule, schildkoepel. De logica blijft per cel; alleen het uiterlijk verandert.
 
 ### Automatisering
 - Logistieke blokken (buizen, opslag, raffinaderij, fabricator, auto-drill) vormen een netwerk zodra ze vlak tegen elkaar zitten.
@@ -70,6 +78,10 @@ gebouwen, en je eigen robotlichaam.
   bewegende streepjes per route, en ⚠-knelpunten in gewone taal (te weinig stroom, opslag vol,
   drill raakt geen steen, ingots stapelen zich op zonder route).
 - **Routes tussen alle stations,** met lading: ingots, erts of alles. Nieuws-feed in de Nexus.
+- **Station verplaatsen:** kies Home of een site en druk "Move this station...". Klik een verlichte
+  planeet of asteroïde, bekijk het hologram en druk "Move ... here": het station stijgt op, maakt een
+  boogje en landt (8 s), met opslag, routes en mensen erbij. Gratis, voor als de drill alles in
+  bereik heeft opgeboord. Opslaan tijdens de vlucht zet het meteen op de nieuwe plek.
 - Bouw een **Uplink** op een planeet en die wordt deel van je Nexus.
 - Kaart van Boxes → stelsels → planeten met stromen, knelpunten, gezondheid, Lance-lading.
 - Op afstand minmaxen: productiedoelen, routes, blueprint-toewijzingen.
@@ -218,6 +230,8 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | F1 | Breach Lance als Spirit Bomb, Box-wand, doorbraak, vaste tweede Box (Tide Box) | klaar |
 | F2 | Box-kaart en reizen, meenemen (laadruimte, botbaai), Starlight-upgrades, gegenereerde Boxes (Dim, Frost, Ember) | klaar |
 | G1 | Vriendelijke dreiging: virus + quarantaine + circuitpuzzel, Curator-zwerm (praten, cadeau, puzzel), Firewall | klaar |
+| H1 | Forge-uitbreiding: blokvormen (helling, hoek, half, rond ...), eigen machinesilhouetten, stations verplaatsen | klaar |
+| H2 | Glas, lampen, antennes, decoratie, misschien scharnieren/rotors; later eigen vormen | |
 | G2 | Meer dreigingstypes per Box-soort, zwermgesprekken die een verhaal vertellen | |
 
 ## Techniek

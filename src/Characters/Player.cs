@@ -151,6 +151,8 @@ public partial class Player : RigidBody3D
 			HelmetLight.Visible = !HelmetLight.Visible;
 		else if (e.IsActionPressed("toolbar_page"))
 			ToolbarPage = (ToolbarPage + 1) % Toolbar.Pages.Count;
+		else if (e.IsActionPressed("cycle_shape"))
+			CycleShape();
 		else if (e.IsActionPressed("toolbar_page_back"))
 			ToolbarPage = (ToolbarPage + Toolbar.Pages.Count - 1) % Toolbar.Pages.Count;
 		else if (e.IsActionPressed("toggle_view"))
@@ -181,7 +183,9 @@ public partial class Player : RigidBody3D
 				int index = (key + 9) % 10;   // keys 1..9 then 0
 				var slots = Toolbar.Pages[ToolbarPage];
 				ToolbarItem? item = index < slots.Count ? slots[index] : null;
-				Equip(item == Equipped ? null : item);
+				// The same slot again puts it away; otherwise take it, in the shape last used for that block.
+				bool same = item is not null && Equipped is not null && item.Name == ToolbarNameOf(Equipped);
+				Equip(same ? null : WithLastShape(item));
 			}
 		}
 	}
@@ -251,6 +255,32 @@ public partial class Player : RigidBody3D
 	{
 		Rig.FreeLooking = Held("free_look");
 		_bodyModel.SetThrust(_jetpackThrottle);
+	}
+
+	/// <summary>Shape last chosen for each block family, so a hotbar slot comes back as you left it.</summary>
+	private readonly System.Collections.Generic.Dictionary<string, BlockDefinition> _lastShape = new();
+
+	/// <summary>The hotbar slot name an equipped item came from (shape variants share their base's slot).</summary>
+	private static string ToolbarNameOf(ToolbarItem item) =>
+		item.Block is { } block ? BlockCatalog.Get(block.FamilyId).DisplayName : item.Name;
+
+	private ToolbarItem? WithLastShape(ToolbarItem? item) =>
+		item?.Block is { } block && _lastShape.TryGetValue(block.FamilyId, out var shaped) ? item with { Block = shaped } : item;
+
+	/// <summary>Swaps the held block for its next shape (cube, slope, corner, ...).</summary>
+	private void CycleShape()
+	{
+		if (Equipped?.Block is not { } block)
+			return;
+		var variants = BlockCatalog.Variants(block);
+		if (variants.Count < 2)
+		{
+			ShowMessage($"{block.DisplayName} comes in one shape");
+			return;
+		}
+		var next = variants[(variants.IndexOf(block) + 1) % variants.Count];
+		_lastShape[next.FamilyId] = next;
+		Equip(Equipped with { Block = next });
 	}
 
 	private void Equip(ToolbarItem? item)

@@ -723,6 +723,7 @@ public partial class Main : Node3D
 	{
 		_nextAutosave = Now + AutosaveSeconds;
 		_progress.TutorialStep = Tutorial.StepIndex;
+		Colony.FinishMoves();
 		Campaign.Active.SavedAt = System.DateTime.Now;
 		Campaign.Active.Save();
 		var save = SaveSystem.Capture(this, Player, Forge.CurrentBlueprint(), Colony.ToSave(), _progress);
