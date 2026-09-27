@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Godot;
@@ -21,7 +22,6 @@ namespace Rebirth;
 public partial class Main : Node3D
 {
 	private const double AutosaveSeconds = 120.0;
-	private const double ConfirmSeconds = 3.0;
 
 	/// <summary>First scene load of this process: continue from the latest save if there is one.</summary>
 	private static bool _booted;
@@ -33,6 +33,7 @@ public partial class Main : Node3D
 	public NexusScreen Nexus { get; private set; } = null!;
 	public GameMenu Menu { get; private set; } = null!;
 	public Tutorial Tutorial { get; private set; } = null!;
+	public SlotPanel Slots { get; private set; } = null!;
 	public People People { get; private set; } = null!;
 	public TalkPanel Talk { get; private set; } = null!;
 
@@ -43,15 +44,14 @@ public partial class Main : Node3D
 	public SpiritBomb SpiritBomb { get; private set; } = null!;
 
 	private double _nextAutosave;
-	private double _newWorldConfirmUntil;
 
 	public override void _Ready()
 	{
 		var save = SaveSystem.PendingLoad;
 		SaveSystem.PendingLoad = null;
 		bool firstBoot = !_booted;
-		if (firstBoot && SaveSystem.LatestSlot() is { } latest)
-			save = SaveSystem.Read(latest);
+		if (firstBoot)
+			save = SaveSystem.ReadWorld(Campaign.Active.Current);
 		_booted = true;
 		_box = save?.Box ?? GameState.NextBox;
 		Campaign.Active.Current = _box;
@@ -120,6 +120,9 @@ public partial class Main : Node3D
 		Menu = new GameMenu { Name = "Menu" };
 		AddChild(Menu);
 		Menu.Closed += OnOverlayClosed;
+		Slots = new SlotPanel { Name = "Slots" };
+		AddChild(Slots);
+		Slots.Closed += OnOverlayClosed;
 
 		SpiritBomb = new SpiritBomb { Name = "SpiritBomb", Colony = Colony, People = People, Wall = _wall };
 		AddChild(SpiritBomb);
@@ -151,13 +154,15 @@ public partial class Main : Node3D
 			}
 			Unpack(transfer);
 			// So Continue picks up here, not in the Box you left.
-			SaveTo(SaveSystem.AutoSlot, null);
+			SaveGame(null);
 		}
+		else if (save is null && !firstBoot)
+			SaveGame(null);   // a new game takes up its slot straight away
 		Tutorial.Begin(_progress.TutorialStep);
 		_nextAutosave = Now + AutosaveSeconds;
 
 		if (firstBoot)
-			OpenTitle(save is not null);
+			OpenTitle();
 	}
 
 	/// <summary>Colours, sun and wall of a Box: the cluster's mood.</summary>
@@ -342,14 +347,18 @@ public partial class Main : Node3D
 
 	// ---------------------------------------------------------------- menus
 
-	private void OpenTitle(bool hasSave)
+	private static bool AnySave() => Enumerable.Range(1, SaveSystem.SlotCount).Any(SaveSystem.Used);
+
+	private void OpenTitle()
 	{
 		_hud.Visible = false;
+		bool playing = SaveSystem.Used(SaveSystem.ActiveSlot);
 		Menu.Open("REBIRTH", "The Curator boxed the stars. You carry what is left of us.",
 		[
-			new GameMenu.Entry(hasSave ? "Continue" : "Start", () => { }),
-			new GameMenu.Entry("New game - with tutorial", () => NewGame(StartMode.Tutorial), Confirm: hasSave),
-			new GameMenu.Entry("New game - skip the intro", () => NewGame(StartMode.SkipIntro), Confirm: hasSave),
+			new GameMenu.Entry(playing ? $"Continue   ({Campaign.Active.SlotName})" : "Start", () => { }),
+			new GameMenu.Entry("Load game", () => OpenSlots(SlotMode.Load, OpenTitle), Enabled: AnySave),
+			new GameMenu.Entry("New game - with tutorial", () => OpenSlots(SlotMode.NewGame, OpenTitle, StartMode.Tutorial)),
+			new GameMenu.Entry("New game - skip the intro", () => OpenSlots(SlotMode.NewGame, OpenTitle, StartMode.SkipIntro)),
 			new GameMenu.Entry("Quit", () => GetTree().Quit()),
 		]);
 	}
@@ -357,26 +366,75 @@ public partial class Main : Node3D
 	private void OpenPauseMenu()
 	{
 		_hud.Visible = false;
-		Menu.Open("PAUSED", "The world keeps turning while you are here.",
+		Menu.Open("PAUSED", $"{Campaign.Active.SlotName} · {Campaign.Active.CurrentBox.Name}. The world keeps turning while you are here.",
 		[
 			new GameMenu.Entry("Resume", () => { }),
 			new GameMenu.Entry("Nexus overview   [N]", () => CallDeferred(MethodName.OpenNexus), Enabled: () => _progress.NexusUnlocked),
 			new GameMenu.Entry("Forge   [B]", () => CallDeferred(MethodName.OpenForge)),
-			new GameMenu.Entry("Quicksave   [F5]", () => SaveTo(SaveSystem.QuickSlot, "Quicksaved")),
-			new GameMenu.Entry("Quickload   [F9]", () => LoadFrom(SaveSystem.QuickSlot), Enabled: () => SaveSystem.Exists(SaveSystem.QuickSlot)),
-			new GameMenu.Entry("New game - with tutorial", () => NewGame(StartMode.Tutorial), Confirm: true),
-			new GameMenu.Entry("New game - skip the intro", () => NewGame(StartMode.SkipIntro), Confirm: true),
+			new GameMenu.Entry("Save   [F5]", () => SaveGame("Saved")),
+			new GameMenu.Entry("Save to slot...", () => OpenSlots(SlotMode.Save, OpenPauseMenu)),
+			new GameMenu.Entry("Load game...", () => OpenSlots(SlotMode.Load, OpenPauseMenu), Enabled: AnySave),
+			new GameMenu.Entry("New game - with tutorial...", () => OpenSlots(SlotMode.NewGame, OpenPauseMenu, StartMode.Tutorial)),
+			new GameMenu.Entry("New game - skip the intro...", () => OpenSlots(SlotMode.NewGame, OpenPauseMenu, StartMode.SkipIntro)),
 			new GameMenu.Entry("Save and quit", () =>
 			{
-				SaveTo(SaveSystem.AutoSlot, null);
+				SaveGame(null);
 				GetTree().Quit();
 			}),
 		]);
 	}
 
-	private void NewGame(StartMode mode)
+	/// <param name="back">Reopens the menu the slot list came from.</param>
+	private void OpenSlots(SlotMode mode, Action back, StartMode start = StartMode.SkipIntro)
 	{
-		Campaign.Reset();
+		_hud.Visible = false;
+		Slots.Open(mode, (slot, name) =>
+		{
+			switch (mode)
+			{
+				case SlotMode.Save:
+					SaveInto(slot, name);
+					break;
+				case SlotMode.Load:
+					LoadSlot(slot);
+					break;
+				default:
+					NewGame(slot, name, start);
+					break;
+			}
+		}, back);
+	}
+
+	/// <summary>Saves the running game into <paramref name="slot"/>, which becomes the one being played.</summary>
+	private void SaveInto(int slot, string name)
+	{
+		if (slot != SaveSystem.ActiveSlot)
+		{
+			// The other Boxes' worlds come along; the one you are in is written fresh below.
+			SaveSystem.CopySlot(SaveSystem.ActiveSlot, slot);
+			SaveSystem.SetActive(slot);
+		}
+		if (name.Length > 0)
+			Campaign.Active.SlotName = name;
+		SaveGame($"Saved as \"{Campaign.Active.SlotName}\" (slot {slot})");
+	}
+
+	private void LoadSlot(int slot)
+	{
+		SaveSystem.SetActive(slot);
+		Campaign.Activate(slot);
+		GameState.PendingTransfer = null;
+		SaveSystem.PendingLoad = SaveSystem.ReadWorld(Campaign.Active.Current);
+		GameState.NextBox = Campaign.Active.Current;
+		GameState.NextStart = StartMode.Arrival;
+		ReloadWorld();
+	}
+
+	private void NewGame(int slot, string name, StartMode mode)
+	{
+		SaveSystem.DeleteSlot(slot);
+		SaveSystem.SetActive(slot);
+		Campaign.Reset(name.Length > 0 ? name : $"Game {slot}");
 		GameState.NextBox = 1;
 		GameState.PendingTransfer = null;
 		GameState.NextStart = mode;
@@ -432,7 +490,7 @@ public partial class Main : Node3D
 		Colony.Bots.RemoveAll(b => b.Grid.IsQueuedForDeletion());
 
 		campaign.Leave(_box, Colony.ResonancePerMinute);
-		SaveTo(Campaign.SlotFor(_box), null);
+		SaveGame(null);
 		var box = campaign.Reach(target);
 		campaign.Current = box.Index;
 		campaign.Save();
@@ -440,7 +498,7 @@ public partial class Main : Node3D
 		GameState.PendingTransfer = transfer;
 		GameState.NextBox = box.Index;
 		GameState.NextStart = StartMode.Arrival;
-		SaveSystem.PendingLoad = SaveSystem.Read(Campaign.SlotFor(box.Index));
+		SaveSystem.PendingLoad = SaveSystem.ReadWorld(box.Index);
 		ReloadWorld();
 	}
 
@@ -478,12 +536,15 @@ public partial class Main : Node3D
 
 	public override void _UnhandledInput(InputEvent e)
 	{
-		if (e.IsActionPressed("quick_save"))
-			SaveTo(SaveSystem.QuickSlot, "Quicksaved");
+		if (e.IsActionPressed("quick_save") && !SpiritBomb.Firing)
+			SaveGame("Saved");
 		else if (e.IsActionPressed("quick_load"))
-			LoadFrom(SaveSystem.QuickSlot);
-		else if (e.IsActionPressed("new_world"))
-			RequestNewWorld();
+		{
+			if (SaveSystem.ReadWorld(Campaign.Active.Current) is null)
+				Player.ShowMessage("Nothing saved in this slot yet (F5 to save)");
+			else
+				LoadSlot(SaveSystem.ActiveSlot);
+		}
 		else if (GameState.WorldInputBlocked)
 			return;
 		else if (e.IsActionPressed("release_mouse"))
@@ -558,49 +619,27 @@ public partial class Main : Node3D
 	{
 		Campaign.Active.Tick((float)delta);
 		if (Now >= _nextAutosave)
-			SaveTo(SaveSystem.AutoSlot, "Autosaved");
+			SaveGame("Autosaved");
 	}
 
 	public override void _Notification(int what)
 	{
 		if (what == NotificationWMCloseRequest)
-			SaveTo(SaveSystem.AutoSlot, null);
+			SaveGame(null);
 	}
 
-	private void SaveTo(string slot, string? message)
+	/// <summary>Writes this Box's world and the campaign into the slot being played.</summary>
+	private void SaveGame(string? message)
 	{
 		_nextAutosave = Now + AutosaveSeconds;
 		_progress.TutorialStep = Tutorial.StepIndex;
+		Campaign.Active.SavedAt = System.DateTime.Now;
 		Campaign.Active.Save();
 		var save = SaveSystem.Capture(this, Player, Forge.CurrentBlueprint(), Colony.ToSave(), _progress);
 		save.Box = _box;
-		SaveSystem.Write(save, slot);
+		SaveSystem.WriteWorld(save);
 		if (message is not null)
 			Player.ShowMessage(message);
-	}
-
-	private void LoadFrom(string slot)
-	{
-		if (SaveSystem.Read(slot) is not { } save)
-		{
-			Player.ShowMessage("No quicksave yet (F5 to save)");
-			return;
-		}
-		SaveSystem.PendingLoad = save;
-		ReloadWorld();
-	}
-
-	/// <summary>Needs a second press within a few seconds, so a stray key can't wipe the world.</summary>
-	private void RequestNewWorld()
-	{
-		if (Now > _newWorldConfirmUntil)
-		{
-			_newWorldConfirmUntil = Now + ConfirmSeconds;
-			Player.ShowMessage("Press F8 again to start a new world (saves stay on disk)");
-			return;
-		}
-		SaveSystem.PendingLoad = null;
-		ReloadWorld();
 	}
 
 	private void ReloadWorld()

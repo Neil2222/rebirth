@@ -144,6 +144,12 @@ te fel en te donker.)
 - Forge voor ontwerpen, Nexus voor overzicht. Het spel is volledig via menu's te spelen: titelmenu,
   Esc-menu (Nexus, Forge, opslaan, nieuw spel), Nexus.
 
+## Opslaan
+- **6 opslagslots.** Een slot is een heel spel: campagne (Boxes, Starlight, upgrades) plus de wereld van elke
+  bezochte Box (`user://saves/slotN/`). Autosave, F5 en "Opslaan en stoppen" schrijven naar het slot waarin je
+  speelt; F9 laadt dat slot opnieuw. "Save to slot..." kopieert je spel naar een ander slot (met naam) en je
+  speelt daar verder. Titelmenu: doorgaan, laden, nieuw spel in een gekozen slot. Oude saves gaan naar slot 1.
+
 ## Begin van het spel
 - **Tutorial (third person):** erts minen, raffinaderij voeren, een buis leggen, een auto-drill zetten
   (spookblokken wijzen de plek aan), ingots laten stromen, twee Worker Bots printen. Dan gaat de Nexus aan.

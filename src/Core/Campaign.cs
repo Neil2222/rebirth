@@ -28,11 +28,10 @@ public sealed record Upgrade(string Id, string Name, string Effect, int MaxLevel
 
 /// <summary>
 /// Everything that spans Boxes: which Boxes you have reached, the Starlight pool the freed ones fill,
-/// and the upgrades bought with it. Stored beside the per-Box worlds, in user://campaign.json.
+/// and the upgrades bought with it. Stored in the save slot beside the per-Box worlds.
 /// </summary>
 public sealed class Campaign
 {
-	public const string Path = "user://campaign.json";
 	/// <summary>Starlight for each breach, on top of what freed Boxes give off.</summary>
 	public const float BreachBonus = 150f;
 	/// <summary>Share of a freed Box's Resonance rate that flows into the pool.</summary>
@@ -48,12 +47,24 @@ public sealed class Campaign
 		new("welcome_bots", "Welcome party", "+1 free Worker Bot waiting in every new Box", 3, 100),
 	];
 
+	/// <summary>The save slot's name, shown in the load and save lists.</summary>
+	public string SlotName { get; set; } = "";
+	public DateTime SavedAt { get; set; }
+
 	public List<BoxInfo> Boxes { get; set; } = new();
 	public int Current { get; set; } = 1;
 	public float Starlight { get; set; }
 	public Dictionary<string, int> Levels { get; set; } = new();
 
-	public static Campaign Active { get; private set; } = Load();
+	public static Campaign Active { get; private set; } = Load(SaveSystem.ActiveSlot);
+
+	private static string PathFor(int slot) => $"{SaveSystem.SlotDir(slot)}/campaign.json";
+
+	/// <summary>Plays the campaign stored in <paramref name="slot"/> from now on.</summary>
+	public static void Activate(int slot) => Active = Load(slot);
+
+	/// <summary>A slot's campaign for listing, or null when the slot is empty.</summary>
+	public static Campaign? Peek(int slot) => SaveSystem.Used(slot) ? Load(slot) : null;
 
 	public BoxInfo CurrentBox => Boxes.First(b => b.Index == Current);
 
@@ -138,27 +149,23 @@ public sealed class Campaign
 		Save();
 	}
 
-	public static string SlotFor(int index) => $"box{index}";
-
 	// ------------------------------------------------------------ storage
 
-	/// <summary>A new game: only the first Box, no Starlight, no upgrades.</summary>
-	public static void Reset()
+	/// <summary>A new game in the active slot: only the first Box, no Starlight, no upgrades.</summary>
+	public static void Reset(string name)
 	{
-		Active = new Campaign();
+		Active = new Campaign { SlotName = name, SavedAt = DateTime.Now };
 		Active.Reach(1);
 		Active.Save();
 	}
 
-	public void Save()
-	{
-		using var file = FileAccess.Open(Path, FileAccess.ModeFlags.Write);
-		file?.StoreString(JsonSerializer.Serialize(this, Blueprint.Json));
-	}
+	/// <summary>Writes the campaign into the active save slot.</summary>
+	public void Save() => SaveSystem.WriteText(PathFor(SaveSystem.ActiveSlot), JsonSerializer.Serialize(this, Blueprint.Json));
 
-	private static Campaign Load()
+	private static Campaign Load(int slot)
 	{
-		string json = FileAccess.FileExists(Path) ? FileAccess.GetFileAsString(Path) : "";
+		string path = PathFor(slot);
+		string json = FileAccess.FileExists(path) ? FileAccess.GetFileAsString(path) : "";
 		Campaign? campaign = null;
 		try
 		{
@@ -169,7 +176,9 @@ public sealed class Campaign
 		{
 			GD.PushWarning($"Starting a fresh campaign: {e.Message}");
 		}
-		campaign ??= new Campaign();
+		campaign ??= new Campaign { SlotName = $"Game {slot}" };
+		if (campaign.SlotName.Length == 0)
+			campaign.SlotName = $"Game {slot}";
 		if (campaign.Boxes.Count == 0)
 			campaign.Reach(1);
 		return campaign;

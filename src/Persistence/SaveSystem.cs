@@ -8,28 +8,126 @@ using Rebirth.World;
 namespace Rebirth.Persistence;
 
 /// <summary>
-/// Writes and restores worlds. Loading reloads the scene first, so the procedural base
-/// (asteroids, planet) is rebuilt from scratch and the save is applied on top.
+/// Writes and restores worlds. A save slot is a folder holding one whole game: the campaign
+/// (campaign.json: Boxes, Starlight, upgrades) and the world of every Box visited (box1.json, ...).
+/// Loading reloads the scene first, so the procedural base is rebuilt and the save applied on top.
 /// </summary>
 public static class SaveSystem
 {
-	public const string Directory = "user://saves";
-	public const string QuickSlot = "quicksave";
-	public const string AutoSlot = "autosave";
+	public const string Root = "user://saves";
+	public const int SlotCount = 6;
+	private const string ActiveFile = Root + "/active.txt";
 
-	/// <summary>Save to apply once the reloaded scene is ready; null starts a fresh world.</summary>
+	/// <summary>World to apply once the reloaded scene is ready; null starts a fresh world.</summary>
 	public static SaveGame? PendingLoad { get; set; }
 
-	public static string PathFor(string slot) => $"{Directory}/{slot}.json";
+	/// <summary>The slot being played: autosave, F5 and travel write here.</summary>
+	public static int ActiveSlot { get; private set; } = 1;
 
-	public static bool Exists(string slot) => FileAccess.FileExists(PathFor(slot));
+	static SaveSystem()
+	{
+		MigrateLegacy();
+		if (FileAccess.FileExists(ActiveFile) && int.TryParse(FileAccess.GetFileAsString(ActiveFile).Trim(), out int slot) && slot is >= 1 and <= SlotCount)
+			ActiveSlot = slot;
+	}
 
-	/// <summary>The most recently written of the autosave and quicksave, if any.</summary>
-	public static string? LatestSlot() =>
-		new[] { AutoSlot, QuickSlot }
-			.Where(Exists)
-			.OrderByDescending(slot => FileAccess.GetModifiedTime(PathFor(slot)))
-			.FirstOrDefault();
+	public static string SlotDir(int slot) => $"{Root}/slot{slot}";
+
+	public static string WorldPath(int box, int slot) => $"{SlotDir(slot)}/box{box}.json";
+
+	public static void SetActive(int slot)
+	{
+		ActiveSlot = slot;
+		DirAccess.MakeDirRecursiveAbsolute(Root);
+		using var file = FileAccess.Open(ActiveFile, FileAccess.ModeFlags.Write);
+		file?.StoreString(slot.ToString());
+	}
+
+	/// <summary>A slot is in use once it holds a campaign.</summary>
+	public static bool Used(int slot) => FileAccess.FileExists($"{SlotDir(slot)}/campaign.json");
+
+	public static void WriteWorld(SaveGame save) => WriteText(WorldPath(save.Box, ActiveSlot), save.ToJson());
+
+	public static SaveGame? ReadWorld(int box) => ReadWorld(box, ActiveSlot);
+
+	public static SaveGame? ReadWorld(int box, int slot)
+	{
+		string path = WorldPath(box, slot);
+		if (!FileAccess.FileExists(path))
+			return null;
+		try
+		{
+			return SaveGame.FromJson(FileAccess.GetFileAsString(path));
+		}
+		catch (System.Text.Json.JsonException e)
+		{
+			GD.PushError($"Save {path} is unreadable: {e.Message}");
+			return null;
+		}
+	}
+
+	/// <summary>Writes through a temporary file, so a crash mid-save never destroys the previous save.</summary>
+	public static void WriteText(string path, string text)
+	{
+		DirAccess.MakeDirRecursiveAbsolute(path.GetBaseDir());
+		string temp = path + ".tmp";
+		using (var file = FileAccess.Open(temp, FileAccess.ModeFlags.Write)
+			?? throw new System.IO.IOException($"Cannot write {temp}: {FileAccess.GetOpenError()}"))
+		{
+			file.StoreString(text);
+		}
+		DirAccess.RenameAbsolute(temp, path);
+	}
+
+	public static void DeleteSlot(int slot)
+	{
+		string dir = SlotDir(slot);
+		if (!DirAccess.DirExistsAbsolute(dir))
+			return;
+		foreach (string file in DirAccess.GetFilesAt(dir))
+			DirAccess.RemoveAbsolute($"{dir}/{file}");
+		DirAccess.RemoveAbsolute(dir);
+	}
+
+	/// <summary>Replaces <paramref name="to"/> with a copy of every file in <paramref name="from"/>.</summary>
+	public static void CopySlot(int from, int to)
+	{
+		DeleteSlot(to);
+		DirAccess.MakeDirRecursiveAbsolute(SlotDir(to));
+		if (!DirAccess.DirExistsAbsolute(SlotDir(from)))
+			return;
+		foreach (string file in DirAccess.GetFilesAt(SlotDir(from)))
+			DirAccess.CopyAbsolute($"{SlotDir(from)}/{file}", $"{SlotDir(to)}/{file}");
+	}
+
+	/// <summary>Saves from before slots existed (loose autosave/quicksave and campaign) move into slot 1.</summary>
+	private static void MigrateLegacy()
+	{
+		if (DirAccess.DirExistsAbsolute(SlotDir(1)))
+			return;
+		const string legacyCampaign = "user://campaign.json";
+		var worlds = new[] { "autosave", "quicksave" }.Select(n => $"{Root}/{n}.json").Where(FileAccess.FileExists)
+			.OrderByDescending(FileAccess.GetModifiedTime).ToList();
+		if (!FileAccess.FileExists(legacyCampaign) && worlds.Count == 0)
+			return;
+		DirAccess.MakeDirRecursiveAbsolute(SlotDir(1));
+		if (FileAccess.FileExists(legacyCampaign))
+			DirAccess.RenameAbsolute(legacyCampaign, $"{SlotDir(1)}/campaign.json");
+		foreach (string file in DirAccess.GetFilesAt(Root).Where(f => f.StartsWith("box") && f.EndsWith(".json") && !f.Contains("archive")))
+			DirAccess.RenameAbsolute($"{Root}/{file}", $"{SlotDir(1)}/{file}");
+		if (worlds.Count > 0)
+		{
+			try
+			{
+				var latest = SaveGame.FromJson(FileAccess.GetFileAsString(worlds[0]));
+				WriteText(WorldPath(latest.Box, 1), latest.ToJson());
+			}
+			catch (System.Text.Json.JsonException e)
+			{
+				GD.PushWarning($"Old save {worlds[0]} could not be moved: {e.Message}");
+			}
+		}
+	}
 
 	public static SaveGame Capture(Node world, Player player, Blueprint? forgeDesign, Nexus.ColonySave colony, ProgressSave progress)
 	{
@@ -95,35 +193,6 @@ public static class SaveSystem
 			into[parcel.Item] = into.GetValueOrDefault(parcel.Item) + parcel.Amount;
 		}
 		return (machines.Values.ToList(), storage);
-	}
-
-	public static void Write(SaveGame save, string slot)
-	{
-		DirAccess.MakeDirRecursiveAbsolute(Directory);
-		// Write to a temporary file first so a crash mid-save never destroys the previous save.
-		string path = PathFor(slot);
-		string temp = path + ".tmp";
-		using (var file = FileAccess.Open(temp, FileAccess.ModeFlags.Write)
-			?? throw new System.IO.IOException($"Cannot write {temp}: {FileAccess.GetOpenError()}"))
-		{
-			file.StoreString(save.ToJson());
-		}
-		DirAccess.RenameAbsolute(temp, path);
-	}
-
-	public static SaveGame? Read(string slot)
-	{
-		if (!Exists(slot))
-			return null;
-		try
-		{
-			return SaveGame.FromJson(FileAccess.GetFileAsString(PathFor(slot)));
-		}
-		catch (System.Text.Json.JsonException e)
-		{
-			GD.PushError($"Save {slot} is unreadable: {e.Message}");
-			return null;
-		}
 	}
 
 	/// <summary>Restores grids, terrain edits and the player into a freshly built world.</summary>

@@ -32,7 +32,6 @@ public partial class InputBootstrap : Node
 		Bind("free_look", Key.Alt);
 		Bind("quick_save", Key.F5);
 		Bind("quick_load", Key.F9);
-		Bind("new_world", Key.F8);
 		for (int slot = 0; slot <= 9; slot++)
 			Bind($"slot_{slot}", Key.Key0 + slot);
 		Bind("primary_action", MouseButton.Left);
