@@ -23,6 +23,10 @@ public partial class InventoryPanel : CanvasLayer
 	private Label _storageTitle = null!;
 	private GridContainer _stored = null!;
 	private Label _storageHint = null!;
+
+	/// <summary>Bottom line: how to trade, or why the last move didn't happen.</summary>
+	private Label _hint = null!;
+	private const string HintText = "Click an item to move it across.";
 	private string _shown = "";
 	private Button _close = null!;
 
@@ -71,9 +75,9 @@ public partial class InventoryPanel : CanvasLayer
 
 		var bottom = new HBoxContainer();
 		bottom.AddThemeConstantOverride("separation", 8);
-		var hint = new Label { Text = "Click an item to move it across.", SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
-		hint.AddThemeColorOverride("font_color", UiTheme.Dim);
-		bottom.AddChild(hint);
+		_hint = new Label { Text = HintText, SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
+		_hint.AddThemeColorOverride("font_color", UiTheme.Dim);
+		bottom.AddChild(_hint);
 		AddButton(bottom, "Unload all ore", () => MoveAll(ItemCategory.Ore, toStorage: true));
 		AddButton(bottom, "Take all ingots", () => MoveAll(ItemCategory.Ingot, toStorage: false));
 		_close = new Button();
@@ -95,6 +99,7 @@ public partial class InventoryPanel : CanvasLayer
 		_player = player;
 		_storage = storage is { Inventory.Capacity: > 0f } ? storage : null;
 		_shown = "";
+		Say(HintText, warn: false);
 		_close.Text = $"Close  [{Core.Keybinds.Label("open_inventory")}]";
 		Visible = true;
 		Input.MouseMode = Input.MouseModeEnum.Visible;
@@ -151,7 +156,7 @@ public partial class InventoryPanel : CanvasLayer
 	/// grid; amounts update in place, so the slot under the mouse (and its info card) stays put while
 	/// machines keep filling the storage.
 	/// </summary>
-	private static void Fill(GridContainer grid, Inventory from, Inventory? to)
+	private void Fill(GridContainer grid, Inventory from, Inventory? to)
 	{
 		var items = from.Items.Where(kv => kv.Value >= 0.5f).OrderBy(kv => ItemCatalog.Get(kv.Key).Category).ThenBy(kv => kv.Key).ToList();
 		var existing = grid.GetChildren().OfType<VBoxContainer>().Where(c => !c.IsQueuedForDeletion()).Select(c => c.GetChild<ItemSlot>(0)).ToList();
@@ -177,7 +182,7 @@ public partial class InventoryPanel : CanvasLayer
 				slot.GuiInput += e =>
 				{
 					if (e is InputEventMouseButton { Pressed: true, ButtonIndex: MouseButton.Left })
-						from.TransferTo(to, item, from.Get(item));
+						Move(from, to, item, from.Get(item));
 				};
 			grid.AddChild(cell);
 		}
@@ -188,7 +193,32 @@ public partial class InventoryPanel : CanvasLayer
 		if (_storage is null)
 			return;
 		var (from, to) = toStorage ? (_player.Inventory, _storage.Inventory) : (_storage.Inventory, _player.Inventory);
-		foreach (var (item, amount) in from.Items.Where(kv => ItemCatalog.Get(kv.Key).Category == category).ToArray())
-			from.TransferTo(to, item, amount);
+		var items = from.Items.Where(kv => ItemCatalog.Get(kv.Key).Category == category).ToArray();
+		if (items.Length == 0)
+		{
+			Say(toStorage ? "You carry no ore." : "No ingots stored here.");
+			return;
+		}
+		foreach (var (item, amount) in items)
+			Move(from, to, item, amount);
+	}
+
+	/// <summary>Moves what fits and says so when the other side is full, instead of silently doing nothing.</summary>
+	private void Move(Inventory from, Inventory to, string item, float amount)
+	{
+		float moved = from.TransferTo(to, item, amount);
+		string target = to == _player.Inventory ? "Your pockets are" : "This storage is";
+		if (moved <= 0f)
+			Say($"{target} full ({to.Total:0} / {to.Capacity:0} kg). Make room first.");
+		else if (moved < amount - 0.5f)
+			Say($"Moved {moved:0} kg of {ItemCatalog.DisplayName(item)}; {target.ToLowerInvariant()} full now.");
+		else
+			Say(HintText, warn: false);
+	}
+
+	private void Say(string text, bool warn = true)
+	{
+		_hint.Text = text;
+		_hint.AddThemeColorOverride("font_color", warn ? UiTheme.Accent : UiTheme.Dim);
 	}
 }
