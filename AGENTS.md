@@ -22,6 +22,9 @@ or conversation.
   or edit them in the editor unless there is a strong reason.
 - Windows export: the "Windows Desktop" preset in `export_presets.cfg`. It needs `Rebirth.sln` (keep it) and
   Godot's .NET export templates.
+- **Releases:** push a tag `vX.Y.Z` (the maintainer does this). `.github/workflows/release.yml` exports the
+  Windows build in CI, attaches `Rebirth-windows.zip` to a GitHub release and pushes it to itch.io with butler
+  (needs the `BUTLER_API_KEY` secret). The player's `README.txt` in the zip is `tools/release/README.txt`.
 
 ## Map of the code
 

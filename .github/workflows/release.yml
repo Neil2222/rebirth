@@ -1,0 +1,84 @@
+name: Release
+
+# Push a tag like v0.3.0 and this builds the Windows version in the cloud, attaches it to a GitHub
+# release and pushes it to itch.io (https://neiltwo2.itch.io/rebirth) with butler.
+# Needs the repository secret BUTLER_API_KEY (itch.io > Settings > API keys).
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish, e.g. 0.3.0 (the tag v<version> must exist)"
+        required: true
+
+permissions:
+  contents: write
+
+env:
+  GODOT_VERSION: 4.7.2
+  ITCH_TARGET: neiltwo2/rebirth:windows
+
+jobs:
+  release:
+    name: Export and publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', inputs.version) || github.ref }}
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then v="${{ inputs.version }}"; else v="${GITHUB_REF_NAME#v}"; fi
+          echo "number=$v" >> "$GITHUB_OUTPUT"
+          echo "tag=v$v" >> "$GITHUB_OUTPUT"
+
+      - name: Install Godot (.NET) and export templates
+        run: |
+          base="https://github.com/godotengine/godot/releases/download/${GODOT_VERSION}-stable"
+          curl -fsSL -o godot.zip "$base/Godot_v${GODOT_VERSION}-stable_mono_linux_x86_64.zip"
+          unzip -q godot.zip -d "$HOME/godot"
+          echo "GODOT=$(find "$HOME/godot" -name "Godot_v${GODOT_VERSION}-stable_mono_linux.x86_64" -type f)" >> "$GITHUB_ENV"
+          curl -fsSL -o templates.tpz "$base/Godot_v${GODOT_VERSION}-stable_mono_export_templates.tpz"
+          dest="$HOME/.local/share/godot/export_templates/${GODOT_VERSION}.stable.mono"
+          mkdir -p "$dest"
+          unzip -q templates.tpz -d templates
+          mv templates/templates/* "$dest/"
+
+      - name: Export Windows build
+        run: |
+          mkdir -p build/Rebirth
+          # First run imports the assets (creates .godot/); the export needs them.
+          "$GODOT" --headless --path . --import || true
+          "$GODOT" --headless --path . --export-release "Windows Desktop" build/Rebirth/Rebirth.exe
+          test -f build/Rebirth/Rebirth.exe
+          cp tools/release/README.txt build/Rebirth/
+          (cd build && zip -qr9 Rebirth-windows.zip Rebirth)
+          ls -la build build/Rebirth
+
+      - name: GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+          if gh release view "$tag" > /dev/null 2>&1; then
+            gh release upload "$tag" build/Rebirth-windows.zip --clobber
+          else
+            gh release create "$tag" build/Rebirth-windows.zip --title "Rebirth ${{ steps.version.outputs.number }}" --generate-notes
+          fi
+
+      - name: Push to itch.io
+        env:
+          BUTLER_API_KEY: ${{ secrets.BUTLER_API_KEY }}
+        run: |
+          if [ -z "$BUTLER_API_KEY" ]; then echo "::warning::No BUTLER_API_KEY secret: skipping itch.io"; exit 0; fi
+          curl -fsSL -o butler.zip https://broth.itch.zone/butler/linux-amd64/LATEST/archive/default
+          unzip -q butler.zip -d butler && chmod +x butler/butler
+          ./butler/butler push build/Rebirth "$ITCH_TARGET" --userversion "${{ steps.version.outputs.number }}"
