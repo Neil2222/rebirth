@@ -10,6 +10,8 @@ friendly, and you deal with them through puzzles and conversation.
 
 > Early prototype, built in the open. Expect rough edges and placeholder art.
 
+🎮 **Play it free on [itch.io](https://neiltwo2.itch.io/rebirth)** (Windows).
+
 ![Healing a planet from the Nexus](docs/screenshots/nexus.jpg)
 
 | | |
@@ -59,7 +61,7 @@ it covers every system, block, design and upgrade, and has the roadmap.
 
 ### Download (Windows)
 
-1. Download **`Rebirth-windows.zip`** from the [latest release](https://github.com/Neil2222/rebirth/releases/latest).
+1. Download **`Rebirth-windows.zip`** from **[itch.io](https://neiltwo2.itch.io/rebirth)** or the [latest release](https://github.com/Neil2222/rebirth/releases/latest).
 2. Unzip the whole thing (don't run it from inside the zip) and double-click **`Rebirth.exe`**.
    Keep the `data_Rebirth_windows_x86_64` folder next to it.
 3. Windows may warn "Windows protected your PC" because the game isn't signed: click
