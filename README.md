@@ -50,6 +50,17 @@ friendly, and you deal with them through puzzles and conversation.
 
 ## Playing
 
+### Download (Windows)
+
+1. Download **`Rebirth-windows.zip`** from the [latest release](https://github.com/Neil2222/rebirth/releases/latest).
+2. Unzip the whole thing (don't run it from inside the zip) and double-click **`Rebirth.exe`**.
+   Keep the `data_Rebirth_windows_x86_64` folder next to it.
+3. Windows may warn "Windows protected your PC" because the game isn't signed: click
+   **More info → Run anyway**.
+4. Start with **New game – with tutorial**. Saves live in `%APPDATA%\Godot\app_userdata\Rebirth`.
+
+You need a graphics card with Vulkan support (roughly anything from 2016 on).
+
 ### From source
 
 1. Install **[Godot 4.7 (.NET edition)](https://godotengine.org/download)** and the
@@ -108,3 +119,7 @@ prototype:
 - the people are lights and houses for now.
 
 See [`DESIGN.md`](DESIGN.md) for the roadmap and what comes next.
+
+## License
+
+[MIT](LICENSE): use it, change it, build on it.
