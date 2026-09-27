@@ -59,7 +59,9 @@ jobs:
           "$GODOT" --headless --path . --import || true
           "$GODOT" --headless --path . --export-release "Windows Desktop" build/Rebirth/Rebirth.exe
           test -f build/Rebirth/Rebirth.exe
-          cp tools/release/README.txt build/Rebirth/
+          # Older tags predate the player's README: take it from master then.
+          if [ -f tools/release/README.txt ]; then cp tools/release/README.txt build/Rebirth/
+          else git fetch -q --depth 1 origin master && git show FETCH_HEAD:tools/release/README.txt > build/Rebirth/README.txt; fi
           (cd build && zip -qr9 Rebirth-windows.zip Rebirth)
           ls -la build build/Rebirth
 
