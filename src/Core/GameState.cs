@@ -1,3 +1,5 @@
+using System.Collections.Generic;
+
 namespace Rebirth.Core;
 
 public static class GameState
@@ -13,7 +15,17 @@ public static class GameState
 
 	/// <summary>Which Box a fresh world is built in (1 = the first cluster; 2 after the first breach).</summary>
 	public static int NextBox { get; set; } = 1;
+
+	/// <summary>Cargo and bots arriving with you in the next world, if you are travelling.</summary>
+	public static Transfer? PendingTransfer { get; set; }
 }
 
 /// <summary>A new game either teaches you to build your first drill and bots, or starts with them done.</summary>
-public enum StartMode { Tutorial, SkipIntro }
+public enum StartMode { Tutorial, SkipIntro, Arrival }
+
+/// <summary>What you take along when travelling to another Box.</summary>
+public sealed class Transfer
+{
+	public Dictionary<string, float> Ingots { get; } = new();
+	public List<Persistence.Blueprint> Bots { get; } = new();
+}

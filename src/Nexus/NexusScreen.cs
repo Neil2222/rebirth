@@ -27,6 +27,7 @@ public partial class NexusScreen : CanvasLayer
 	public Colony Colony { get; set; } = null!;
 	public People People { get; set; } = null!;
 	public TalkPanel Talk { get; set; } = null!;
+	public BoxMapPanel BoxMap { get; set; } = null!;
 
 	private Camera3D _camera = null!;
 	private Camera3D? _previousCamera;
@@ -70,6 +71,7 @@ public partial class NexusScreen : CanvasLayer
 	private List<string> _routeTargets = new();
 	private string _routesShownFor = "";
 	private Label _news = null!;
+	private Label _buildHeading = null!;
 	private VBoxContainer _peopleBox = null!;
 	private VBoxContainer _lanceBox = null!;
 	private Label _lanceText = null!;
@@ -104,6 +106,7 @@ public partial class NexusScreen : CanvasLayer
 		top.AddChild(title);
 		_top = new Label { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill, VerticalAlignment = VerticalAlignment.Center };
 		top.AddChild(_top);
+		AddButton(top, "Boxes & upgrades", () => BoxMap.Open());
 		AddButton(top, "Close  [N]", Close);
 
 		// Left: places.
@@ -174,7 +177,8 @@ public partial class NexusScreen : CanvasLayer
 		rightBox.AddChild(_routeBox);
 
 		_buildBox = new VBoxContainer();
-		_buildBox.AddChild(UiTheme.Heading($"BUILD HERE WITH BOTS  (costs {Colony.AutoBuildCostFactor}× hand-built)"));
+		_buildHeading = UiTheme.Heading("");
+		_buildBox.AddChild(_buildHeading);
 		_designPicker = new OptionButton();
 		_designPicker.ItemSelected += _ => RefreshSpot();
 		_buildBox.AddChild(_designPicker);
@@ -612,7 +616,7 @@ public partial class NexusScreen : CanvasLayer
 		int idle = Colony.Bots.Count(b => b.Status is "Idle");
 		var (made, received) = Colony.RatesPerMinute(home);
 		float income = made.Concat(received).Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot).Sum(kv => kv.Value);
-		return $"Home: {(stock.Length > 0 ? stock : "no ingots")}      Income: +{income:0} kg/min      Bots: {Colony.Bots.Count} ({idle} idle)      Sites: {Colony.Sites.Count()}" +
+		return $"{Core.Campaign.Active.CurrentBox.Name}      Home: {(stock.Length > 0 ? stock : "no ingots")}      Income: +{income:0} kg/min      Bots: {Colony.Bots.Count} ({idle} idle)      Sites: {Colony.Sites.Count()}" +
 			(People.Settlements.Count > 0 ? $"      People: {People.Settlements.Sum(s => s.Population)}" : "") +
 			$"      Resonance: {Colony.Resonance:0}{(Colony.ResonancePerMinute > 0.01f ? $" (+{Colony.ResonancePerMinute:0.0}/min)" : "")}" +
 			(Colony.HasLance ? $"      Lance: {Colony.LanceFraction:P0}" : "");
@@ -676,6 +680,7 @@ public partial class NexusScreen : CanvasLayer
 			_buildButton.Disabled = true;
 			return;
 		}
+		_buildHeading.Text = $"BUILD HERE WITH BOTS  (costs {Colony.AutoBuildCostFactor:0.##}× hand-built)";
 		var home = Colony.Home?.Inventory;
 		var sb = new StringBuilder($"{design.Blocks.Count} blocks. Needs (bots fetch it from home as it comes in):\n");
 		foreach (var (item, amount) in Colony.AutoBuildCost(design).OrderBy(kv => kv.Key))
@@ -867,7 +872,7 @@ public partial class NexusScreen : CanvasLayer
 	{
 		if (!Visible)
 			return;
-		if (Talk.IsOpen)
+		if (Talk.IsOpen || BoxMap.IsOpen)
 			return;
 		if (e.IsActionPressed("open_nexus") || e.IsActionPressed("release_mouse"))
 		{

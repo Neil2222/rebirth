@@ -16,11 +16,13 @@ namespace Rebirth.Nexus;
 public partial class Colony : Node
 {
 	public const string HomeLabel = "Home";
-	public const float AutoBuildCostFactor = 2.5f;
+	/// <summary>How much more building by bot costs than by hand (2.5×, less with Starlight upgrades).</summary>
+	public static float AutoBuildCostFactor => Core.Campaign.Active.AutoBuildFactor;
 	public const float BuildSecondsPerBlock = 1.2f;
 	public const float LoadSeconds = 1.5f;
-	public const float BaseBotSpeed = 16f;       // m/s with no thrusters of its own
-	public const float MaxBotSpeed = 40f;
+	/// <summary>m/s with no thrusters of its own, including Starlight upgrades.</summary>
+	public static float BaseBotSpeed => 16f * Core.Campaign.Active.BotSpeedFactor;
+	public static float MaxBotSpeed => 40f * Core.Campaign.Active.BotSpeedFactor;
 	private const float HaulMinimum = 50f;       // kg worth a trip
 	private const float SiteSpacing = 22f;       // m between sites on the same body
 	/// <summary>How far an uplink (or Home) reaches: bodies whose surface is this close are linked.</summary>

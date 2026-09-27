@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Linq;
 using Godot;
 using Rebirth.Building;
@@ -41,8 +42,6 @@ public partial class Main : Node3D
 	private BoxWall _wall = null!;
 	public SpiritBomb SpiritBomb { get; private set; } = null!;
 
-	/// <summary>Display names of the Boxes built so far.</summary>
-	public static string BoxName(int box) => box == 1 ? "The First Box" : "The Tide Box";
 	private double _nextAutosave;
 	private double _newWorldConfirmUntil;
 
@@ -55,8 +54,9 @@ public partial class Main : Node3D
 			save = SaveSystem.Read(latest);
 		_booted = true;
 		_box = save?.Box ?? GameState.NextBox;
+		Campaign.Active.Current = _box;
 
-		var homeRock = BuildBox(_box);
+		var homeRock = BuildBox(Campaign.Active.Reach(_box));
 
 		Player = new Player { Name = "Player" };
 		AddChild(Player);
@@ -85,8 +85,15 @@ public partial class Main : Node3D
 		Colony.PeopleResonance = () => People.ResonancePerMinute;
 		Colony.SettlementsToSave = () => People.Settlements;
 		Talk = new TalkPanel { Name = "Talk", People = People };
-		Nexus = new NexusScreen { Name = "Nexus", Colony = Colony, People = People, Talk = Talk };
+		var boxMap = new BoxMapPanel { Name = "BoxMap" };
+		Nexus = new NexusScreen { Name = "Nexus", Colony = Colony, People = People, Talk = Talk, BoxMap = boxMap };
 		AddChild(Nexus);
+		AddChild(boxMap);
+		boxMap.TravelRequested += target =>
+		{
+			Nexus.Close();
+			Travel(target);
+		};
 		// After the Nexus, so a conversation opened from it gets Esc first.
 		AddChild(Talk);
 		Talk.Closed += () =>
@@ -131,6 +138,21 @@ public partial class Main : Node3D
 		}
 		else
 			StartNewGame(homeRock, GameState.NextStart);
+		if (GameState.PendingTransfer is { } transfer)
+		{
+			GameState.PendingTransfer = null;
+			// A world you come back to may have its player standing anywhere: put them at Home.
+			if (save is not null && Colony.Home is { } home)
+			{
+				Vector3 eye = home.GlobalTransform * new Vector3(9f, 7f, 22f);
+				Player.GlobalTransform = new Transform3D(Basis.LookingAt(home.GlobalPosition - eye, Vector3.Up), eye);
+				Player.LinearVelocity = Vector3.Zero;
+				Player.ResetPhysicsInterpolation();
+			}
+			Unpack(transfer);
+			// So Continue picks up here, not in the Box you left.
+			SaveTo(SaveSystem.AutoSlot, null);
+		}
 		Tutorial.Begin(_progress.TutorialStep);
 		_nextAutosave = Now + AutosaveSeconds;
 
@@ -138,54 +160,137 @@ public partial class Main : Node3D
 			OpenTitle(save is not null);
 	}
 
-	/// <summary>
-	/// A fresh world: Home on its rock and the starter ship. The tutorial then has you add the drill and
-	/// print the first bots; skipping the intro starts with exactly that done.
-	/// </summary>
-	/// <summary>
-	/// Sky, sun, the Box wall and the bodies of a Box. The first is where the story starts; the second,
-	/// the Tide Box, is a cooler, watery cluster reached by breaking out of the first.
-	/// </summary>
-	private VoxelAsteroid BuildBox(int box)
+	/// <summary>Colours, sun and wall of a Box: the cluster's mood.</summary>
+	private sealed record BoxLook(Color Plum, Color Peach, Color Teal, Color Rose, Color SunColor, float SunEnergy, float SolarStrength, Color Wall);
+
+	private static BoxLook LookOf(BoxKind kind) => kind switch
 	{
-		bool tide = box >= 2;
-		BuildEnvironment(tide);
-		_wall = new BoxWall { Name = "BoxWall", LineColor = tide ? new Color(0.7f, 1f, 0.9f) : new Color(0.86f, 0.78f, 1f) };
+		BoxKind.Tide => new(new(0.10f, 0.17f, 0.30f), new(0.75f, 0.95f, 0.9f), new(0.07f, 0.27f, 0.36f), new(0.45f, 0.75f, 0.85f), new(0.88f, 0.96f, 1f), 1.5f, 1f, new(0.7f, 1f, 0.9f)),
+		// A faint, far star: dusky indigo, and solar panels give little.
+		BoxKind.Dim => new(new(0.08f, 0.07f, 0.18f), new(0.55f, 0.45f, 0.7f), new(0.06f, 0.1f, 0.2f), new(0.4f, 0.3f, 0.55f), new(0.75f, 0.72f, 1f), 0.9f, 0.4f, new(0.7f, 0.65f, 1f)),
+		BoxKind.Frost => new(new(0.16f, 0.2f, 0.34f), new(0.92f, 0.95f, 1f), new(0.2f, 0.36f, 0.5f), new(0.7f, 0.78f, 0.95f), new(0.92f, 0.96f, 1f), 1.4f, 0.9f, new(0.85f, 0.95f, 1f)),
+		BoxKind.Ember => new(new(0.26f, 0.12f, 0.16f), new(1f, 0.62f, 0.38f), new(0.3f, 0.2f, 0.25f), new(0.95f, 0.5f, 0.4f), new(1f, 0.82f, 0.6f), 1.7f, 1.15f, new(1f, 0.75f, 0.6f)),
+		_ => new(new(0.20f, 0.15f, 0.34f), new(1f, 0.70f, 0.48f), new(0.12f, 0.34f, 0.42f), new(0.85f, 0.45f, 0.60f), new(1f, 0.9f, 0.76f), 1.5f, 1f, new(0.86f, 0.78f, 1f)),
+	};
+
+	/// <summary>
+	/// Sky, sun, the Box wall and the bodies of a Box. The first two are hand-made; later ones are
+	/// generated from their seed in the character of their kind.
+	/// </summary>
+	private VoxelAsteroid BuildBox(BoxInfo box)
+	{
+		var look = LookOf(box.Kind);
+		BuildEnvironment(look);
+		_wall = new BoxWall { Name = "BoxWall", LineColor = look.Wall };
 		AddChild(_wall);
-		// The rock Home sits on: where you learn to drill (and where you land in a new Box).
-		var homeRock = new VoxelAsteroid { Name = "Home Rock", Position = new Vector3(-12, -30, 0), Radius = 16f, Seed = tide ? 12 : 11 };
+		// The rock Home sits on: where you learn to drill, and where you land in a new Box.
+		var homeRock = new VoxelAsteroid { Name = "Home Rock", Position = new Vector3(-12, -30, 0), Radius = 16f, Seed = 11 + box.Index };
 		AddChild(homeRock);
-		if (!tide)
+		switch (box.Kind)
 		{
-			AddAsteroid(new Vector3(0, -20, -120), 35f, 1);
-			AddAsteroid(new Vector3(150, 40, -300), 55f, 2);
-			AddAsteroid(new Vector3(-90, 30, -60), 14f, 3);
-			AddAsteroid(new Vector3(-22, -4, -26), 8f, 4);
-			// Small walkable planets, each with its own sleepy look. Their gravity reaches three radii,
-			// which stays clear of the spawn.
-			AddPlanet("Dune", new Vector3(60, -140, -220), 55f, 7, VoxelMaterials.Dune, new Color(1f, 0.8f, 0.62f));
-			AddPlanet("Frost", new Vector3(-260, 30, -120), 40f, 8, VoxelMaterials.Frost, new Color(0.72f, 0.86f, 1f));
-			AddPlanet("Moss", new Vector3(220, 60, 120), 50f, 9, VoxelMaterials.Moss, new Color(0.78f, 0.95f, 0.72f));
-			BuildCrates(new Vector3(0, 0, -15));
-		}
-		else
-		{
-			AddAsteroid(new Vector3(40, 10, -110), 28f, 21);
-			AddAsteroid(new Vector3(-120, -40, -80), 20f, 22);
-			AddAsteroid(new Vector3(180, -60, 60), 42f, 23);
-			// A water world that is half-way there already, a coral-pink reef planet and a little lantern moon.
-			AddPlanet("Tide", new Vector3(-40, -170, -270), 70f, 31, VoxelMaterials.Frost, new Color(0.6f, 0.95f, 0.95f));
-			AddPlanet("Coral", new Vector3(260, 40, -80), 45f, 32, VoxelMaterials.Moss, new Color(1f, 0.72f, 0.72f));
-			AddPlanet("Lantern", new Vector3(-240, 90, 150), 38f, 33, VoxelMaterials.Dune, new Color(1f, 0.85f, 0.55f));
+			case BoxKind.First:
+				AddAsteroid(new Vector3(0, -20, -120), 35f, 1);
+				AddAsteroid(new Vector3(150, 40, -300), 55f, 2);
+				AddAsteroid(new Vector3(-90, 30, -60), 14f, 3);
+				AddAsteroid(new Vector3(-22, -4, -26), 8f, 4);
+				// Small walkable planets, each with its own sleepy look. Their gravity reaches three radii,
+				// which stays clear of the spawn.
+				AddPlanet("Dune", new Vector3(60, -140, -220), 55f, 7, VoxelMaterials.Dune, new Color(1f, 0.8f, 0.62f));
+				AddPlanet("Frost", new Vector3(-260, 30, -120), 40f, 8, VoxelMaterials.Frost, new Color(0.72f, 0.86f, 1f));
+				AddPlanet("Moss", new Vector3(220, 60, 120), 50f, 9, VoxelMaterials.Moss, new Color(0.78f, 0.95f, 0.72f));
+				BuildCrates(new Vector3(0, 0, -15));
+				break;
+			case BoxKind.Tide:
+				AddAsteroid(new Vector3(40, 10, -110), 28f, 21);
+				AddAsteroid(new Vector3(-120, -40, -80), 20f, 22);
+				AddAsteroid(new Vector3(180, -60, 60), 42f, 23);
+				// A water world that is half-way there already, a coral-pink reef planet and a little lantern moon.
+				AddPlanet("Tide", new Vector3(-40, -170, -270), 70f, 31, VoxelMaterials.Frost, new Color(0.6f, 0.95f, 0.95f));
+				AddPlanet("Coral", new Vector3(260, 40, -80), 45f, 32, VoxelMaterials.Moss, new Color(1f, 0.72f, 0.72f));
+				AddPlanet("Lantern", new Vector3(-240, 90, 150), 38f, 33, VoxelMaterials.Dune, new Color(1f, 0.85f, 0.55f));
+				break;
+			default:
+				GenerateBodies(box);
+				break;
 		}
 		return homeRock;
 	}
 
+	private static readonly string[] Syllables = ["ve", "lo", "ma", "ki", "ru", "so", "ne", "ta", "mi", "or", "el", "pa", "zu", "ri", "an"];
+	private static readonly string[] Endings = ["ra", "lin", "ssa", "do", "mir", "ven", "ta", "ro", "nel", "sh"];
+
+	/// <summary>
+	/// Planets and asteroids of a generated Box, spread around Home with room between them. Frost Boxes
+	/// are icy all over; Ember Boxes are dry, with a single small ice moon; Dim Boxes have a mix.
+	/// </summary>
+	private void GenerateBodies(BoxInfo box)
+	{
+		var rng = new RandomNumberGenerator { Seed = (ulong)box.Seed };
+		var taken = new List<(Vector3 Position, float Radius)> { (new Vector3(-12, -30, 0), 40f) };
+		Vector3 Place(float radius, float min, float max)
+		{
+			for (int attempt = 0; attempt < 200; attempt++)
+			{
+				var dir = new Vector3(rng.Randfn(), rng.Randfn() * 0.5f, rng.Randfn()).Normalized();
+				var position = dir * rng.RandfRange(min, max);
+				if (taken.All(t => t.Position.DistanceTo(position) > t.Radius + radius * 3.2f + 30f))
+				{
+					taken.Add((position, radius * 3f));
+					return position;
+				}
+			}
+			return new Vector3(rng.RandfRange(-300, 300), rng.RandfRange(-100, 100), rng.RandfRange(-300, 300));
+		}
+		string NewName()
+		{
+			string first = Syllables[rng.RandiRange(0, Syllables.Length - 1)];
+			return char.ToUpper(first[0]) + first[1..] + Syllables[rng.RandiRange(0, Syllables.Length - 1)] + Endings[rng.RandiRange(0, Endings.Length - 1)];
+		}
+
+		int planets = rng.RandiRange(3, 4);
+		for (int i = 0; i < planets; i++)
+		{
+			float radius = rng.RandfRange(38f, 62f);
+			byte crust = box.Kind switch
+			{
+				BoxKind.Frost => VoxelMaterials.Frost,
+				BoxKind.Ember => VoxelMaterials.Dune,
+				_ => i % 2 == 0 ? VoxelMaterials.Moss : VoxelMaterials.Dune,
+			};
+			Color haze = box.Kind switch
+			{
+				BoxKind.Frost => new Color(0.78f, 0.9f, 1f),
+				BoxKind.Ember => new Color(1f, 0.66f, 0.5f),
+				_ => new Color(0.75f, 0.7f, 1f),
+			};
+			string name = NewName();
+			AddPlanet(name, Place(radius, 190f, 330f), radius, box.Seed + i * 7, crust, haze);
+		}
+		// Every Box needs ice somewhere: dry ones get a single small ice moon.
+		if (box.Kind != BoxKind.Frost)
+			AddPlanet(NewName(), Place(30f, 200f, 320f), 30f, box.Seed + 99, VoxelMaterials.Frost, new Color(0.75f, 0.9f, 1f));
+		int asteroids = rng.RandiRange(3, 4);
+		for (int i = 0; i < asteroids; i++)
+		{
+			float radius = rng.RandfRange(12f, 38f);
+			AddAsteroid(Place(radius, 70f, 300f), radius, box.Seed + 50 + i, $"{NewName()} Rock");
+		}
+	}
+
+	/// <summary>
+	/// A fresh world. In the first Box: Home on its rock and the starter ship, then either the tutorial
+	/// or its outcome (drill, tube, two bots). Arriving in another Box: Home with its drill, plus whatever
+	/// you brought along (added after this).
+	/// </summary>
 	private void StartNewGame(VoxelAsteroid homeRock, StartMode mode)
 	{
-		if (GetNodeOrNull<MiniPlanet>("Tide") is { } tide)
+		if (Campaign.Active.CurrentBox.Kind == BoxKind.Tide && GetNodeOrNull<MiniPlanet>("Tide") is { } tide)
 			tide.Water = 0.55f;
-		SpawnBlueprint(Presets.StarterHauler(), new Transform3D(Basis.Identity, new Vector3(14, 0, -8)), isStatic: false, charge: 1f);
+		if (Campaign.Active.CurrentBox.Kind == BoxKind.Frost)
+			foreach (var planet in GetChildren().OfType<MiniPlanet>())
+				planet.Water = 0.15f;
+		if (mode != StartMode.Arrival)
+			SpawnBlueprint(Presets.StarterHauler(), new Transform3D(Basis.Identity, new Vector3(14, 0, -8)), isStatic: false, charge: 1f);
 		var outpost = Presets.Outpost();
 		var home = SpawnBlueprint(outpost, Colony.PlaceOnSurface(homeRock, Vector3.Up, outpost, clearance: 2f), isStatic: true, charge: 1f);
 		home.Label = Colony.HomeLabel;
@@ -200,18 +305,39 @@ public partial class Main : Node3D
 			_progress = new ProgressSave { TutorialStep = 0, NexusUnlocked = false };
 			return;
 		}
-		// The tutorial's outcome: tube and drill in place, two bots, and the leftover ingots in storage.
+		// The tutorial's outcome: tube and drill in place.
 		home.TryAdd(Tutorial.TubeCell, BlockCatalog.Tube, Basis.Identity);
 		home.TryAdd(Tutorial.DrillCell, BlockCatalog.AutoDrill, Tutorial.DrillDown);
+		_progress = new ProgressSave { TutorialStep = -1, NexusUnlocked = true };
+		if (mode == StartMode.Arrival)
+		{
+			// Your pockets start empty in a new Box: what you brought is in the hold at Home.
+			Player.Inventory.Clear();
+			for (int i = 0; i < Campaign.Active.WelcomeBots; i++)
+				SpawnNearHome(Presets.WorkerBot(), home, 10 + i);
+			return;
+		}
 		foreach (var (item, amount) in Player.Inventory.Items.ToArray())
 			Player.Inventory.TransferTo(home.Inventory, item, amount);
-		var bot = Presets.WorkerBot();
 		for (int i = 0; i < Tutorial.BotsToPrint; i++)
-			SpawnBlueprint(bot, new Transform3D(Basis.Identity, home.GlobalTransform * new Vector3(-6f + i * 4f, 8f, -6f)), isStatic: false, charge: 1f);
-		_progress = new ProgressSave { TutorialStep = -1, NexusUnlocked = true };
-		Player.ShowMessage(_box > 1
-			? $"You broke through! Welcome to {BoxName(_box)}. Your designs came with you"
-			: "Home, a drill and two bots are ready. Press N for the Nexus");
+			SpawnNearHome(Presets.WorkerBot(), home, i);
+		Player.ShowMessage("Home, a drill and two bots are ready. Press N for the Nexus");
+	}
+
+	private void SpawnNearHome(Blueprint bot, BlockGrid home, int slot) =>
+		SpawnBlueprint(bot, new Transform3D(Basis.Identity, home.GlobalTransform * new Vector3(-8f + slot % 5 * 4f, 8f + slot / 5 * 4f, -6f)), isStatic: false, charge: 1f);
+
+	/// <summary>Unpacks what came along on a journey: ingots into Home's storage, bots beside it.</summary>
+	private void Unpack(Transfer transfer)
+	{
+		if (Colony.Home is not { } home)
+			return;
+		foreach (var (item, amount) in transfer.Ingots)
+			home.Inventory.Add(item, amount);
+		for (int i = 0; i < transfer.Bots.Count; i++)
+			SpawnNearHome(transfer.Bots[i], home, 20 + i);
+		float kg = transfer.Ingots.Values.Sum();
+		Player.ShowMessage($"Welcome to {Campaign.Active.CurrentBox.Name}: {kg:0} kg of ingots and {transfer.Bots.Count} bots came with you");
 	}
 
 	// ---------------------------------------------------------------- menus
@@ -250,6 +376,9 @@ public partial class Main : Node3D
 
 	private void NewGame(StartMode mode)
 	{
+		Campaign.Reset();
+		GameState.NextBox = 1;
+		GameState.PendingTransfer = null;
 		GameState.NextStart = mode;
 		SaveSystem.PendingLoad = null;
 		ReloadWorld();
@@ -266,16 +395,52 @@ public partial class Main : Node3D
 		Tutorial.Visible = false;
 	}
 
-	/// <summary>
-	/// After the breach: this Box is kept as an archive (the way back is for later), and a new world
-	/// is built in the next Box, starting from a fresh Home with your designs.
-	/// </summary>
+	/// <summary>After the breach: this Box is freed (it shines Starlight from now on) and you travel on to a new one.</summary>
 	private void EnterNextBox()
 	{
-		SaveTo($"box{_box}_archive", null);
-		GameState.NextBox = _box + 1;
-		GameState.NextStart = StartMode.SkipIntro;
-		SaveSystem.PendingLoad = null;
+		var campaign = Campaign.Active;
+		campaign.Free(_box, Colony.ResonancePerMinute);
+		Travel(campaign.Boxes.Max(b => b.Index) + 1);
+	}
+
+	/// <summary>
+	/// Goes to another Box: packs what the hold and bot bay allow, stores this world under its Box, and
+	/// loads the target (or builds it fresh the first time).
+	/// </summary>
+	public void Travel(int target)
+	{
+		var campaign = Campaign.Active;
+		var transfer = new Transfer();
+		if (Colony.Home is { } home)
+		{
+			// Ingots, shared out fairly by what Home holds, up to the hold's capacity.
+			var ingots = home.Inventory.Items.Where(kv => Items.ItemCatalog.Get(kv.Key).Category == Items.ItemCategory.Ingot).ToList();
+			float total = ingots.Sum(kv => kv.Value);
+			float share = total > 0f ? Mathf.Min(1f, campaign.CargoCarried / total) : 0f;
+			foreach (var (item, amount) in ingots)
+			{
+				float take = amount * share;
+				if (take >= 1f && home.Inventory.TryRemove(item, take))
+					transfer.Ingots[item] = take;
+			}
+		}
+		foreach (var bot in Colony.Bots.Take(campaign.BotsCarried).ToList())
+		{
+			transfer.Bots.Add(Blueprint.FromGrid(bot.Grid, bot.Grid.Label ?? "Bot", kind: DesignKind.Bot));
+			bot.Grid.QueueFree();
+		}
+		Colony.Bots.RemoveAll(b => b.Grid.IsQueuedForDeletion());
+
+		campaign.Leave(_box, Colony.ResonancePerMinute);
+		SaveTo(Campaign.SlotFor(_box), null);
+		var box = campaign.Reach(target);
+		campaign.Current = box.Index;
+		campaign.Save();
+
+		GameState.PendingTransfer = transfer;
+		GameState.NextBox = box.Index;
+		GameState.NextStart = StartMode.Arrival;
+		SaveSystem.PendingLoad = SaveSystem.Read(Campaign.SlotFor(box.Index));
 		ReloadWorld();
 	}
 
@@ -299,8 +464,8 @@ public partial class Main : Node3D
 	private void AddPlanet(string name, Vector3 position, float radius, int seed, byte crust, Color haze) =>
 		AddChild(new MiniPlanet { Name = name, Position = position, Radius = radius, Seed = seed, Crust = crust, HazeTint = haze });
 
-	private void AddAsteroid(Vector3 position, float radius, int seed) =>
-		AddChild(new VoxelAsteroid { Name = $"Asteroid{seed}", Position = position, Radius = radius, Seed = seed });
+	private void AddAsteroid(Vector3 position, float radius, int seed, string? name = null) =>
+		AddChild(new VoxelAsteroid { Name = name ?? $"Asteroid{seed}", Position = position, Radius = radius, Seed = seed });
 
 	private BlockGrid SpawnBlueprint(Blueprint blueprint, Transform3D transform, bool isStatic, float charge)
 	{
@@ -391,6 +556,7 @@ public partial class Main : Node3D
 
 	public override void _Process(double delta)
 	{
+		Campaign.Active.Tick((float)delta);
 		if (Now >= _nextAutosave)
 			SaveTo(SaveSystem.AutoSlot, "Autosaved");
 	}
@@ -405,6 +571,7 @@ public partial class Main : Node3D
 	{
 		_nextAutosave = Now + AutosaveSeconds;
 		_progress.TutorialStep = Tutorial.StepIndex;
+		Campaign.Active.Save();
 		var save = SaveSystem.Capture(this, Player, Forge.CurrentBlueprint(), Colony.ToSave(), _progress);
 		save.Box = _box;
 		SaveSystem.Write(save, slot);
@@ -442,17 +609,14 @@ public partial class Main : Node3D
 		GetTree().CallDeferred(SceneTree.MethodName.ReloadCurrentScene);
 	}
 
-	/// <param name="tide">The Tide Box: a cool aqua sky and a paler, bluer sun.</param>
-	private void BuildEnvironment(bool tide)
+	private void BuildEnvironment(BoxLook look)
 	{
 		var skyMaterial = new ShaderMaterial { Shader = GD.Load<Shader>("res://shaders/retro_sky.gdshader") };
-		if (tide)
-		{
-			skyMaterial.SetShaderParameter("plum", new Color(0.10f, 0.17f, 0.30f));
-			skyMaterial.SetShaderParameter("peach", new Color(0.75f, 0.95f, 0.9f));
-			skyMaterial.SetShaderParameter("teal", new Color(0.07f, 0.27f, 0.36f));
-			skyMaterial.SetShaderParameter("rose", new Color(0.45f, 0.75f, 0.85f));
-		}
+		skyMaterial.SetShaderParameter("plum", look.Plum);
+		skyMaterial.SetShaderParameter("peach", look.Peach);
+		skyMaterial.SetShaderParameter("teal", look.Teal);
+		skyMaterial.SetShaderParameter("rose", look.Rose);
+		Sun.Strength = look.SolarStrength;
 		var env = new Godot.Environment
 		{
 			BackgroundMode = Godot.Environment.BGMode.Sky,
@@ -479,8 +643,8 @@ public partial class Main : Node3D
 
 		var sun = new DirectionalLight3D
 		{
-			LightEnergy = 1.5f,
-			LightColor = tide ? new Color(0.88f, 0.96f, 1f) : new Color(1f, 0.9f, 0.76f),
+			LightEnergy = look.SunEnergy,
+			LightColor = look.SunColor,
 			ShadowEnabled = true,
 			ShadowBlur = 2.5f,
 			DirectionalShadowMaxDistance = 400f,

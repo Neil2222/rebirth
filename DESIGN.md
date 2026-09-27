@@ -110,6 +110,17 @@ Geen FPS, geen tijdsdruk. Getroffen machines gaan in **quarantaine** (stil, niet
   met een verse Home en al je ontwerpen; de eerste Box wordt gearchiveerd. Terugkeren en wat je meeneemt
   beslissen we later.
 
+### Meerdere Boxes en Starlight (F2)
+- **Box-kaart** in de Nexus ("Boxes & upgrades"): elke bereikte Box blijft bestaan (eigen wereld-save) en je
+  kunt heen en weer reizen. Een Box staat stil als je weg bent.
+- **Meenemen bij reizen:** alle blueprints; ingots uit Home tot de **laadruimte** (2 t, upgradebaar); je bots
+  tot de **botbaai** (2, upgradebaar). In een nieuwe Box: verse Home met drill, daarna alles via de Nexus.
+- **Starlight:** bevrijde Boxes (waar je uitgebroken bent) stralen punten uit naar een gedeelde poel:
+  de helft van hun Resonance-tempo bij vertrek, plus 150 per doorbraak. Daarmee koop je blijvende upgrades:
+  botbaai, laadruimte, botsnelheid, goedkoper bouwen met bots, snellere raffinaderij, welkomstbots.
+- **Gegenereerde Boxes** na de Tide Box: *Dim* (zwakke ster, zonne-energie 40%), *Frost* (overal ijs),
+  *Ember* (droog en warm, één klein ijsmaantje). Eigen kleuren, namen en indeling per seed.
+
 ### Elke Box is anders
 Box zonder ster (breng zelf licht), waterwereld, zwermnest, ... Technologie en archief gaan mee.
 
@@ -156,7 +167,7 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | E1 | Planeten genezen: lucht, water, bodem, meekleurend terrein, zeeën, Resonance | klaar |
 | E2 | DNA-incubatie, nederzettingen, verzoeken van mensen (leveren, bouwen, praten, cadeaus), band | klaar |
 | F1 | Breach Lance als Spirit Bomb, Box-wand, doorbraak, vaste tweede Box (Tide Box) | klaar |
-| F2 | Terug naar oude Boxes, wat meegaat, gegenereerde Boxes met eigen karakter | |
+| F2 | Box-kaart en reizen, meenemen (laadruimte, botbaai), Starlight-upgrades, gegenereerde Boxes (Dim, Frost, Ember) | klaar |
 | G | Dreiging en minigames: circuitpuzzel, gesprekken, cadeaus | |
 
 ## Techniek

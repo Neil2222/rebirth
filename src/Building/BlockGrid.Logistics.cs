@@ -29,7 +29,8 @@ public partial class BlockGrid
 {
 	public const float ParcelSize = 50f;           // kg per parcel
 	public const float ParcelSpeed = 4f;           // cells per second
-	public const float RefineryOrePerSecond = 40f;
+	/// <summary>Ore a refinery works through per second, including Starlight upgrades.</summary>
+	public static float RefineryOrePerSecond => 40f * Core.Campaign.Active.RefineryFactor;
 	/// <summary>Share of storage kept free of ore, so refined goods always have somewhere to go.</summary>
 	public const float IngotReserve = 0.2f;
 	public const float DrillInterval = 2.0f;       // seconds between bites

@@ -58,7 +58,7 @@ public partial class BlockGrid
 		{
 			var block = _blocks[cell];
 			Vector3 up = GlobalBasis * (block.Orientation * Vector3.Up);
-			solar += block.Definition.SolarOutput * Mathf.Max(0f, up.Dot(Sun.Direction));
+			solar += block.Definition.SolarOutput * Sun.Strength * Mathf.Max(0f, up.Dot(Sun.Direction));
 		}
 
 		float demand = _activeRefineryDraw + _fabricatorDraw + _drillDraw + _terraformDraw;
