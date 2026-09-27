@@ -73,7 +73,7 @@ jobs:
           if gh release view "$tag" > /dev/null 2>&1; then
             gh release upload "$tag" build/Rebirth-windows.zip --clobber
           else
-            gh release create "$tag" build/Rebirth-windows.zip --title "Rebirth ${{ steps.version.outputs.number }}" --generate-notes
+            gh release create "$tag" build/Rebirth-windows.zip --title "Rebirth: Break the Box ${{ steps.version.outputs.number }}" --generate-notes
           fi
 
       - name: Push to itch.io

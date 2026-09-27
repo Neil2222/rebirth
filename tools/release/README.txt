@@ -1,4 +1,4 @@
-REBIRTH - early prototype
+REBIRTH: BREAK THE BOX - early prototype
 
 Starting: unzip everything (don't run it from inside the zip) and double-click Rebirth.exe.
 The "data_Rebirth_windows_x86_64" folder must stay next to Rebirth.exe.

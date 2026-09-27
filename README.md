@@ -1,4 +1,4 @@
-# Rebirth
+# Rebirth: Break the Box
 
 **A cosy, retro-futuristic planet-building and automation game.** You are a Custodian: a small robot
 carrying what is left of humanity as DNA. A cosmic Curator has sealed every star cluster in a Box. Mine
