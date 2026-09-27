@@ -14,8 +14,9 @@ friendly, and you deal with them through puzzles and conversation.
 
 | | |
 |---|---|
-| ![Third-person building](docs/screenshots/hud.jpg) | ![A healed planet with seas and villages](docs/screenshots/planet.jpg) |
-| ![The Forge](docs/screenshots/forge.jpg) | ![Production statistics](docs/screenshots/production.jpg) |
+| ![A Solar Park cabled to Home](docs/screenshots/hud.jpg) | ![A healed planet with seas and villages](docs/screenshots/planet.jpg) |
+| ![The Forge: a ship built from shaped blocks](docs/screenshots/forge.jpg) | ![Production statistics](docs/screenshots/production.jpg) |
+| ![A Stone Plant: burners and a power pylon](docs/screenshots/power.jpg) | ![Every machine has its own silhouette](docs/screenshots/machines.jpg) |
 
 ![The Breach Lance: everyone lends their light](docs/screenshots/spirit_bomb.jpg)
 
@@ -25,9 +26,12 @@ it covers every system, block, design and upgrade, and has the roadmap.
 ## What you can do
 
 - **Build** with rounded toy blocks in third person, or design ships, stations, bots and your own robot body
-  in **the Forge** (parts by category, a checklist per design type, mirror mode, paint).
+  in **the Forge** (parts by category, a checklist per design type, mirror mode, paint). Armor comes in slopes,
+  corners, halves, rounded edges and pillars.
 - **Automate**: drills, refineries and storage that touch form a network. Ore and ingots ride through glass
   tubes as little coloured pods.
+- **Power** your stations from one place: cable them together with Power Pylons and feed them from a Solar
+  Park, Stone Burners, Wind Turbines or a Geothermal Tap.
 - **Run everything from the Nexus**, a strategic overview of your star cluster:
   - print worker bots;
   - pick a planet and a design, and bots fly out and build it (costs more than building by hand);
