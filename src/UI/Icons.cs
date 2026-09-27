@@ -18,7 +18,7 @@ public partial class ItemSlot : Control
 	public string Item
 	{
 		get => _item;
-		set { _item = value; TooltipText = ItemCatalog.DisplayName(value); QueueRedraw(); }
+		set { _item = value; QueueRedraw(); }
 	}
 
 	public float Amount
@@ -45,8 +45,7 @@ public partial class ItemSlot : Control
 		MouseFilter = MouseFilterEnum.Pass,
 	};
 
-	/// <summary>A proper info card instead of a bare tooltip: name, amount, type, and what it is for.</summary>
-	public override GodotObject _MakeCustomTooltip(string forText) => ItemCard(_item, _amount);
+	public override void _Ready() => HoverCard.Attach(this, () => _item.Length == 0 ? null : ItemCard(_item, _amount));
 
 	public static Control ItemCard(string item, float amount)
 	{
@@ -58,7 +57,7 @@ public partial class ItemSlot : Control
 		title.AddThemeColorOverride("font_color", UiTheme.Accent);
 		title.AddThemeFontSizeOverride("font_size", 17);
 		box.AddChild(title);
-		var kind = new Label { Text = (ItemCatalog.Get(item).Category == ItemCategory.Ingot ? "Refined material" : "Raw material") + (amount >= 0.5f ? $"  ·  {amount:0} kg" : "") };
+		var kind = new Label { Text = ItemCatalog.Get(item).Category == ItemCategory.Ingot ? "Refined material" : "Raw material" };
 		kind.AddThemeColorOverride("font_color", UiTheme.Dim);
 		kind.AddThemeFontSizeOverride("font_size", 13);
 		box.AddChild(kind);

@@ -146,17 +146,29 @@ public partial class InventoryPanel : CanvasLayer
 
 	private static string Key(Inventory inventory) => string.Join(";", inventory.Items.Select(kv => $"{kv.Key}:{kv.Value:0}"));
 
+	/// <summary>
+	/// Shows <paramref name="from"/> as item slots. Only a change in which items there are rebuilds the
+	/// grid; amounts update in place, so the slot under the mouse (and its info card) stays put while
+	/// machines keep filling the storage.
+	/// </summary>
 	private static void Fill(GridContainer grid, Inventory from, Inventory? to)
 	{
+		var items = from.Items.Where(kv => kv.Value >= 0.5f).OrderBy(kv => ItemCatalog.Get(kv.Key).Category).ThenBy(kv => kv.Key).ToList();
+		var existing = grid.GetChildren().OfType<VBoxContainer>().Where(c => !c.IsQueuedForDeletion()).Select(c => c.GetChild<ItemSlot>(0)).ToList();
+		if (existing.Select(s => s.Item).SequenceEqual(items.Select(kv => kv.Key)))
+		{
+			for (int i = 0; i < items.Count; i++)
+				existing[i].Amount = items[i].Value;
+			return;
+		}
 		foreach (var child in grid.GetChildren())
 			child.QueueFree();
-		foreach (var (item, amount) in from.Items.Where(kv => kv.Value >= 0.5f).OrderBy(kv => ItemCatalog.Get(kv.Key).Category).ThenBy(kv => kv.Key))
+		foreach (var (item, amount) in items)
 		{
 			var cell = new VBoxContainer();
 			cell.AddThemeConstantOverride("separation", 0);
 			var slot = ItemSlot.Create(item, amount, 72f);
 			slot.MouseFilter = Control.MouseFilterEnum.Stop;
-			slot.TooltipText = ItemCatalog.DisplayName(item);
 			cell.AddChild(slot);
 			var name = new Label { Text = ItemCatalog.DisplayName(item), HorizontalAlignment = HorizontalAlignment.Center, CustomMinimumSize = new Vector2(72, 0), AutowrapMode = TextServer.AutowrapMode.WordSmart };
 			name.AddThemeFontSizeOverride("font_size", 12);

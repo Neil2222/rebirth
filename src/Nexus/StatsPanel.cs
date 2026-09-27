@@ -24,6 +24,9 @@ public partial class StatsPanel : CanvasLayer
 	private VBoxContainer _rows = null!;
 	private Label _note = null!;
 	private float _timer;
+	private sealed record RowParts(Label Made, Label Used, Label Net, Label Stock, Label Wanted, Sparkline Graph, Label Verdict);
+	private readonly Dictionary<string, RowParts> _parts = new();
+	private string _itemsShown = "";
 
 	public override void _Ready()
 	{
@@ -121,52 +124,68 @@ public partial class StatsPanel : CanvasLayer
 	private void Refresh()
 	{
 		_timer = 1f;
-		foreach (var child in _rows.GetChildren())
-			child.QueueFree();
 		var stock = Colony.Stock();
 		var demand = Colony.Demand();
 		var items = ProductionStats.Items.Union(stock.Keys).Union(demand.Keys)
 			.Where(i => ItemCatalog.Get(i) is not null)
 			.OrderBy(i => ItemCatalog.Get(i).Category == ItemCategory.Ingot ? 0 : 1).ThenBy(i => i).ToList();
+		// Rows stay while the item list is the same, so hovering an icon keeps its info card.
+		string key = string.Join(";", items);
+		if (key != _itemsShown)
+		{
+			_itemsShown = key;
+			_parts.Clear();
+			foreach (var child in _rows.GetChildren())
+				child.QueueFree();
+			foreach (string item in items)
+				_rows.AddChild(Row(item));
+		}
 		foreach (string item in items)
-			_rows.AddChild(Row(item, stock.GetValueOrDefault(item), demand.GetValueOrDefault(item)));
+			Update(item, stock.GetValueOrDefault(item), demand.GetValueOrDefault(item));
 		double recorded = ProductionStats.Elapsed;
 		_note.Text = (recorded < _window ? $"Recorded so far: {recorded / 60.0:0.0} min (since this world was loaded). " : "") +
 			"Made: drills, refineries, gifts. Used: refineries, building (bots and by hand), fabricators, Life machines, requests. Wanted: what building sites and fabricators still need.";
 	}
 
-	private Control Row(string item, float stock, float wanted)
+	private Control Row(string item)
 	{
-		var (made, used) = ProductionStats.PerMinute(item, _window);
-		float net = made - used;
 		var row = new HBoxContainer();
 		row.AddChild(ItemSlot.Create(item, 0f, 44f));
 		row.AddChild(new Label { Text = ItemCatalog.DisplayName(item), CustomMinimumSize = new Vector2(158, 0), VerticalAlignment = VerticalAlignment.Center });
-		row.AddChild(Value($"{made:0}", 100f, new Color(0.25f, 0.55f, 0.3f)));
-		row.AddChild(Value($"{used:0}", 100f, new Color(0.8f, 0.4f, 0.15f)));
-		row.AddChild(Value(net >= 0 ? $"+{net:0}" : $"{net:0}", 90f, net < -0.5f ? UiTheme.Warning : UiTheme.Text));
-		row.AddChild(Value(Icons.Short(stock), 90f, UiTheme.Text));
-		row.AddChild(Value(wanted > 0.5f ? Icons.Short(wanted) : "-", 90f, UiTheme.Text));
-		row.AddChild(new Sparkline
-		{
-			Made = ProductionStats.Series(item, true, _window, 40),
-			Used = ProductionStats.Series(item, false, _window, 40),
-			CustomMinimumSize = new Vector2(230, 40),
-		});
-		var (text, color) = Verdict(made, used, stock, wanted);
-		var verdict = new Label { Text = text, CustomMinimumSize = new Vector2(210, 0), VerticalAlignment = VerticalAlignment.Center, AutowrapMode = TextServer.AutowrapMode.WordSmart };
-		verdict.AddThemeColorOverride("font_color", color);
-		verdict.AddThemeFontSizeOverride("font_size", 13);
-		row.AddChild(verdict);
+		var parts = new RowParts(Value(100f), Value(100f), Value(90f), Value(90f), Value(90f),
+			new Sparkline { CustomMinimumSize = new Vector2(230, 40) },
+			new Label { CustomMinimumSize = new Vector2(210, 0), VerticalAlignment = VerticalAlignment.Center, AutowrapMode = TextServer.AutowrapMode.WordSmart });
+		parts.Made.AddThemeColorOverride("font_color", new Color(0.25f, 0.55f, 0.3f));
+		parts.Used.AddThemeColorOverride("font_color", new Color(0.8f, 0.4f, 0.15f));
+		parts.Verdict.AddThemeFontSizeOverride("font_size", 13);
+		foreach (var part in new Control[] { parts.Made, parts.Used, parts.Net, parts.Stock, parts.Wanted, parts.Graph, parts.Verdict })
+			row.AddChild(part);
+		_parts[item] = parts;
 		return row;
 	}
 
-	private static Label Value(string text, float width, Color color)
+	private void Update(string item, float stock, float wanted)
 	{
-		var label = new Label { Text = text, CustomMinimumSize = new Vector2(width, 0), VerticalAlignment = VerticalAlignment.Center };
-		label.AddThemeColorOverride("font_color", color);
-		return label;
+		if (!_parts.TryGetValue(item, out var parts))
+			return;
+		var (made, used) = ProductionStats.PerMinute(item, _window);
+		float net = made - used;
+		parts.Made.Text = $"{made:0}";
+		parts.Used.Text = $"{used:0}";
+		parts.Net.Text = net >= 0 ? $"+{net:0}" : $"{net:0}";
+		parts.Net.AddThemeColorOverride("font_color", net < -0.5f ? UiTheme.Warning : UiTheme.Text);
+		parts.Stock.Text = Icons.Short(stock);
+		parts.Wanted.Text = wanted > 0.5f ? Icons.Short(wanted) : "-";
+		parts.Graph.Made = ProductionStats.Series(item, true, _window, 40);
+		parts.Graph.Used = ProductionStats.Series(item, false, _window, 40);
+		parts.Graph.QueueRedraw();
+		var (text, color) = Verdict(made, used, stock, wanted);
+		parts.Verdict.Text = text;
+		parts.Verdict.AddThemeColorOverride("font_color", color);
 	}
+
+	private static Label Value(float width) =>
+		new() { CustomMinimumSize = new Vector2(width, 0), VerticalAlignment = VerticalAlignment.Center };
 
 	/// <summary>Does supply keep up? In plain words, coloured by how worried to be.</summary>
 	private static (string, Color) Verdict(float made, float used, float stock, float wanted)

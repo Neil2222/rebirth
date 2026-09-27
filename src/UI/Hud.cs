@@ -289,7 +289,6 @@ public partial class Hud : CanvasLayer
 			{
 				var item = i < page.Count ? page[i] : null;
 				_slots[i].Item = item;
-				_slots[i].TooltipText = item?.Name ?? "";
 			}
 		}
 		_pageLabel.Text = $"{PageNames[Player.ToolbarPage % PageNames.Length]}  {Player.ToolbarPage + 1}/{Toolbar.Pages.Count}\n{Keybinds.Label("toolbar_page")}";
@@ -460,7 +459,7 @@ public partial class HotbarSlot : Control
 	}
 
 	/// <summary>Info card for the block (or the drill) when the mouse is free and hovers the slot.</summary>
-	public override GodotObject? _MakeCustomTooltip(string forText)
+	private Control? Card()
 	{
 		if (_item is null)
 			return null;
@@ -499,6 +498,7 @@ public partial class HotbarSlot : Control
 	public override void _Ready()
 	{
 		MouseFilter = MouseFilterEnum.Stop;
+		HoverCard.Attach(this, Card);
 		_picture = new TextureRect
 		{
 			ExpandMode = TextureRect.ExpandModeEnum.IgnoreSize,

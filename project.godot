@@ -36,3 +36,7 @@ common/physics_interpolation=true
 [rendering]
 
 anti_aliasing/quality/msaa_3d=2
+
+[gui]
+
+timers/tooltip_delay_sec=0.05

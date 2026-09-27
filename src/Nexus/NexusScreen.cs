@@ -546,9 +546,14 @@ public partial class NexusScreen : CanvasLayer
 	{
 		var items = Colony.Home?.Inventory.Items.Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot && kv.Value >= 1f).OrderBy(kv => kv.Key).ToList()
 			?? new List<KeyValuePair<string, float>>();
-		string key = string.Join(";", items.Select(kv => $"{kv.Key}:{Icons.Short(kv.Value)}"));
+		string key = string.Join(";", items.Select(kv => kv.Key));
 		if (key == _stockShown)
+		{
+			var chips = _stock.GetChildren().OfType<ItemSlot>().ToList();
+			for (int i = 0; i < chips.Count && i < items.Count; i++)
+				chips[i].Amount = items[i].Value;
 			return;
+		}
 		_stockShown = key;
 		foreach (var child in _stock.GetChildren())
 			child.QueueFree();
