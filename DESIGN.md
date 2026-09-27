@@ -193,6 +193,12 @@ te fel en te donker.)
 - **Intro overslaan:** start met precies die uitkomst: Home met drill en buis, twee bots, Nexus open.
 - Zelf bouwen verbeteren loont pas als er meer onderdelen en vormen zijn; eerst de groei-lus.
 
+## Samenwerken
+- Publiek op GitHub onder MIT. Bijdragen via fork + pull request; `master` alleen via PR met een groene
+  build-check (de eigenaar mag er direct langs). CODEOWNERS vraagt de eigenaar om review.
+- `AGENTS.md` is de handleiding voor AI-assistenten (codekaart, afspraken, testen door het echte spel aan te
+  sturen, valkuilen); `CONTRIBUTING.md` voor mensen. Issue-formulieren voor bugs en ideeën, Discussions voor vragen.
+
 ## Roadmap
 Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend met het eerste portaalschot.
 
