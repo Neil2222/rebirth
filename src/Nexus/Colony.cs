@@ -47,7 +47,15 @@ public partial class Colony : Node
 	/// </summary>
 	public float Resonance { get; private set; }
 
-	public float ResonancePerMinute => Bodies.OfType<MiniPlanet>().Sum(p => p.ResonancePerMinute);
+	public float ResonancePerMinute => Bodies.OfType<MiniPlanet>().Sum(p => p.ResonancePerMinute) + (PeopleResonance?.Invoke() ?? 0f);
+
+	/// <summary>Villages to save (set by the people manager).</summary>
+	public System.Func<List<Life.Settlement>>? SettlementsToSave { get; set; }
+
+	/// <summary>Resonance per minute from villages (set by the people manager).</summary>
+	public System.Func<float>? PeopleResonance { get; set; }
+
+	public void AddResonance(float amount) => Resonance += amount;
 
 	/// <summary>Seeds take once a planet's air and seas are this far back.</summary>
 	public const float GardenThreshold = 0.3f;
@@ -96,7 +104,7 @@ public partial class Colony : Node
 	public VoxelBody? BodyOf(Node3D node) =>
 		Bodies.OrderBy(b => b.GlobalPosition.DistanceTo(node.GlobalPosition) - b.OuterRadius).FirstOrDefault();
 
-	private void Announce(string text)
+	public void Announce(string text)
 	{
 		RecentNews.Insert(0, (_clock, text));
 		if (RecentNews.Count > NewsKept)
@@ -542,6 +550,7 @@ public partial class Colony : Node
 
 	public ColonySave ToSave() => new()
 	{
+		Settlements = SettlementsToSave?.Invoke() ?? new(),
 		Resonance = Resonance,
 		Planets = Bodies.OfType<MiniPlanet>().Select(p => new PlanetSave { Name = p.Name, Air = p.Air, Water = p.Water, Soil = p.Soil }).ToList(),
 		Jobs = Jobs.Select(j => new JobSave
@@ -703,6 +712,7 @@ public sealed class ConstructionJob
 /// <summary>Colony state in a save.</summary>
 public sealed class ColonySave
 {
+	public List<Life.Settlement> Settlements { get; set; } = new();
 	public float Resonance { get; set; }
 	public List<PlanetSave> Planets { get; set; } = new();
 	public List<JobSave> Jobs { get; set; } = new();

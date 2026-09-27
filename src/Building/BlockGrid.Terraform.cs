@@ -21,6 +21,11 @@ public partial class BlockGrid
 	/// <summary>Set by the colony: false when this station doesn't stand on a planet (nothing to heal).</summary>
 	public bool OnPlanet { get; set; } = true;
 
+	/// <summary>Set by the people manager: the planet can hold people, so incubators run.</summary>
+	public bool Habitable { get; set; }
+	/// <summary>Set by the people manager: what the incubators here are up to.</summary>
+	public string IncubatorNote { get; set; } = "";
+
 	private readonly Dictionary<Vital, float> _made = new();
 	private float _terraformDraw;
 
@@ -45,6 +50,15 @@ public partial class BlockGrid
 		float draw = 0f;
 		foreach (var (cell, block) in _blocks)
 		{
+			if (block.Definition.Kind == BlockKind.Incubator)
+			{
+				_machineStatus[cell] = !OnPlanet ? "Needs to stand on a planet"
+					: !Habitable ? "Waiting: the planet needs 50% air and water, 30% soil"
+					: IncubatorNote;
+				if (OnPlanet && Habitable)
+					draw += block.Definition.PowerDraw;
+				continue;
+			}
 			if (TerraformRecipe(block.Definition.Kind) is not { } recipe)
 				continue;
 			var input = _state[cell].Input!;

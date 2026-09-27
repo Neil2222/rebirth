@@ -74,12 +74,17 @@ public partial class MiniPlanet : VoxelBody
 		_hazeMaterial.SetShaderParameter("tint", HazeTint.Lerp(LivingHaze, _shownAir));
 		_hazeMaterial.SetShaderParameter("strength", 0.7f + 0.35f * _shownAir);
 		// The sea rises from the deepest valleys; at full water the lowlands are ocean.
-		float level = Radius * (1f - Hilliness) + _shownWater * Radius * Hilliness * 1.1f;
+		float level = SeaLevelFor(_shownWater);
 		_sea.Visible = _shownWater > 0.01f;
 		_sea.Scale = Vector3.One * level;
 		SurfaceMaterial.SetShaderParameter("bloom", _shownSoil);
 		SurfaceMaterial.SetShaderParameter("planet_center", GlobalPosition);
 	}
+
+	/// <summary>Distance from the center to the sea surface at the current water.</summary>
+	public float SeaLevel => SeaLevelFor(Water);
+
+	private float SeaLevelFor(float water) => Radius * (1f - Hilliness) + water * Radius * Hilliness * 1.1f;
 
 	/// <summary>A unit sphere of sea, scaled to the water level.</summary>
 	private MeshInstance3D BuildSea()

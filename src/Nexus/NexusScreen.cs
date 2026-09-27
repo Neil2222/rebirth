@@ -5,6 +5,7 @@ using System.Text;
 using Godot;
 using Rebirth.Building;
 using Rebirth.Items;
+using Rebirth.Life;
 using Rebirth.Persistence;
 using Rebirth.UI;
 using Rebirth.World;
@@ -22,6 +23,8 @@ public partial class NexusScreen : CanvasLayer
 	public bool IsOpen => Visible;
 
 	public Colony Colony { get; set; } = null!;
+	public People People { get; set; } = null!;
+	public TalkPanel Talk { get; set; } = null!;
 
 	private Camera3D _camera = null!;
 	private Camera3D? _previousCamera;
@@ -65,6 +68,8 @@ public partial class NexusScreen : CanvasLayer
 	private List<string> _routeTargets = new();
 	private string _routesShownFor = "";
 	private Label _news = null!;
+	private VBoxContainer _peopleBox = null!;
+	private string _peopleShown = "";
 	private Label _bots = null!;
 	private VBoxContainer _jobs = null!;
 	private Label _top = null!;
@@ -133,6 +138,9 @@ public partial class NexusScreen : CanvasLayer
 		_details = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart };
 		_details.AddThemeFontSizeOverride("font_size", 14);
 		rightBox.AddChild(_details);
+		_peopleBox = new VBoxContainer();
+		_peopleBox.AddThemeConstantOverride("separation", 4);
+		rightBox.AddChild(_peopleBox);
 
 		_routeBox = new VBoxContainer();
 		_routeBox.AddChild(UiTheme.Heading("ROUTES FROM HERE  (bots haul on their own)"));
@@ -372,6 +380,37 @@ public partial class NexusScreen : CanvasLayer
 		material.SetShaderParameter("height", bounds.Size.Y);
 	}
 
+	/// <summary>Villages on the selected planet (or at the selected station): people, bond, and their request.</summary>
+	private void UpdatePeople()
+	{
+		var villages = People.Settlements.Where(s =>
+			(_body is not null && s.Planet == _body.Name) || (_grid is not null && s.Anchor == _grid.Label)).ToList();
+		string key = string.Join(";", villages.Select(v => $"{v.Name}/{v.Population}/{v.Bond:0}/{v.Request?.Text}/{People.Progress(v)}"));
+		if (key == _peopleShown)
+			return;
+		_peopleShown = key;
+		foreach (var child in _peopleBox.GetChildren())
+			child.QueueFree();
+		if (villages.Count == 0)
+			return;
+		_peopleBox.AddChild(UiTheme.Heading("PEOPLE"));
+		foreach (var village in villages)
+		{
+			var about = new Label { Text = $"{village.Name}: {village.Population} people   Bond {TalkPanel.Hearts(village.Bond)}", AutowrapMode = TextServer.AutowrapMode.WordSmart };
+			about.AddThemeFontSizeOverride("font_size", 14);
+			_peopleBox.AddChild(about);
+			if (village.Request is { } request)
+			{
+				var ask = new Label { Text = $"{request.Person}: {request.Text}\n{People.Progress(village)}", AutowrapMode = TextServer.AutowrapMode.WordSmart };
+				ask.AddThemeFontSizeOverride("font_size", 13);
+				_peopleBox.AddChild(ask);
+			}
+			var visit = new Button { Text = village.Request is { Kind: RequestKind.Talk } talk ? $"Talk to {talk.Person}" : $"Visit {village.Name}" };
+			visit.Pressed += () => Talk.Open(village);
+			_peopleBox.AddChild(visit);
+		}
+	}
+
 	private static string Bar(float fraction) =>
 		new string('█', Mathf.RoundToInt(fraction * 12f)) + new string('░', 12 - Mathf.RoundToInt(fraction * 12f));
 
@@ -384,7 +423,8 @@ public partial class NexusScreen : CanvasLayer
 		sb.Append(planet.Soil >= 0.999f ? "Fully alive.\n"
 			: planet.Air < Colony.GardenThreshold || planet.Water < Colony.GardenThreshold
 				? $"Heal it: Air Makers turn stone into air, Water Works melt ice (drill it on Frost) into seas. Gardens take at {Colony.GardenThreshold:P0} air and water.\n"
-				: "Air and seas are back: Gardens can grow soil now.\n");
+				: !People.IsHabitable(planet) ? $"Air and seas are back: Gardens can grow soil now. At {People.HabitableSoil:P0} soil, an Incubator can wake people here.\n"
+				: "Habitable: an Incubator (Settlement Seed) wakes families here.\n");
 		sb.Append($"Each vital takes {planet.KilogramsForFullVital / 1000f:0} t of stone or ice.\n");
 		return sb.ToString();
 	}
@@ -518,6 +558,7 @@ public partial class NexusScreen : CanvasLayer
 			? "No bots yet. Select Home to print one."
 			: string.Join("\n", Colony.Bots.Select(b => $"{b.Grid.Label}: {b.Status}"));
 		UpdateDetails();
+		UpdatePeople();
 		UpdateRoutes();
 		UpdateJobs();
 		UpdateFlows();
@@ -544,6 +585,7 @@ public partial class NexusScreen : CanvasLayer
 		var (made, received) = Colony.RatesPerMinute(home);
 		float income = made.Concat(received).Where(kv => ItemCatalog.Get(kv.Key).Category == ItemCategory.Ingot).Sum(kv => kv.Value);
 		return $"Home: {(stock.Length > 0 ? stock : "no ingots")}      Income: +{income:0} kg/min      Bots: {Colony.Bots.Count} ({idle} idle)      Sites: {Colony.Sites.Count()}" +
+			(People.Settlements.Count > 0 ? $"      People: {People.Settlements.Sum(s => s.Population)}" : "") +
 			$"      Resonance: {Colony.Resonance:0}{(Colony.ResonancePerMinute > 0.01f ? $" (+{Colony.ResonancePerMinute:0.0}/min)" : "")}";
 	}
 
@@ -795,6 +837,8 @@ public partial class NexusScreen : CanvasLayer
 	public override void _UnhandledInput(InputEvent e)
 	{
 		if (!Visible)
+			return;
+		if (Talk.IsOpen)
 			return;
 		if (e.IsActionPressed("open_nexus") || e.IsActionPressed("release_mouse"))
 		{

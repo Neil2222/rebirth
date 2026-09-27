@@ -15,7 +15,7 @@ public static class Presets
 	private static readonly Basis PushDown = new(Vector3.Right, -Mathf.Pi / 2f);
 	private static readonly Basis PushUp = new(Vector3.Right, Mathf.Pi / 2f);
 
-	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), AirMaker(), WaterWorks(), Garden(), WorkerBot()];
+	public static IReadOnlyList<Blueprint> All => [Custodian(), StarterHauler(), ScoutDrone(), Outpost(), MiningRig(), DrillSite(), AirMaker(), WaterWorks(), Garden(), SettlementSeed(), WorkerBot()];
 
 	/// <summary>
 	/// Default robot body: legs, torso with a battery heart and gyro shoulders, a visor head,
@@ -162,6 +162,17 @@ public static class Presets
 		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.Hydrator, Basis.Identity);
 		bp.Add(new Vector3I(1, 0, 0), BlockCatalog.CargoContainer, Basis.Identity);
 		foreach (var cell in new[] { new Vector3I(-1, 0, 0), new Vector3I(0, 0, 1), new Vector3I(0, 0, -1), new Vector3I(1, 0, 1), new Vector3I(1, 0, -1), new Vector3I(2, 0, 0) })
+			bp.Add(cell, BlockCatalog.SolarPanel, Basis.Identity);
+		return bp;
+	}
+
+	/// <summary>An Incubator with a depot for what the villagers ask for, under a solar roof.</summary>
+	public static Blueprint SettlementSeed()
+	{
+		var bp = new Blueprint { Name = "Settlement Seed", Kind = DesignKind.Station };
+		bp.Add(new Vector3I(0, 0, 0), BlockCatalog.Incubator, Basis.Identity);
+		bp.Add(new Vector3I(1, 0, 0), BlockCatalog.CargoContainer, Basis.Identity, Palette.Mustard);
+		foreach (var cell in new[] { new Vector3I(1, 1, 0), new Vector3I(-1, 0, 0), new Vector3I(0, 0, 1), new Vector3I(1, 0, 1) })
 			bp.Add(cell, BlockCatalog.SolarPanel, Basis.Identity);
 		return bp;
 	}

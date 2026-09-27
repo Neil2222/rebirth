@@ -124,6 +124,8 @@ public partial class Hud : CanvasLayer
 			text += "[F] sit in cockpit\n";
 		else if (def.Kind == BlockKind.Fabricator)
 			text += $"[F] open fabricator   ({grid.FabricatorStatus(Player.BuildTool.AimedCell)})\n";
+		else if (def.Kind == BlockKind.Incubator)
+			text += $"[F] visit the village   ({grid.MachineStatus(Player.BuildTool.AimedCell)})\n";
 		else if (grid.StateOf(Player.BuildTool.AimedCell) is { Output: not null } or { Input: not null } && def.Kind != BlockKind.Fabricator)
 			text += MachineText(grid, Player.BuildTool.AimedCell, def);
 		else if (def.Kind == BlockKind.Tube)

@@ -4,6 +4,7 @@ using Rebirth.Building;
 using Rebirth.Characters;
 using Rebirth.Core;
 using Rebirth.Forge;
+using Rebirth.Life;
 using Rebirth.Nexus;
 using Rebirth.Persistence;
 using Rebirth.UI;
@@ -31,6 +32,8 @@ public partial class Main : Node3D
 	public NexusScreen Nexus { get; private set; } = null!;
 	public GameMenu Menu { get; private set; } = null!;
 	public Tutorial Tutorial { get; private set; } = null!;
+	public People People { get; private set; } = null!;
+	public TalkPanel Talk { get; private set; } = null!;
 
 	private Hud _hud = null!;
 	private ProgressSave _progress = new();
@@ -76,8 +79,31 @@ public partial class Main : Node3D
 		Colony = new Colony { Name = "Colony", World = this, PilotedGrid = () => Player.PilotedGrid };
 		AddChild(Colony);
 		Colony.News += Player.ShowMessage;
-		Nexus = new NexusScreen { Name = "Nexus", Colony = Colony };
+		People = new People { Name = "People", Colony = Colony };
+		AddChild(People);
+		Colony.PeopleResonance = () => People.ResonancePerMinute;
+		Colony.SettlementsToSave = () => People.Settlements;
+		Talk = new TalkPanel { Name = "Talk", People = People };
+		Nexus = new NexusScreen { Name = "Nexus", Colony = Colony, People = People, Talk = Talk };
 		AddChild(Nexus);
+		// After the Nexus, so a conversation opened from it gets Esc first.
+		AddChild(Talk);
+		Talk.Closed += () =>
+		{
+			if (!Nexus.IsOpen)
+				OnOverlayClosed();
+		};
+		Player.VillageRequested += grid =>
+		{
+			if (People.At(grid) is not { } village)
+			{
+				Player.ShowMessage("No one has woken here yet: the planet needs 50% air and water and 30% soil");
+				return;
+			}
+			GameState.WorldInputBlocked = true;
+			_hud.Visible = false;
+			Talk.Open(village);
+		};
 		Nexus.Closed += OnOverlayClosed;
 		Tutorial = new Tutorial { Name = "Tutorial", Player = Player, Colony = Colony };
 		AddChild(Tutorial);
@@ -98,6 +124,7 @@ public partial class Main : Node3D
 		{
 			SaveSystem.Apply(save, this, Player);
 			Colony.Restore(save.Colony);
+			People.Restore(save.Colony.Settlements);
 			_progress = save.Progress;
 			if (save.ForgeDesign is not null)
 				Forge.LoadDesign(save.ForgeDesign);

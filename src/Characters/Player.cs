@@ -66,6 +66,9 @@ public partial class Player : RigidBody3D
 	/// <summary>F on a fabricator: the world opens its panel.</summary>
 	public event Action<BlockGrid, Vector3I>? FabricatorRequested;
 
+	/// <summary>F on an incubator: the world opens the village's panel.</summary>
+	public event Action<BlockGrid>? VillageRequested;
+
 	/// <summary>Toolbar page shown on the number keys (Tab flips).</summary>
 	public int ToolbarPage { get; private set; }
 
@@ -272,6 +275,8 @@ public partial class Player : RigidBody3D
 			EnterCockpit(grid, BuildTool.AimedCell);
 		else if (block.Definition.Kind == BlockKind.Fabricator)
 			FabricatorRequested?.Invoke(grid, BuildTool.AimedCell);
+		else if (block.Definition.Kind == BlockKind.Incubator)
+			VillageRequested?.Invoke(grid);
 		else if (block.Definition.CargoCapacity > 0f)
 			TradeWith(grid.Inventory);
 		else if (grid.StateOf(BuildTool.AimedCell).Output is { } output)

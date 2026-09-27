@@ -30,6 +30,7 @@ public static class BlockVisuals
 		BlockKind.AirProcessor => AirProcessor(),
 		BlockKind.Hydrator => Hydrator(),
 		BlockKind.SeedGarden => SeedGarden(),
+		BlockKind.Incubator => Incubator(),
 		_ => null,
 	};
 
@@ -357,6 +358,18 @@ public static class BlockVisuals
 		var leaf = Plastic(new Color(0.42f, 0.72f, 0.36f));
 		foreach (var (x, z, r) in new[] { (-0.4f, -0.2f, 0.32f), (0.35f, 0.25f, 0.26f), (0.1f, -0.45f, 0.22f), (-0.2f, 0.4f, 0.2f) })
 			root.AddChild(Part(new SphereMesh { Radius = r, Height = r * 2f, Material = leaf }, new Vector3(x, H + r * 0.8f, z)));
+		return root;
+	}
+
+	/// <summary>A glass capsule with a warm glow inside, cradled in chrome rings: where people wake up.</summary>
+	private static Node3D Incubator()
+	{
+		var root = new Node3D();
+		var glass = new StandardMaterial3D { AlbedoColor = new Color(1f, 0.95f, 0.88f, 0.3f), Transparency = BaseMaterial3D.TransparencyEnum.Alpha, Roughness = 0.05f };
+		root.AddChild(Part(new CapsuleMesh { Radius = 0.55f, Height = 1.7f, Material = glass }, new Vector3(0, H + 0.85f, 0)));
+		root.AddChild(Part(new SphereMesh { Radius = 0.28f, Height = 0.56f, Material = Lamp(new Color(1f, 0.72f, 0.5f), 1.4f) }, new Vector3(0, H + 0.85f, 0)));
+		foreach (float y in new[] { 0.3f, 1.4f })
+			root.AddChild(Part(new TorusMesh { InnerRadius = 0.52f, OuterRadius = 0.66f, Material = Chrome() }, new Vector3(0, H + y, 0)));
 		return root;
 	}
 }

@@ -5,7 +5,7 @@ using Rebirth.Items;
 
 namespace Rebirth.Building;
 
-public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink, AirProcessor, Hydrator, SeedGarden }
+public enum BlockKind { Armor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink, AirProcessor, Hydrator, SeedGarden, Incubator }
 
 /// <param name="Paint">Default paint colour; each block type has its own so they are easy to tell apart.</param>
 /// <param name="MaxIntegrity">Damage the block absorbs before it is destroyed.</param>
@@ -192,9 +192,18 @@ public static class BlockCatalog
 		Cost = new Dictionary<string, float> { ["iron_ingot"] = 150f, ["silicon_wafer"] = 80f },
 	};
 
+	/// <summary>
+	/// Wakes the human DNA you carry into families, once the planet can hold them. A village grows around it.
+	/// </summary>
+	public static readonly BlockDefinition Incubator = new("incubator", "Incubator", BlockKind.Incubator, Palette.Coral, 1800f, 120f)
+	{
+		PowerDraw = 0.5f,
+		Cost = new Dictionary<string, float> { ["iron_ingot"] = 300f, ["nickel_ingot"] = 80f, ["silicon_wafer"] = 150f },
+	};
+
 	public static readonly IReadOnlyList<BlockDefinition> All =
 		[LightArmor, HeavyArmor, Cockpit, Thruster, Gyroscope, Battery, SolarPanel, CargoContainer, Refinery, Fabricator, AutoDrill, Tube, BotCore, Uplink,
-		AirProcessor, Hydrator, SeedGarden];
+		AirProcessor, Hydrator, SeedGarden, Incubator];
 
 	private static readonly Dictionary<string, BlockDefinition> ById = All.ToDictionary(b => b.Id);
 

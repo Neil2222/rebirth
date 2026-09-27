@@ -85,6 +85,13 @@ gebouwen, en je eigen robotlichaam.
 - Het terrein kleurt letterlijk mee naarmate de planeet gezonder wordt.
 - Incubators met menselijk DNA; nederzettingen verschijnen als lichtjes en groeien.
 - Mensen doen **verzoeken**: gesprekken, cadeaus, bouwopdrachten, een band opbouwen.
+- **Nu (E2):** een **Incubator** (preset Settlement Seed: incubator + depot + zonnepanelen) wekt gezinnen
+  zodra de planeet bewoonbaar is (50% lucht en water, 30% bodem). Er groeit een dorpje van speelgoedhuisjes
+  met warme ramen rond de incubator; bodem bepaalt hoeveel mensen er passen. Verzoeken zijn een mix:
+  **leveren** (in het depot), **bouwen** (station met een bepaald blok binnen 70 m), **praten** (korte
+  gesprekken met keuzes), soms met een **cadeau** terug naar Home. Geen tijdsdruk. Elk vervuld verzoek
+  verdiept de **band** (♥) en geeft Resonance; bevolking × band geeft doorlopend Resonance.
+  Mensen zijn nu lichtjes en huisjes; echte poppetjes komen bij de grafische ronde.
 
 ### Dreiging (vriendelijk)
 Geen FPS, geen tijdsdruk. Getroffen machines gaan in **quarantaine** (stil, niet kapot).
@@ -136,7 +143,7 @@ Eerst een **vertical slice**: één Box, één ster, drie planeten, eindigend me
 | C2 | Bots, Nexus-overzicht met menu's, bouwen via bots (2,5× kosten), haulroutes, tutorial, titel- en pauzemenu | klaar |
 | D | Uplink, donkere planeten, bodemscan, stromen en knelpunten in de Nexus, routes tussen sites | klaar |
 | E1 | Planeten genezen: lucht, water, bodem, meekleurend terrein, zeeën, Resonance | klaar |
-| E2 | DNA-incubatie, nederzettingen, verzoeken van mensen | |
+| E2 | DNA-incubatie, nederzettingen, verzoeken van mensen (leveren, bouwen, praten, cadeaus), band | klaar |
 | F | Breach Lance, Box-grens, nieuwe Box genereren | |
 | G | Dreiging en minigames: circuitpuzzel, gesprekken, cadeaus | |
 
