@@ -70,6 +70,12 @@ public partial class ForgeScreen : CanvasLayer
 	private Label _toast = null!;
 	private double _toastUntil;
 	private readonly Dictionary<BlockDefinition, Button> _partButtons = new();
+	private Label _partsHeading = null!;
+	private Label _kindIntro = null!;
+	private VBoxContainer _partsBox = null!;
+	private Label _partInfo = null!;
+	private Label _checklist = null!;
+	private bool _showAllParts;
 	private Button _buildButton = null!, _paintButton = null!;
 	private PopupPanel _loadPopup = null!;
 	private ItemList _loadList = null!;
@@ -83,7 +89,7 @@ public partial class ForgeScreen : CanvasLayer
 		Visible = false;
 		BuildHangar();
 		BuildUi();
-		SelectPart(BlockCatalog.LightArmor);
+		RebuildParts();
 		UpdateStats();
 	}
 
@@ -111,6 +117,7 @@ public partial class ForgeScreen : CanvasLayer
 		_name.Text = blueprint.Name;
 		_kind = blueprint.Kind;
 		_kindPicker.Select((int)blueprint.Kind);
+		RebuildParts();
 		FocusCamera();
 		UpdateStats();
 	}
@@ -253,7 +260,12 @@ public partial class ForgeScreen : CanvasLayer
 		_kindPicker = new OptionButton { TooltipText = "Ship: printed free-flying. Station: printed anchored. Body: worn by you. Bot: a worker for the Nexus (needs a Bot Core)." };
 		foreach (var kind in System.Enum.GetValues<DesignKind>())
 			_kindPicker.AddItem(kind.ToString(), (int)kind);
-		_kindPicker.ItemSelected += index => _kind = (DesignKind)(int)index;
+		_kindPicker.ItemSelected += index =>
+		{
+			_kind = (DesignKind)(int)index;
+			RebuildParts();
+			UpdateStats();
+		};
 		bar.AddChild(_kindPicker);
 		AddButton(bar, "New", NewDesign);
 		AddButton(bar, "Save", SaveDesign);
@@ -267,20 +279,31 @@ public partial class ForgeScreen : CanvasLayer
 		var left = Panel(root, Control.LayoutPreset.LeftWide, new Vector2(250, 0));
 		left.OffsetTop = 64;
 		left.OffsetBottom = -64;
-		var parts = new VBoxContainer();
+		var scroll = new ScrollContainer { HorizontalScrollMode = ScrollContainer.ScrollMode.Disabled };
+		left.AddChild(scroll);
+		var parts = new VBoxContainer { SizeFlagsHorizontal = Control.SizeFlags.ExpandFill };
 		parts.AddThemeConstantOverride("separation", 4);
-		left.AddChild(parts);
-		parts.AddChild(UiTheme.Heading("PARTS"));
-		var group = new ButtonGroup();
-		foreach (var block in BlockCatalog.All)
+		scroll.AddChild(parts);
+		_partsHeading = UiTheme.Heading("");
+		parts.AddChild(_partsHeading);
+		_kindIntro = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(220, 0) };
+		_kindIntro.AddThemeFontSizeOverride("font_size", 13);
+		_kindIntro.AddThemeColorOverride("font_color", UiTheme.Dim);
+		parts.AddChild(_kindIntro);
+		_partsBox = new VBoxContainer();
+		_partsBox.AddThemeConstantOverride("separation", 2);
+		parts.AddChild(_partsBox);
+		var showAll = new CheckButton { Text = "Show all parts" };
+		showAll.Toggled += on =>
 		{
-			var button = new Button { Text = "  " + block.DisplayName, ToggleMode = true, ButtonGroup = group, Alignment = HorizontalAlignment.Left };
-			button.Icon = Swatch(block.Paint);
-			button.Pressed += () => SelectPart(block);
-			parts.AddChild(button);
-			_partButtons[block] = button;
-		}
-		parts.AddChild(new Control { CustomMinimumSize = new Vector2(0, 12) });
+			_showAllParts = on;
+			RebuildParts();
+		};
+		parts.AddChild(showAll);
+		_partInfo = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(220, 0) };
+		_partInfo.AddThemeFontSizeOverride("font_size", 13);
+		parts.AddChild(_partInfo);
+		parts.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
 		parts.AddChild(UiTheme.Heading("TOOL"));
 		var modeGroup = new ButtonGroup();
 		_buildButton = new Button { Text = "Build", ToggleMode = true, ButtonGroup = modeGroup, ButtonPressed = true };
@@ -305,6 +328,11 @@ public partial class ForgeScreen : CanvasLayer
 		right.OffsetBottom = -64;
 		var statsBox = new VBoxContainer();
 		right.AddChild(statsBox);
+		statsBox.AddChild(UiTheme.Heading("CHECKLIST"));
+		_checklist = new Label { AutowrapMode = TextServer.AutowrapMode.WordSmart, CustomMinimumSize = new Vector2(290, 0) };
+		_checklist.AddThemeFontSizeOverride("font_size", 14);
+		statsBox.AddChild(_checklist);
+		statsBox.AddChild(new Control { CustomMinimumSize = new Vector2(0, 8) });
 		statsBox.AddChild(UiTheme.Heading("DESIGN READOUT"));
 		_stats = new Label();
 		_stats.AddThemeFontSizeOverride("font_size", 14);
@@ -476,8 +504,56 @@ public partial class ForgeScreen : CanvasLayer
 	private void SelectPart(BlockDefinition block)
 	{
 		_selected = block;
-		_partButtons[block].ButtonPressed = true;
+		if (_partButtons.TryGetValue(block, out var button))
+			button.ButtonPressed = true;
+		_partInfo.Text = $"{block.DisplayName}\n{PartGuide.Describe(block)}";
 		SetMode(Mode.Build);
+	}
+
+	/// <summary>
+	/// Part buttons, grouped, with 3D pictures; only the parts that fit this kind of design unless
+	/// "Show all parts" is on.
+	/// </summary>
+	private void RebuildParts()
+	{
+		foreach (var child in _partsBox.GetChildren())
+			child.QueueFree();
+		_partButtons.Clear();
+		_partsHeading.Text = $"PARTS FOR A {_kind.ToString().ToUpperInvariant()}";
+		_kindIntro.Text = PartGuide.Intro(_kind);
+		var group = new ButtonGroup();
+		foreach (var category in PartGuide.Categories)
+		{
+			var blocks = category.Blocks.Where(b => _showAllParts || PartGuide.Fits(b, _kind)).ToList();
+			if (blocks.Count == 0)
+				continue;
+			var heading = new Label { Text = category.Name };
+			heading.AddThemeFontSizeOverride("font_size", 13);
+			_partsBox.AddChild(heading);
+			var grid = new GridContainer { Columns = 3 };
+			grid.AddThemeConstantOverride("h_separation", 4);
+			grid.AddThemeConstantOverride("v_separation", 4);
+			_partsBox.AddChild(grid);
+			foreach (var block in blocks)
+			{
+				var button = new Button
+				{
+					ToggleMode = true,
+					ButtonGroup = group,
+					Icon = Rebirth.UI.BlockIcons.For(block) ?? Swatch(block.Paint),
+					ExpandIcon = true,
+					CustomMinimumSize = new Vector2(70, 70),
+					TooltipText = $"{block.DisplayName}\n{PartGuide.Describe(block)}",
+					IconAlignment = HorizontalAlignment.Center,
+				};
+				button.Pressed += () => SelectPart(block);
+				grid.AddChild(button);
+				_partButtons[block] = button;
+			}
+		}
+		if (!_showAllParts && !PartGuide.Fits(_selected, _kind))
+			_selected = BlockCatalog.LightArmor;
+		SelectPart(_selected);
 	}
 
 	private void SetMode(Mode mode)
@@ -503,7 +579,11 @@ public partial class ForgeScreen : CanvasLayer
 		_hangar.AddChild(_ghost);
 	}
 
-	private void UpdateStats() => _stats.Text = ForgeStats.Describe(Design, DesignName);
+	private void UpdateStats()
+	{
+		_stats.Text = ForgeStats.Describe(Design, DesignName);
+		_checklist.Text = string.Join("\n", PartGuide.Checklist(Design, _kind).Select(c => $"{(c.Done ? "✓" : "○")}  {c.Text}"));
+	}
 
 	// ---------------------------------------------------------------- input & editing
 

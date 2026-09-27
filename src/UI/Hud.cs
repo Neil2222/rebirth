@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Rebirth.Building;
 using Rebirth.Characters;
+using Rebirth.Core;
 using Rebirth.Items;
 using Godot;
 
@@ -59,9 +60,9 @@ public partial class Hud : CanvasLayer
 		var badges = new HBoxContainer();
 		badges.AddThemeConstantOverride("separation", 6);
 		status.AddChild(badges);
-		foreach (var (id, text) in new[] { ("jetpack", "Jetpack  X"), ("dampeners", "Dampers  Z"), ("light", "Light  L"), ("creative", "Creative  F2") })
+		foreach (var id in BadgeText.Keys)
 		{
-			var badge = new Label { Text = text };
+			var badge = new Label();
 			badge.AddThemeFontSizeOverride("font_size", 13);
 			badges.AddChild(badge);
 			_badges[id] = badge;
@@ -161,7 +162,7 @@ public partial class Hud : CanvasLayer
 
 		// Bottom right: the few keys worth remembering.
 		var keys = OutlinedLabel(13);
-		keys.Text = "N  Nexus    B  Forge    I  Inventory    Esc  Menu";
+		_keys = keys;
 		keys.Modulate = new Color(1, 1, 1, 0.7f);
 		keys.SetAnchorsAndOffsetsPreset(Control.LayoutPreset.BottomRight);
 		keys.GrowHorizontal = Control.GrowDirection.Begin;
@@ -170,6 +171,16 @@ public partial class Hud : CanvasLayer
 		keys.OffsetBottom = -12;
 		root.AddChild(keys);
 	}
+
+	private static readonly Dictionary<string, string> BadgeText = new()
+	{
+		["jetpack"] = "Jetpack  {toggle_jetpack}",
+		["dampeners"] = "Dampers  {toggle_dampeners}",
+		["light"] = "Light  {toggle_light}",
+		["creative"] = "Creative  {toggle_creative}",
+	};
+
+	private Label _keys = null!;
 
 	private static Label OutlinedLabel(int size)
 	{
@@ -197,7 +208,8 @@ public partial class Hud : CanvasLayer
 		}
 		UpdatePockets();
 		UpdateCard();
-		_message.Text = Player.Message ?? (Player.Drill.InventoryFull && Player.Drill.Equipped ? "Pockets full: unload at a cargo container [F]" : "");
+		_keys.Text = Keybinds.Fill("{open_nexus}  Nexus    {open_forge}  Forge    {open_inventory}  Inventory    {release_mouse}  Menu");
+		_message.Text = Player.Message ?? (Player.Drill.InventoryFull && Player.Drill.Equipped ? Keybinds.Fill("Pockets full: unload at a cargo container [{use}]") : "");
 	}
 
 	// ------------------------------------------------------------ status
@@ -217,6 +229,7 @@ public partial class Hud : CanvasLayer
 	private void SetBadge(string id, bool on)
 	{
 		var badge = _badges[id];
+		badge.Text = Keybinds.Fill(BadgeText[id]);
 		badge.AddThemeStyleboxOverride("normal", UiTheme.Box(on ? new Color(1f, 0.84f, 0.6f, 0.92f) : new Color(0.25f, 0.2f, 0.3f, 0.55f), on ? UiTheme.Accent : new Color(0, 0, 0, 0), 1, 8));
 		badge.AddThemeColorOverride("font_color", on ? UiTheme.Text : new Color(1f, 0.95f, 0.9f, 0.7f));
 	}
@@ -235,8 +248,8 @@ public partial class Hud : CanvasLayer
 				_slots[i].Item = item;
 				_slots[i].TooltipText = item?.Name ?? "";
 			}
-			_pageLabel.Text = $"{PageNames[Player.ToolbarPage % PageNames.Length]}\n{Player.ToolbarPage + 1}/{Toolbar.Pages.Count}  Tab";
 		}
+		_pageLabel.Text = $"{PageNames[Player.ToolbarPage % PageNames.Length]}  {Player.ToolbarPage + 1}/{Toolbar.Pages.Count}\n{Keybinds.Label("toolbar_page")}";
 		foreach (var slot in _slots)
 			slot.Selected = slot.Item is not null && slot.Item == Player.Equipped;
 
@@ -244,8 +257,8 @@ public partial class Hud : CanvasLayer
 		_selectedName.Text = equipped switch
 		{
 			null => "",
-			{ IsDrill: true } => "Hand Drill   hold left mouse to drill",
-			{ Block: { } block } => $"{block.DisplayName}   LMB place · RMB remove · R/T turn",
+			{ IsDrill: true } => Keybinds.Fill("Hand Drill   hold {primary_action} to drill"),
+			{ Block: { } block } => block.DisplayName + Keybinds.Fill("   {primary_action} place · {secondary_action} remove · {rotate_block_yaw}/{rotate_block_pitch} turn"),
 			_ => equipped.Name,
 		};
 		string key = equipped?.Block is { } b && !Player.Creative ? b.Id + string.Join(",", b.Cost.Select(kv => Player.Inventory.Get(kv.Key) >= kv.Value)) : "";
@@ -345,15 +358,18 @@ public partial class Hud : CanvasLayer
 		}
 		_cardItems.Visible = _cardItems.GetChildCount() > 0;
 
-		_cardAction.Text = def.Kind switch
+		string action = def.Kind switch
 		{
-			BlockKind.Cockpit => "F  sit in cockpit",
-			BlockKind.Fabricator => "F  open fabricator",
-			BlockKind.Incubator => "F  visit the village",
-			_ when def.CargoCapacity > 0f => "F  unload ore, take ingots    I  inventory",
-			_ when state.Output is not null => "F  take output",
+			BlockKind.Cockpit => "{use}  sit in cockpit",
+			BlockKind.Fabricator => "{use}  open fabricator",
+			BlockKind.Incubator => "{use}  visit the village",
+			_ when def.CargoCapacity > 0f => "{use}  unload ore, take ingots    {open_inventory}  inventory",
+			_ when state.Output is not null => "{use}  take output",
 			_ => "",
-		} + (grid.IsBot ? "" : $"{(def.CargoCapacity > 0f || state.Output is not null || def.Kind is BlockKind.Cockpit or BlockKind.Fabricator or BlockKind.Incubator ? "    " : "")}K  {(grid.IsStatic ? "station" : "ship")}");
+		};
+		if (!grid.IsBot)
+			action += (action.Length > 0 ? "    " : "") + "{toggle_grid_static}  " + (grid.IsStatic ? "station" : "ship");
+		_cardAction.Text = Keybinds.Fill(action);
 	}
 
 	private static string ShipText(BlockGrid ship)
@@ -362,8 +378,8 @@ public partial class Hud : CanvasLayer
 		string battery = ship.EnergyCapacity > 0f ? $"   battery {ship.StoredEnergy / ship.EnergyCapacity:P0}" : "";
 		float g = ship.GetGravity().Length() / 9.81f;
 		return $"{ship.LinearVelocity.Length():0.0} m/s   {ship.Mass / 1000f:0.0} t{(g > 0.005f ? $"   {g:0.00} g" : "")}{battery}{power}\n" +
-			(ship.IsStatic ? "Anchored as a station: get out and press K on it to fly\n" : "") +
-			"F  leave    V  view    Z  dampers    Alt  look around";
+			(ship.IsStatic ? Keybinds.Fill("Anchored as a station: get out and press {toggle_grid_static} on it to fly\n") : "") +
+			Keybinds.Fill("{use}  leave    {toggle_view}  view    {toggle_dampeners}  dampers    {free_look}  look around");
 	}
 }
 

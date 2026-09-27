@@ -92,48 +92,73 @@ public partial class Tutorial : CanvasLayer
 	private List<Step> BuildSteps() =>
 	[
 		new("Welcome, Custodian",
-			"This is Home: a refinery, storage and a fabricator on a small rock. Fly with W A S D, rise with Space, sink with C, look with the mouse.",
-			() => Player.GlobalPosition.DistanceTo(_startPosition) > 4f || Now - _stepStarted > 10,
-			Enter: () => _startPosition = Player.GlobalPosition),
+			"This little base is Home: storage, a refinery and a fabricator on a rock. These cards tell you what to do next. Fly with {move_forward}{move_left}{move_back}{move_right}, rise with {move_up}, sink with {move_down}, look with the mouse.",
+			() => Player.GlobalPosition.DistanceTo(_startPosition) > 4f || Now - _stepStarted > 12,
+			Enter: () =>
+			{
+				_startPosition = Player.GlobalPosition;
+				Point(() => Home?.GlobalPosition + Home?.GlobalBasis.Y * 5f, "Home");
+			}),
 		new("1 / 6   Mine some ore",
-			"Take the Hand Drill with [1] and hold the left mouse button on the rock under Home until you carry 100 kg of ore.",
+			"Press {slot_1} to take the Hand Drill. Fly to the glowing marker on the rock under Home and hold {primary_action} on the rock until you carry 100 kg of ore.",
 			() => OreCarried() >= 100f,
-			() => $"Carrying {OreCarried():0} / 100 kg of ore"),
+			() => $"Carrying {OreCarried():0} / 100 kg of ore",
+			() => Point(RockSpot, "Drill here")),
 		new("2 / 6   Feed the refinery",
-			"Fly to the purple Cargo Container and press [F] to unload. The refinery pulls ore out of storage by itself and turns it into ingots.",
-			() => OreCarried() < 1f),
+			"Fly to the purple Cargo Container (marked) and press {use} to unload your ore. The refinery takes ore from storage by itself and turns it into ingots.",
+			() => OreCarried() < 1f,
+			Enter: () => Point(() => HomeCell(new Vector3I(1, 1, 0), 2.2f), "Unload here  [{use}]")),
 		new("3 / 6   Lay a tube",
-			"Press [Tab] for toolbar page 2, take the Tube and place it on the glowing spot next to the refinery. Touching machines, tubes and storage form one network.",
+			"Scroll to hotbar page 2 ({toolbar_page}), take the Tube and place it with {primary_action} on the glowing spot next to the refinery. Touching machines, tubes and storage form one network.",
 			() => Home is { } home && home.Has(TubeCell) && home.SameNetwork(TubeCell, RefineryCell),
 			Enter: () => ShowGhost(BlockCatalog.Tube, TubeCell, Basis.Identity)),
 		new("4 / 6   Set an Auto Drill",
-			"Take the Auto Drill and place it on the end of the tube. Turn it with [R] and [T] until its drill head points down at the rock.",
+			"Take the Auto Drill and place it on the end of the tube. Turn it with {rotate_block_yaw} and {rotate_block_pitch} until its drill head points down at the rock, like the glowing example.",
 			DrillWorking,
 			DrillHint,
 			() => ShowGhost(BlockCatalog.AutoDrill, DrillCell, DrillDown)),
 		new("5 / 6   Watch it flow",
-			"Look at the tube: ore rides to the refinery as little pods, ingots go on to storage. Wait for 40 kg of fresh ingots in storage.",
+			"Look at the tube: ore rides to the refinery as little pods, ingots go on to storage. Wait for 40 kg of fresh ingots.",
 			() => IngotsAtHome() - _ingotsAtStart >= 40f,
 			() => $"Fresh ingots: {Mathf.Max(0f, IngotsAtHome() - _ingotsAtStart):0} / 40 kg",
-			() => _ingotsAtStart = IngotsAtHome()),
+			() =>
+			{
+				_ingotsAtStart = IngotsAtHome();
+				Point(() => HomeCell(TubeCell, 2f), "Pods ride here");
+			}),
 		new("6 / 6   Machines that build machines",
-			$"Open the Fabricator with [F], press \"Deposit my ingots\", select Worker Bot and queue it {BotsToPrint} times. Bots will do the building from now on.",
+			$"Go to the Fabricator (marked) and press {{use}}. Press \"Deposit my ingots\", select Worker Bot and queue it {BotsToPrint} times. Bots will do the building from now on.",
 			() => Colony.Bots.Count >= BotsToPrint,
-			() => $"Bots: {Colony.Bots.Count} / {BotsToPrint}"),
+			() => $"Bots: {Colony.Bots.Count} / {BotsToPrint}",
+			() => Point(() => HomeCell(new Vector3I(0, 1, -1), 2.2f), "Fabricator  [{use}]")),
 		new("The Nexus is online",
-			"Press [N] for the Nexus: every planet and site at a glance. Pick a planet, choose a design and send your bots. Building this way costs more than by hand, but you only have to decide.",
+			"Press {open_nexus} for the Nexus: every planet and site at a glance. Pick a planet, choose a design and send your bots. Building this way costs more than by hand, but you only have to decide.",
 			() => NexusOpened,
 			Enter: () => NexusUnlocked?.Invoke()),
 	];
+
+	/// <summary>World position above a Home cell.</summary>
+	private Vector3? HomeCell(Vector3I cell, float above) =>
+		Home is { } home ? home.GlobalTransform * BlockGrid.CellCenter(cell) + home.GlobalBasis.Y * above : null;
+
+	/// <summary>A spot on the rock right in front of Home, easy to reach and drill.</summary>
+	private Vector3? RockSpot()
+	{
+		if (Home is not { } home || Colony.Bodies.FirstOrDefault(b => b.Name == "Home Rock") is not { } rock)
+			return null;
+		Vector3 toward = home.GlobalPosition + home.GlobalBasis.Z * 7f - rock.GlobalPosition;
+		return rock.SurfacePoint(toward) + (rock.SurfacePoint(toward) - rock.GlobalPosition).Normalized() * 1.2f;
+	}
 
 	private void EnterStep(int index)
 	{
 		StepIndex = index;
 		_stepStarted = Now;
 		ClearGhost();
+		ClearPointer();
 		var step = _steps[index];
 		_title.Text = step.Title;
-		_text.Text = step.Text;
+		_text.Text = Keybinds.Fill(step.Text);
 		step.Enter?.Invoke();
 		Visible = true;
 	}
@@ -142,6 +167,7 @@ public partial class Tutorial : CanvasLayer
 	{
 		StepIndex = -1;
 		ClearGhost();
+		ClearPointer();
 		Visible = false;
 		NexusUnlocked?.Invoke();
 	}
@@ -153,6 +179,9 @@ public partial class Tutorial : CanvasLayer
 		_card.Visible = !GameState.WorldInputBlocked;
 		var step = _steps[StepIndex];
 		_hint.Text = step.Hint?.Invoke() ?? "";
+		if (_pointer is not null && _pointerAt?.Invoke() is { } at)
+			// A gentle bob so it catches the eye.
+			_pointer.GlobalPosition = at + Vector3.Up * (0.4f * Mathf.Sin((float)Now * 3f));
 		if (_marker is not null && Home is { } home)
 		{
 			// Follow the home grid and breathe gently so it catches the eye.
@@ -190,7 +219,7 @@ public partial class Tutorial : CanvasLayer
 		var cell = Drills().First();
 		if (!home.SameNetwork(cell, RefineryCell))
 			return "The drill must touch the tube, so it joins the refinery's network.";
-		return home.MachineStatus(cell) == "No rock within reach" ? "The drill can't reach rock: turn it (R / T) so the head points down." : null;
+		return home.MachineStatus(cell) == "No rock within reach" ? Keybinds.Fill("The drill can't reach rock: turn it ({rotate_block_yaw} / {rotate_block_pitch}) so the head points down.") : null;
 	}
 
 	// ------------------------------------------------------------ ghost marker
@@ -206,7 +235,7 @@ public partial class Tutorial : CanvasLayer
 		_markerLocal = new Transform3D(orientation, BlockGrid.CellCenter(cell));
 		var label = new Label3D
 		{
-			Text = $"{block.DisplayName} here",
+			Text = $"{block.DisplayName} here\n▼",
 			Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
 			NoDepthTest = true,
 			FixedSize = true,
@@ -221,6 +250,41 @@ public partial class Tutorial : CanvasLayer
 		Home.GetParent().AddChild(_marker);
 		_marker.GlobalTransform = Home.GlobalTransform * _markerLocal;
 		label.GlobalPosition = _marker.GlobalPosition + Home.GlobalBasis.Y * 2.2f;
+	}
+
+	private Label3D? _pointer;
+	private Func<Vector3?>? _pointerAt;
+
+	/// <summary>A floating label with an arrow, following <paramref name="at"/>, pointing at where to go.</summary>
+	private void Point(Func<Vector3?> at, string text)
+	{
+		ClearPointer();
+		if (at() is not { } start)
+			return;
+		_pointerAt = at;
+		_pointer = new Label3D
+		{
+			Text = Keybinds.Fill(text) + "\n▼",
+			Billboard = BaseMaterial3D.BillboardModeEnum.Enabled,
+			NoDepthTest = true,
+			FixedSize = true,
+			PixelSize = 0.0012f,
+			FontSize = 30,
+			OutlineSize = 9,
+			Modulate = new Color(1f, 0.88f, 0.5f),
+			OutlineModulate = new Color(0.25f, 0.15f, 0.2f),
+			HorizontalAlignment = HorizontalAlignment.Center,
+			VerticalAlignment = VerticalAlignment.Bottom,
+		};
+		Colony.World.AddChild(_pointer);
+		_pointer.GlobalPosition = start;
+	}
+
+	private void ClearPointer()
+	{
+		_pointer?.QueueFree();
+		_pointer = null;
+		_pointerAt = null;
 	}
 
 	private void ClearGhost()

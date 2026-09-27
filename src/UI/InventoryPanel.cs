@@ -24,6 +24,7 @@ public partial class InventoryPanel : CanvasLayer
 	private GridContainer _stored = null!;
 	private Label _storageHint = null!;
 	private string _shown = "";
+	private Button _close = null!;
 
 	public override void _Ready()
 	{
@@ -75,7 +76,9 @@ public partial class InventoryPanel : CanvasLayer
 		bottom.AddChild(hint);
 		AddButton(bottom, "Unload all ore", () => MoveAll(ItemCategory.Ore, toStorage: true));
 		AddButton(bottom, "Take all ingots", () => MoveAll(ItemCategory.Ingot, toStorage: false));
-		AddButton(bottom, "Close  [I]", Close);
+		_close = new Button();
+		_close.Pressed += Close;
+		bottom.AddChild(_close);
 		outer.AddChild(bottom);
 	}
 
@@ -92,6 +95,7 @@ public partial class InventoryPanel : CanvasLayer
 		_player = player;
 		_storage = storage is { Inventory.Capacity: > 0f } ? storage : null;
 		_shown = "";
+		_close.Text = $"Close  [{Core.Keybinds.Label("open_inventory")}]";
 		Visible = true;
 		Input.MouseMode = Input.MouseModeEnum.Visible;
 	}
@@ -131,7 +135,7 @@ public partial class InventoryPanel : CanvasLayer
 		{
 			foreach (var child in _stored.GetChildren())
 				child.QueueFree();
-			_storageHint.Text = "Look at a cargo container and press I to trade with it.";
+			_storageHint.Text = Core.Keybinds.Fill("Look at a cargo container and press {open_inventory} to trade with it.");
 		}
 		else
 		{

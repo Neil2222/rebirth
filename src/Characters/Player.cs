@@ -145,6 +145,8 @@ public partial class Player : RigidBody3D
 			HelmetLight.Visible = !HelmetLight.Visible;
 		else if (e.IsActionPressed("toolbar_page"))
 			ToolbarPage = (ToolbarPage + 1) % Toolbar.Pages.Count;
+		else if (e.IsActionPressed("toolbar_page_back"))
+			ToolbarPage = (ToolbarPage + Toolbar.Pages.Count - 1) % Toolbar.Pages.Count;
 		else if (e.IsActionPressed("toggle_view"))
 		{
 			Rig.FirstPerson = !Rig.FirstPerson;

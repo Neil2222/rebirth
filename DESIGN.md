@@ -152,6 +152,14 @@ te fel en te donker.)
 - **Inventory (I):** je zakken en de opslag waar je naar kijkt als raster; klik om te verplaatsen.
 - Items zijn getekende icoontjes (erts-klompje, staaf, wafer, ijskristal) in hun eigen kleur.
 
+- **Forge-hulp:** onderdelen per categorie met 3D-icoontjes, standaard gefilterd op het ontwerptype
+  (Body, Ship, Station, Bot; "Show all parts" toont alles), uitleg per onderdeel, en een checklist van wat
+  dit type nog nodig heeft.
+- **Toetsen instelbaar** (menu "Controls"; opgeslagen in user://settings.json, los van de slots). Een toets die
+  al in gebruik is, wisselt van plek. Alle hints in HUD en tutorial tonen je eigen toetsen. Standaard:
+  Tab = inventory, scrollwiel = hotbarpagina.
+- **Tutorial** wijst elke stap aan met een zwevend label in de wereld ("Drill here", "Unload here").
+
 ## Opslaan
 - **6 opslagslots.** Een slot is een heel spel: campagne (Boxes, Starlight, upgrades) plus de wereld van elke
   bezochte Box (`user://saves/slotN/`). Autosave, F5 en "Opslaan en stoppen" schrijven naar het slot waarin je

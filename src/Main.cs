@@ -35,6 +35,7 @@ public partial class Main : Node3D
 	public Tutorial Tutorial { get; private set; } = null!;
 	public SlotPanel Slots { get; private set; } = null!;
 	public InventoryPanel Inventory { get; private set; } = null!;
+	public ControlsPanel Controls { get; private set; } = null!;
 	public People People { get; private set; } = null!;
 	public TalkPanel Talk { get; private set; } = null!;
 
@@ -124,6 +125,9 @@ public partial class Main : Node3D
 		Inventory = new InventoryPanel { Name = "Inventory" };
 		AddChild(Inventory);
 		Inventory.Closed += OnOverlayClosed;
+		Controls = new ControlsPanel { Name = "Controls" };
+		AddChild(Controls);
+		Controls.Closed += OnOverlayClosed;
 		Slots = new SlotPanel { Name = "Slots" };
 		AddChild(Slots);
 		Slots.Closed += OnOverlayClosed;
@@ -160,9 +164,10 @@ public partial class Main : Node3D
 			// So Continue picks up here, not in the Box you left.
 			SaveGame(null);
 		}
-		else if (save is null && !firstBoot)
-			SaveGame(null);   // a new game takes up its slot straight away
+		// The tutorial must be running before anything is saved: saving records its current step.
 		Tutorial.Begin(_progress.TutorialStep);
+		if (save is null && !firstBoot && GameState.PendingTransfer is null)
+			SaveGame(null);   // a new game takes up its slot straight away
 		_nextAutosave = Now + AutosaveSeconds;
 
 		if (firstBoot)
@@ -363,6 +368,7 @@ public partial class Main : Node3D
 			new GameMenu.Entry("Load game", () => OpenSlots(SlotMode.Load, OpenTitle), Enabled: AnySave),
 			new GameMenu.Entry("New game - with tutorial", () => OpenSlots(SlotMode.NewGame, OpenTitle, StartMode.Tutorial)),
 			new GameMenu.Entry("New game - skip the intro", () => OpenSlots(SlotMode.NewGame, OpenTitle, StartMode.SkipIntro)),
+			new GameMenu.Entry("Controls", () => Controls.Open(OpenTitle)),
 			new GameMenu.Entry("Quit", () => GetTree().Quit()),
 		]);
 	}
@@ -373,13 +379,14 @@ public partial class Main : Node3D
 		Menu.Open("PAUSED", $"{Campaign.Active.SlotName} · {Campaign.Active.CurrentBox.Name}. The world keeps turning while you are here.",
 		[
 			new GameMenu.Entry("Resume", () => { }),
-			new GameMenu.Entry("Nexus overview   [N]", () => CallDeferred(MethodName.OpenNexus), Enabled: () => _progress.NexusUnlocked),
-			new GameMenu.Entry("Forge   [B]", () => CallDeferred(MethodName.OpenForge)),
-			new GameMenu.Entry("Save   [F5]", () => SaveGame("Saved")),
+			new GameMenu.Entry($"Nexus overview   [{Keybinds.Label("open_nexus")}]", () => CallDeferred(MethodName.OpenNexus), Enabled: () => _progress.NexusUnlocked),
+			new GameMenu.Entry($"Forge   [{Keybinds.Label("open_forge")}]", () => CallDeferred(MethodName.OpenForge)),
+			new GameMenu.Entry($"Save   [{Keybinds.Label("quick_save")}]", () => SaveGame("Saved")),
 			new GameMenu.Entry("Save to slot...", () => OpenSlots(SlotMode.Save, OpenPauseMenu)),
 			new GameMenu.Entry("Load game...", () => OpenSlots(SlotMode.Load, OpenPauseMenu), Enabled: AnySave),
 			new GameMenu.Entry("New game - with tutorial...", () => OpenSlots(SlotMode.NewGame, OpenPauseMenu, StartMode.Tutorial)),
 			new GameMenu.Entry("New game - skip the intro...", () => OpenSlots(SlotMode.NewGame, OpenPauseMenu, StartMode.SkipIntro)),
+			new GameMenu.Entry("Controls", () => Controls.Open(OpenPauseMenu)),
 			new GameMenu.Entry("Save and quit", () =>
 			{
 				SaveGame(null);
